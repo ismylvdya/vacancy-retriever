@@ -8,6 +8,7 @@
     <p>New vacancies appear here after a run. Processed ones are in <a href="/processed">Processed</a>.</p>
   </section>
 {% endif %}
+{% if total %}<div class="sheet">
 {% for g in groups %}{% if g.cards %}
 <section class="group{{ ' collapsed' if g.collapsed }}" data-group="{{ g.number }}">
   <button class="group-head" aria-expanded="{{ 'false' if g.collapsed else 'true' }}">
@@ -22,6 +23,7 @@
   </div>
 </section>
 {% endif %}{% endfor %}
+</div>{% endif %}
 {% if total %}
 <footer class="keys">
   <span><kbd>J</kbd><kbd>K</kbd>move</span><span><kbd>A</kbd>applied</span><span><kbd>N</kbd>not now</span><span><kbd>S</kbd>skip</span><span><kbd>C</kbd>copy text</span><span><kbd>↵</kbd>full text</span>

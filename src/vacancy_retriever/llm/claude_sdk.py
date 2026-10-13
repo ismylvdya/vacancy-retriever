@@ -72,6 +72,7 @@ class ClaudeSdkProvider(LlmProvider):
             output_format={"type": "json_schema", "schema": schema}
             if self._settings.structured_output and schema
             else None,
+            extra_args={"no-session-persistence": None},
             effort=self._settings.effort,
             thinking={"type": self._settings.thinking} if self._settings.thinking else None,
             stderr=lambda line: log.debug("claude-cli: %s", line),

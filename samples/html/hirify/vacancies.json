@@ -1,0 +1,3239 @@
+{
+ "current_page": 1,
+ "data": [
+  {
+   "id": 1157250,
+   "spec_vocab_version": "v4",
+   "main_stack": [
+    "seo",
+    "google search console",
+    "keitaro"
+   ],
+   "slug": "1157250-seo-specialist-igaming",
+   "title": "SEO Specialist",
+   "original_title": "SEo",
+   "vacancy_score": 7,
+   "company_title": "Частный рекрутер",
+   "work_format": [
+    "remote"
+   ],
+   "remote_type": null,
+   "remote_restrictions": [],
+   "excluded_locations": [],
+   "work_type": "fulltime",
+   "english_level": null,
+   "language_requirements": [
+    {
+     "level": null,
+     "language": "russian"
+    }
+   ],
+   "employee_type": [],
+   "company_type": "product_company",
+   "vacancy_language": "ru",
+   "tldr": "Говорят, что в iGaming не попасть без опыта.\nНаша компания готова стать вашим первым местом работы в этой нише.\n\nИщем SEO-специалистов уровня Junior/Middle c 0 опыта в сфере iGaming.\n\nОсновная задача - находить, тестировать и масштабировать SEO-связки, которые приводят не только органический трафик, но и FTD, депозиты и прибыль.",
+   "application_instructions": null,
+   "text_mode": "original",
+   "user_id": null,
+   "recruiter_meta_id": 2879,
+   "application_channel": "platform",
+   "suppress_distribution": false,
+   "company_id": 17677,
+   "macroregion_id": null,
+   "premium": false,
+   "verified": true,
+   "is_scam": false,
+   "is_potential_scam": false,
+   "scam_categories": null,
+   "source": "verified",
+   "source_secondary": "hirify_recruiter",
+   "linkedin": null,
+   "is_archived": false,
+   "no_response_reports_count": 0,
+   "og_image_url": "https://api.hirify.me/og-media/1157250.jpg?v=1791812424",
+   "created_at": "2026-09-25T13:25:21.000000Z",
+   "updated_at": "2026-10-13T13:30:16.000000Z",
+   "reopened_at": null,
+   "archived_at": null,
+   "allowed_locations": [],
+   "location_reason": null,
+   "timezone_overlap": null,
+   "office_locations": [],
+   "visa_sponsorship": null,
+   "visa_requirements": [],
+   "global_signals": [],
+   "remote_type_source": null,
+   "geo_inference": {
+    "chip_reason": null
+   },
+   "field_inference": null,
+   "nice_to_have_tags": [],
+   "crypto_payment": 0,
+   "can_apply_directly": true,
+   "apply_url": null,
+   "location_scope": "unknown",
+   "eligible_countries": [],
+   "ineligible_countries": [],
+   "geo_basis": "unknown",
+   "geo_confidence": "low",
+   "seen": false,
+   "is_favorite": false,
+   "has_applied": false,
+   "application_id": null,
+   "valid_through": "2026-11-20T17:25:21+04:00",
+   "tags": [
+    {
+     "id": 13,
+     "name": "igaming"
+    },
+    {
+     "id": 19,
+     "name": "ahrefs"
+    },
+    {
+     "id": 23,
+     "name": "ai"
+    },
+    {
+     "id": 77,
+     "name": "seo"
+    },
+    {
+     "id": 1404,
+     "name": "semrush"
+    },
+    {
+     "id": 1603,
+     "name": "google search console"
+    },
+    {
+     "id": 2270,
+     "name": "pbn"
+    },
+    {
+     "id": 2702,
+     "name": "russian"
+    },
+    {
+     "id": 6200,
+     "name": "keitaro"
+    },
+    {
+     "id": 33212,
+     "name": "parasite seo"
+    }
+   ],
+   "salary": null,
+   "specializations": [
+    {
+     "id": 98,
+     "code": "seo",
+     "name": "SEO-специалист",
+     "name_en": "SEO Specialist"
+    }
+   ],
+   "grades": [
+    {
+     "id": 2,
+     "name": "junior"
+    },
+    {
+     "id": 3,
+     "name": "middle"
+    }
+   ],
+   "regions": [
+    {
+     "id": 1,
+     "code": "russia",
+     "name": "Россия",
+     "name_en": "Russia"
+    },
+    {
+     "id": 7,
+     "code": "serbia",
+     "name": "Сербия",
+     "name_en": "Serbia"
+    },
+    {
+     "id": 14,
+     "code": "ukraine",
+     "name": "Украина",
+     "name_en": "Ukraine"
+    },
+    {
+     "id": 15,
+     "code": "indonesia",
+     "name": "Индонезия",
+     "name_en": "Indonesia"
+    },
+    {
+     "id": 18,
+     "code": "armenia",
+     "name": "Армения",
+     "name_en": "Armenia"
+    },
+    {
+     "id": 25,
+     "code": "malaysia",
+     "name": "Малайзия",
+     "name_en": "Malaysia"
+    },
+    {
+     "id": 27,
+     "code": "cyprus",
+     "name": "Кипр",
+     "name_en": "Cyprus"
+    },
+    {
+     "id": 36,
+     "code": "europe",
+     "name": "Европа",
+     "name_en": "Europe"
+    },
+    {
+     "id": 38,
+     "code": "georgia",
+     "name": "Грузия",
+     "name_en": "Georgia"
+    },
+    {
+     "id": 54,
+     "code": "belarus",
+     "name": "Беларусь",
+     "name_en": "Belarus"
+    },
+    {
+     "id": 55,
+     "code": "vietnam",
+     "name": "Вьетнам",
+     "name_en": "Vietnam"
+    },
+    {
+     "id": 70,
+     "code": "thailand",
+     "name": "Таиланд",
+     "name_en": "Thailand"
+    },
+    {
+     "id": 955,
+     "code": "batumi",
+     "name": null,
+     "name_en": null
+    }
+   ],
+   "relocation_regions": []
+  },
+  {
+   "id": 1063555,
+   "spec_vocab_version": "v4",
+   "main_stack": [
+    "performance marketing"
+   ],
+   "slug": "1063555-performance-marketolog",
+   "title": "Performance-маркетолог",
+   "original_title": null,
+   "vacancy_score": 0,
+   "company_title": null,
+   "work_format": [
+    "remote"
+   ],
+   "remote_type": "global",
+   "remote_restrictions": [],
+   "excluded_locations": [],
+   "work_type": "fulltime",
+   "english_level": null,
+   "language_requirements": null,
+   "employee_type": [],
+   "company_type": null,
+   "vacancy_language": "ru",
+   "tldr": "Ищем Junior и Middle маркетологов для работы с рекламой и привлечением пользователей.\n\nОпыт в iGaming НЕ требуется - мы готовы обучить специфике индустрии с нуля.\n\nВажен практический опыт в маркетинге и умение работать с цифрами, гипотезами и рекламными каналами.",
+   "application_instructions": null,
+   "text_mode": "original",
+   "user_id": null,
+   "recruiter_meta_id": 2619,
+   "application_channel": "platform",
+   "suppress_distribution": false,
+   "company_id": null,
+   "macroregion_id": 5,
+   "premium": false,
+   "verified": true,
+   "is_scam": false,
+   "is_potential_scam": false,
+   "scam_categories": null,
+   "source": "verified",
+   "source_secondary": "hirify_recruiter",
+   "linkedin": null,
+   "is_archived": false,
+   "no_response_reports_count": 0,
+   "og_image_url": "https://api.hirify.me/og-media/1063555.jpg?v=1791812387",
+   "created_at": "2026-09-10T13:05:27.000000Z",
+   "updated_at": "2026-10-13T13:10:02.000000Z",
+   "reopened_at": null,
+   "archived_at": null,
+   "allowed_locations": [],
+   "location_reason": null,
+   "timezone_overlap": null,
+   "office_locations": [],
+   "visa_sponsorship": null,
+   "visa_requirements": [],
+   "global_signals": [],
+   "remote_type_source": null,
+   "geo_inference": {
+    "chip_reason": null
+   },
+   "field_inference": null,
+   "nice_to_have_tags": [],
+   "crypto_payment": 0,
+   "can_apply_directly": true,
+   "apply_url": null,
+   "location_scope": "anywhere",
+   "eligible_countries": [],
+   "ineligible_countries": [],
+   "geo_basis": "model_judgment",
+   "geo_confidence": "medium",
+   "seen": false,
+   "is_favorite": false,
+   "has_applied": false,
+   "application_id": null,
+   "valid_through": "2026-11-05T17:05:27+04:00",
+   "tags": [
+    {
+     "id": 268,
+     "name": "performance marketing"
+    },
+    {
+     "id": 433,
+     "name": "анализ данных"
+    },
+    {
+     "id": 7602,
+     "name": "привлечение трафика"
+    }
+   ],
+   "salary": null,
+   "specializations": [
+    {
+     "id": 100,
+     "code": "media_buyer",
+     "name": "Медиабайер",
+     "name_en": "Media Buyer"
+    }
+   ],
+   "grades": [
+    {
+     "id": 1,
+     "name": "trainee"
+    },
+    {
+     "id": 2,
+     "name": "junior"
+    },
+    {
+     "id": 3,
+     "name": "middle"
+    }
+   ],
+   "regions": [
+    {
+     "id": 1,
+     "code": "russia",
+     "name": "Россия",
+     "name_en": "Russia"
+    },
+    {
+     "id": 7,
+     "code": "serbia",
+     "name": "Сербия",
+     "name_en": "Serbia"
+    },
+    {
+     "id": 14,
+     "code": "ukraine",
+     "name": "Украина",
+     "name_en": "Ukraine"
+    },
+    {
+     "id": 15,
+     "code": "indonesia",
+     "name": "Индонезия",
+     "name_en": "Indonesia"
+    },
+    {
+     "id": 17,
+     "code": "spain",
+     "name": "Испания",
+     "name_en": "Spain"
+    },
+    {
+     "id": 18,
+     "code": "armenia",
+     "name": "Армения",
+     "name_en": "Armenia"
+    },
+    {
+     "id": 25,
+     "code": "malaysia",
+     "name": "Малайзия",
+     "name_en": "Malaysia"
+    },
+    {
+     "id": 27,
+     "code": "cyprus",
+     "name": "Кипр",
+     "name_en": "Cyprus"
+    },
+    {
+     "id": 36,
+     "code": "europe",
+     "name": "Европа",
+     "name_en": "Europe"
+    },
+    {
+     "id": 38,
+     "code": "georgia",
+     "name": "Грузия",
+     "name_en": "Georgia"
+    },
+    {
+     "id": 39,
+     "code": "israel",
+     "name": "Израиль",
+     "name_en": "Israel"
+    },
+    {
+     "id": 40,
+     "code": "turkey",
+     "name": "Турция",
+     "name_en": "Turkey"
+    },
+    {
+     "id": 45,
+     "code": "cambodia",
+     "name": "Камбоджа",
+     "name_en": "Cambodia"
+    },
+    {
+     "id": 54,
+     "code": "belarus",
+     "name": "Беларусь",
+     "name_en": "Belarus"
+    },
+    {
+     "id": 55,
+     "code": "vietnam",
+     "name": "Вьетнам",
+     "name_en": "Vietnam"
+    },
+    {
+     "id": 56,
+     "code": "uzbekistan",
+     "name": "Узбекистан",
+     "name_en": "Uzbekistan"
+    },
+    {
+     "id": 70,
+     "code": "thailand",
+     "name": "Таиланд",
+     "name_en": "Thailand"
+    },
+    {
+     "id": 72,
+     "code": "sri_lanka",
+     "name": "Шри-Ланка",
+     "name_en": "Sri Lanka"
+    },
+    {
+     "id": 119,
+     "code": "tajikistan",
+     "name": "Таджикистан",
+     "name_en": "Tajikistan"
+    },
+    {
+     "id": 500,
+     "code": "abkhazia",
+     "name": "Абхазия",
+     "name_en": "Abkhazia"
+    }
+   ],
+   "relocation_regions": []
+  },
+  {
+   "id": 1204790,
+   "spec_vocab_version": "v4",
+   "main_stack": [
+    "sql",
+    "uml",
+    "api"
+   ],
+   "slug": "1204790-system-analyst-trainee",
+   "title": "System Analysis Trainee",
+   "original_title": "System Analysis Traineeship",
+   "vacancy_score": 6,
+   "company_title": "Andersen Lab",
+   "work_format": [
+    "remote"
+   ],
+   "remote_type": null,
+   "remote_restrictions": [
+    "serbia",
+    "belgrade"
+   ],
+   "excluded_locations": [],
+   "work_type": "fulltime",
+   "english_level": "b2",
+   "language_requirements": null,
+   "employee_type": [
+    "employment"
+   ],
+   "company_type": null,
+   "vacancy_language": "en",
+   "tldr": "System Analyst Trainee (System Analysis): A 5-month intensive program focused on software development lifecycle, requirements analysis, and system design with an accent on practical project tasks. Focus on bridging business needs and technical implementation through documentation, API specifications, and process modeling.",
+   "application_instructions": null,
+   "text_mode": "original",
+   "user_id": null,
+   "recruiter_meta_id": 3007,
+   "application_channel": "platform",
+   "suppress_distribution": false,
+   "company_id": 17014,
+   "macroregion_id": null,
+   "premium": false,
+   "verified": true,
+   "is_scam": false,
+   "is_potential_scam": false,
+   "scam_categories": null,
+   "source": "verified",
+   "source_secondary": "hirify_recruiter",
+   "linkedin": null,
+   "is_archived": false,
+   "no_response_reports_count": 0,
+   "og_image_url": "https://api.hirify.me/og-media/1204790.jpg?v=1791191686",
+   "created_at": "2026-10-05T09:14:40.000000Z",
+   "updated_at": "2026-10-13T09:15:06.000000Z",
+   "reopened_at": null,
+   "archived_at": null,
+   "allowed_locations": [],
+   "location_reason": null,
+   "timezone_overlap": null,
+   "office_locations": [],
+   "visa_sponsorship": null,
+   "visa_requirements": [],
+   "global_signals": [],
+   "remote_type_source": null,
+   "geo_inference": null,
+   "field_inference": null,
+   "nice_to_have_tags": [],
+   "crypto_payment": null,
+   "can_apply_directly": true,
+   "apply_url": null,
+   "location_scope": "restricted",
+   "eligible_countries": [
+    "serbia"
+   ],
+   "ineligible_countries": [],
+   "geo_basis": "unknown",
+   "geo_confidence": "low",
+   "seen": false,
+   "is_favorite": false,
+   "has_applied": false,
+   "application_id": null,
+   "valid_through": "2026-11-30T13:14:40+04:00",
+   "tags": [
+    {
+     "id": 5,
+     "name": "agile"
+    },
+    {
+     "id": 46,
+     "name": "sql"
+    },
+    {
+     "id": 80,
+     "name": "requirements management"
+    },
+    {
+     "id": 255,
+     "name": "http"
+    },
+    {
+     "id": 270,
+     "name": "api"
+    },
+    {
+     "id": 372,
+     "name": "scrum"
+    },
+    {
+     "id": 418,
+     "name": "soap"
+    },
+    {
+     "id": 584,
+     "name": "uml"
+    },
+    {
+     "id": 587,
+     "name": "rest"
+    },
+    {
+     "id": 837,
+     "name": "waterfall"
+    },
+    {
+     "id": 1341,
+     "name": "kanban"
+    }
+   ],
+   "salary": null,
+   "specializations": [
+    {
+     "id": 43,
+     "code": "system_analytics",
+     "name": "Системная аналитика",
+     "name_en": "Systems Analysis"
+    }
+   ],
+   "grades": [
+    {
+     "id": 1,
+     "name": "trainee"
+    }
+   ],
+   "regions": [
+    {
+     "id": 7,
+     "code": "serbia",
+     "name": "Сербия",
+     "name_en": "Serbia"
+    }
+   ],
+   "relocation_regions": []
+  },
+  {
+   "id": 1233108,
+   "spec_vocab_version": "v4",
+   "main_stack": [
+    "kotlin",
+    "jetpack compose",
+    "android"
+   ],
+   "slug": "1233108-junior-android-developer-fintech",
+   "title": "Junior Android Developer (Fintech)",
+   "original_title": "Junior Android Developer",
+   "vacancy_score": 5,
+   "company_title": "Andersen Lab",
+   "work_format": [
+    "remote"
+   ],
+   "remote_type": "europe",
+   "remote_restrictions": [
+    "беларусь",
+    "грузия",
+    "казахстан",
+    "азербайджан",
+    "сербия"
+   ],
+   "excluded_locations": [],
+   "work_type": "fulltime",
+   "english_level": "b2",
+   "language_requirements": null,
+   "employee_type": [
+    "employment",
+    "b2b_contract"
+   ],
+   "company_type": "outsourcing_company",
+   "vacancy_language": "en",
+   "tldr": "Junior Android Developer (Fintech): Developing features for a mobile banking application with an accent on secure transaction processing and partner integrations. Focus on building scalable UI components using Jetpack Compose and implementing robust financial logic within a professional team environment.",
+   "application_instructions": null,
+   "text_mode": "original",
+   "user_id": null,
+   "recruiter_meta_id": 3130,
+   "application_channel": "platform",
+   "suppress_distribution": false,
+   "company_id": 17014,
+   "macroregion_id": null,
+   "premium": false,
+   "verified": true,
+   "is_scam": false,
+   "is_potential_scam": false,
+   "scam_categories": null,
+   "source": "verified",
+   "source_secondary": "hirify_recruiter",
+   "linkedin": null,
+   "is_archived": false,
+   "no_response_reports_count": 0,
+   "og_image_url": "https://api.hirify.me/og-media/1233108.jpg?v=1791537029",
+   "created_at": "2026-10-09T09:10:02.000000Z",
+   "updated_at": "2026-10-13T09:10:07.000000Z",
+   "reopened_at": null,
+   "archived_at": null,
+   "allowed_locations": [],
+   "location_reason": null,
+   "timezone_overlap": null,
+   "office_locations": [],
+   "visa_sponsorship": null,
+   "visa_requirements": [],
+   "global_signals": [],
+   "remote_type_source": null,
+   "geo_inference": null,
+   "field_inference": null,
+   "nice_to_have_tags": [],
+   "crypto_payment": 0,
+   "can_apply_directly": true,
+   "apply_url": null,
+   "location_scope": "restricted",
+   "eligible_countries": [
+    "azerbaijan",
+    "belarus",
+    "georgia",
+    "kazakhstan",
+    "serbia"
+   ],
+   "ineligible_countries": [],
+   "geo_basis": "model_judgment",
+   "geo_confidence": "medium",
+   "seen": false,
+   "is_favorite": false,
+   "has_applied": false,
+   "application_id": null,
+   "valid_through": "2026-12-04T13:10:02+04:00",
+   "tags": [
+    {
+     "id": 65,
+     "name": "kotlin"
+    },
+    {
+     "id": 161,
+     "name": "android"
+    },
+    {
+     "id": 189,
+     "name": "rest api"
+    },
+    {
+     "id": 1789,
+     "name": "koin"
+    },
+    {
+     "id": 1808,
+     "name": "jetpack compose"
+    },
+    {
+     "id": 3248,
+     "name": "hilt"
+    },
+    {
+     "id": 9485,
+     "name": "dagger"
+    }
+   ],
+   "salary": null,
+   "specializations": [
+    {
+     "id": 59,
+     "code": "android_dev",
+     "name": "Android-разработчик",
+     "name_en": "Android Developer"
+    }
+   ],
+   "grades": [
+    {
+     "id": 2,
+     "name": "junior"
+    }
+   ],
+   "regions": [
+    {
+     "id": 7,
+     "code": "serbia",
+     "name": "Сербия",
+     "name_en": "Serbia"
+    },
+    {
+     "id": 38,
+     "code": "georgia",
+     "name": "Грузия",
+     "name_en": "Georgia"
+    }
+   ],
+   "relocation_regions": []
+  },
+  {
+   "id": 1219029,
+   "spec_vocab_version": "v4",
+   "main_stack": null,
+   "slug": "1219029-business-analyst-trainee",
+   "title": "Business Analyst Trainee",
+   "original_title": "Business Analysis Traineeship",
+   "vacancy_score": 6,
+   "company_title": "Andersen Lab",
+   "work_format": [
+    "remote"
+   ],
+   "remote_type": "europe",
+   "remote_restrictions": [
+    "serbia"
+   ],
+   "excluded_locations": [],
+   "work_type": "fulltime",
+   "english_level": "b2",
+   "language_requirements": [
+    {
+     "level": null,
+     "language": "german"
+    }
+   ],
+   "employee_type": [
+    "employment"
+   ],
+   "company_type": "outsourcing_company",
+   "vacancy_language": "en",
+   "tldr": "Business Analyst Trainee (Business Analysis): A 5-month intensive program focused on transitioning from theoretical knowledge to practical application in software development with an accent on requirements management and stakeholder communication. Focus on building expertise in business domains like fintech and healthcare while preparing for a full-time role within the company.",
+   "application_instructions": null,
+   "text_mode": "original",
+   "user_id": null,
+   "recruiter_meta_id": 3073,
+   "application_channel": "platform",
+   "suppress_distribution": false,
+   "company_id": 17014,
+   "macroregion_id": 4,
+   "premium": false,
+   "verified": true,
+   "is_scam": false,
+   "is_potential_scam": false,
+   "scam_categories": null,
+   "source": "verified",
+   "source_secondary": "hirify_recruiter",
+   "linkedin": null,
+   "is_archived": false,
+   "no_response_reports_count": 0,
+   "og_image_url": "https://api.hirify.me/og-media/1219029.jpg?v=1791362441",
+   "created_at": "2026-10-07T08:40:22.000000Z",
+   "updated_at": "2026-10-13T08:45:14.000000Z",
+   "reopened_at": null,
+   "archived_at": null,
+   "allowed_locations": [],
+   "location_reason": null,
+   "timezone_overlap": null,
+   "office_locations": [],
+   "visa_sponsorship": null,
+   "visa_requirements": [],
+   "global_signals": [],
+   "remote_type_source": null,
+   "geo_inference": null,
+   "field_inference": null,
+   "nice_to_have_tags": [],
+   "crypto_payment": 0,
+   "can_apply_directly": true,
+   "apply_url": null,
+   "location_scope": "restricted",
+   "eligible_countries": [
+    "serbia"
+   ],
+   "ineligible_countries": [],
+   "geo_basis": "model_judgment",
+   "geo_confidence": "medium",
+   "seen": false,
+   "is_favorite": false,
+   "has_applied": false,
+   "application_id": null,
+   "valid_through": "2026-12-02T12:40:22+04:00",
+   "tags": [
+    {
+     "id": 80,
+     "name": "requirements management"
+    },
+    {
+     "id": 165,
+     "name": "english"
+    },
+    {
+     "id": 330,
+     "name": "documentation"
+    },
+    {
+     "id": 797,
+     "name": "business analysis"
+    },
+    {
+     "id": 1232,
+     "name": "stakeholder management"
+    },
+    {
+     "id": 2112,
+     "name": "user stories"
+    },
+    {
+     "id": 3946,
+     "name": "german"
+    }
+   ],
+   "salary": null,
+   "specializations": [
+    {
+     "id": 42,
+     "code": "business_analytics",
+     "name": "Бизнес-аналитика",
+     "name_en": "Business Analysis"
+    }
+   ],
+   "grades": [
+    {
+     "id": 1,
+     "name": "trainee"
+    }
+   ],
+   "regions": [
+    {
+     "id": 7,
+     "code": "serbia",
+     "name": "Сербия",
+     "name_en": "Serbia"
+    }
+   ],
+   "relocation_regions": []
+  },
+  {
+   "id": 781881,
+   "spec_vocab_version": "v4",
+   "main_stack": [
+    "cryptocurrency",
+    "usdt"
+   ],
+   "slug": "781881-payments-manager-fintech",
+   "title": "Payments Manager (Fintech)",
+   "original_title": "Менеджер по выплатам (Payments Manager)",
+   "vacancy_score": 6,
+   "company_title": "PaySwiss",
+   "work_format": [
+    "remote"
+   ],
+   "remote_type": null,
+   "remote_restrictions": [],
+   "excluded_locations": [
+    "russia",
+    "belarus",
+    "ukraine"
+   ],
+   "work_type": "fulltime",
+   "english_level": null,
+   "language_requirements": null,
+   "employee_type": [],
+   "company_type": "startup",
+   "vacancy_language": "ru",
+   "tldr": "Менеджер по выплатам (Fintech): обработка платежных операций и контроль работоспособности платежных инструментов с акцентом на криптовалютные транзакции. Фокус на обеспечении бесперебойного движения денег в условиях высокой нагрузки и динамичной среды финтех-стартапа.",
+   "application_instructions": null,
+   "text_mode": "original",
+   "user_id": null,
+   "recruiter_meta_id": 1876,
+   "application_channel": "platform",
+   "suppress_distribution": false,
+   "company_id": null,
+   "macroregion_id": null,
+   "premium": false,
+   "verified": true,
+   "is_scam": false,
+   "is_potential_scam": false,
+   "scam_categories": null,
+   "source": "verified",
+   "source_secondary": "hirify_recruiter",
+   "linkedin": null,
+   "is_archived": false,
+   "no_response_reports_count": 0,
+   "og_image_url": "https://api.hirify.me/og-media/781881.jpg",
+   "created_at": "2026-07-29T07:01:47.000000Z",
+   "updated_at": "2026-10-13T07:05:02.000000Z",
+   "reopened_at": "2026-08-12 10:11:47",
+   "archived_at": null,
+   "allowed_locations": null,
+   "location_reason": null,
+   "timezone_overlap": null,
+   "office_locations": null,
+   "visa_sponsorship": null,
+   "visa_requirements": null,
+   "global_signals": null,
+   "remote_type_source": null,
+   "geo_inference": null,
+   "field_inference": null,
+   "nice_to_have_tags": null,
+   "crypto_payment": null,
+   "can_apply_directly": true,
+   "apply_url": null,
+   "location_scope": "unknown",
+   "eligible_countries": [],
+   "ineligible_countries": [],
+   "geo_basis": "unknown",
+   "geo_confidence": "low",
+   "seen": false,
+   "is_favorite": false,
+   "has_applied": false,
+   "application_id": null,
+   "valid_through": "2026-09-23T11:01:47+04:00",
+   "tags": [
+    {
+     "id": 1420,
+     "name": "cryptocurrency"
+    },
+    {
+     "id": 1460,
+     "name": "startup"
+    },
+    {
+     "id": 4102,
+     "name": "usdt"
+    },
+    {
+     "id": 7681,
+     "name": "binance"
+    }
+   ],
+   "salary": {
+    "id": 279274,
+    "vacancy_id": 781881,
+    "currency": "USDT",
+    "salary_period": null,
+    "min": 800,
+    "max": 1000,
+    "salary_in_usd": 900,
+    "created_at": "2026-07-29T07:01:47.000000Z",
+    "updated_at": "2026-07-29T07:01:47.000000Z"
+   },
+   "specializations": [
+    {
+     "id": 18,
+     "code": "finance",
+     "name": "Финансы",
+     "name_en": "Finance"
+    }
+   ],
+   "grades": [
+    {
+     "id": 2,
+     "name": "junior"
+    }
+   ],
+   "regions": [
+    {
+     "id": 3,
+     "code": "france",
+     "name": "Франция",
+     "name_en": "France"
+    },
+    {
+     "id": 4,
+     "code": "united_kingdom",
+     "name": "Великобритания",
+     "name_en": "United Kingdom"
+    },
+    {
+     "id": 5,
+     "code": "singapore",
+     "name": "Сингапур",
+     "name_en": "Singapore"
+    },
+    {
+     "id": 6,
+     "code": "united_states",
+     "name": "США",
+     "name_en": "United States"
+    },
+    {
+     "id": 7,
+     "code": "serbia",
+     "name": "Сербия",
+     "name_en": "Serbia"
+    },
+    {
+     "id": 8,
+     "code": "argentina",
+     "name": "Аргентина",
+     "name_en": "Argentina"
+    },
+    {
+     "id": 9,
+     "code": "chile",
+     "name": "Чили",
+     "name_en": "Chile"
+    },
+    {
+     "id": 10,
+     "code": "norway",
+     "name": "Норвегия",
+     "name_en": "Norway"
+    },
+    {
+     "id": 11,
+     "code": "united_arab_emirates",
+     "name": "ОАЭ",
+     "name_en": "United Arab Emirates"
+    },
+    {
+     "id": 12,
+     "code": "japan",
+     "name": "Япония",
+     "name_en": "Japan"
+    },
+    {
+     "id": 13,
+     "code": "philippines",
+     "name": "Филиппины",
+     "name_en": "Philippines"
+    },
+    {
+     "id": 15,
+     "code": "indonesia",
+     "name": "Индонезия",
+     "name_en": "Indonesia"
+    },
+    {
+     "id": 16,
+     "code": "poland",
+     "name": "Польша",
+     "name_en": "Poland"
+    },
+    {
+     "id": 17,
+     "code": "spain",
+     "name": "Испания",
+     "name_en": "Spain"
+    },
+    {
+     "id": 18,
+     "code": "armenia",
+     "name": "Армения",
+     "name_en": "Armenia"
+    },
+    {
+     "id": 19,
+     "code": "india",
+     "name": "Индия",
+     "name_en": "India"
+    },
+    {
+     "id": 21,
+     "code": "australia",
+     "name": "Австралия",
+     "name_en": "Australia"
+    },
+    {
+     "id": 22,
+     "code": "ireland",
+     "name": "Ирландия",
+     "name_en": "Ireland"
+    },
+    {
+     "id": 23,
+     "code": "denmark",
+     "name": "Дания",
+     "name_en": "Denmark"
+    },
+    {
+     "id": 24,
+     "code": "romania",
+     "name": "Румыния",
+     "name_en": "Romania"
+    },
+    {
+     "id": 25,
+     "code": "malaysia",
+     "name": "Малайзия",
+     "name_en": "Malaysia"
+    },
+    {
+     "id": 26,
+     "code": "south_korea",
+     "name": "Южная Корея",
+     "name_en": "South Korea"
+    },
+    {
+     "id": 27,
+     "code": "cyprus",
+     "name": "Кипр",
+     "name_en": "Cyprus"
+    },
+    {
+     "id": 28,
+     "code": "czech_republic",
+     "name": "Чехия",
+     "name_en": "Czech Republic"
+    },
+    {
+     "id": 29,
+     "code": "latvia",
+     "name": "Латвия",
+     "name_en": "Latvia"
+    },
+    {
+     "id": 30,
+     "code": "portugal",
+     "name": "Португалия",
+     "name_en": "Portugal"
+    },
+    {
+     "id": 31,
+     "code": "kazakhstan",
+     "name": "Казахстан",
+     "name_en": "Kazakhstan"
+    },
+    {
+     "id": 32,
+     "code": "netherlands",
+     "name": "Нидерланды",
+     "name_en": "Netherlands"
+    },
+    {
+     "id": 33,
+     "code": "sweden",
+     "name": "Швеция",
+     "name_en": "Sweden"
+    },
+    {
+     "id": 34,
+     "code": "china",
+     "name": "Китай",
+     "name_en": "China"
+    },
+    {
+     "id": 35,
+     "code": "mexico",
+     "name": "Мексика",
+     "name_en": "Mexico"
+    },
+    {
+     "id": 36,
+     "code": "europe",
+     "name": "Европа",
+     "name_en": "Europe"
+    },
+    {
+     "id": 38,
+     "code": "georgia",
+     "name": "Грузия",
+     "name_en": "Georgia"
+    },
+    {
+     "id": 39,
+     "code": "israel",
+     "name": "Израиль",
+     "name_en": "Israel"
+    },
+    {
+     "id": 40,
+     "code": "turkey",
+     "name": "Турция",
+     "name_en": "Turkey"
+    },
+    {
+     "id": 41,
+     "code": "croatia",
+     "name": "Хорватия",
+     "name_en": "Croatia"
+    },
+    {
+     "id": 42,
+     "code": "italy",
+     "name": "Италия",
+     "name_en": "Italy"
+    },
+    {
+     "id": 43,
+     "code": "canada",
+     "name": "Канада",
+     "name_en": "Canada"
+    },
+    {
+     "id": 45,
+     "code": "cambodia",
+     "name": "Камбоджа",
+     "name_en": "Cambodia"
+    },
+    {
+     "id": 46,
+     "code": "germany",
+     "name": "Германия",
+     "name_en": "Germany"
+    },
+    {
+     "id": 47,
+     "code": "azerbaijan",
+     "name": "Азербайджан",
+     "name_en": "Azerbaijan"
+    },
+    {
+     "id": 49,
+     "code": "austria",
+     "name": "Австрия",
+     "name_en": "Austria"
+    },
+    {
+     "id": 50,
+     "code": "taiwan",
+     "name": "Тайвань",
+     "name_en": "Taiwan"
+    },
+    {
+     "id": 51,
+     "code": "belgium",
+     "name": "Бельгия",
+     "name_en": "Belgium"
+    },
+    {
+     "id": 52,
+     "code": "hungary",
+     "name": "Венгрия",
+     "name_en": "Hungary"
+    },
+    {
+     "id": 53,
+     "code": "bulgaria",
+     "name": "Болгария",
+     "name_en": "Bulgaria"
+    },
+    {
+     "id": 55,
+     "code": "vietnam",
+     "name": "Вьетнам",
+     "name_en": "Vietnam"
+    },
+    {
+     "id": 57,
+     "code": "switzerland",
+     "name": "Швейцария",
+     "name_en": "Switzerland"
+    },
+    {
+     "id": 59,
+     "code": "greece",
+     "name": "Греция",
+     "name_en": "Greece"
+    },
+    {
+     "id": 60,
+     "code": "south_africa",
+     "name": "ЮАР",
+     "name_en": "South Africa"
+    },
+    {
+     "id": 61,
+     "code": "malta",
+     "name": "Мальта",
+     "name_en": "Malta"
+    },
+    {
+     "id": 62,
+     "code": "montenegro",
+     "name": "Черногория",
+     "name_en": "Montenegro"
+    },
+    {
+     "id": 63,
+     "code": "slovakia",
+     "name": "Словакия",
+     "name_en": "Slovakia"
+    },
+    {
+     "id": 64,
+     "code": "lithuania",
+     "name": "Литва",
+     "name_en": "Lithuania"
+    },
+    {
+     "id": 65,
+     "code": "saudi_arabia",
+     "name": "Саудовская Аравия",
+     "name_en": "Saudi Arabia"
+    },
+    {
+     "id": 66,
+     "code": "qatar",
+     "name": "Катар",
+     "name_en": "Qatar"
+    },
+    {
+     "id": 70,
+     "code": "thailand",
+     "name": "Таиланд",
+     "name_en": "Thailand"
+    },
+    {
+     "id": 72,
+     "code": "sri_lanka",
+     "name": "Шри-Ланка",
+     "name_en": "Sri Lanka"
+    },
+    {
+     "id": 73,
+     "code": "pakistan",
+     "name": "Пакистан",
+     "name_en": "Pakistan"
+    },
+    {
+     "id": 74,
+     "code": "luxembourg",
+     "name": "Люксембург",
+     "name_en": "Luxembourg"
+    },
+    {
+     "id": 75,
+     "code": "finland",
+     "name": "Финляндия",
+     "name_en": "Finland"
+    },
+    {
+     "id": 76,
+     "code": "estonia",
+     "name": "Эстония",
+     "name_en": "Estonia"
+    },
+    {
+     "id": 77,
+     "code": "costa_rica",
+     "name": "Коста-Рика",
+     "name_en": "Costa Rica"
+    },
+    {
+     "id": 78,
+     "code": "colombia",
+     "name": "Колумбия",
+     "name_en": "Colombia"
+    },
+    {
+     "id": 79,
+     "code": "brazil",
+     "name": "Бразилия",
+     "name_en": "Brazil"
+    },
+    {
+     "id": 81,
+     "code": "peru",
+     "name": "Перу",
+     "name_en": "Peru"
+    },
+    {
+     "id": 82,
+     "code": "ecuador",
+     "name": "Эквадор",
+     "name_en": "Ecuador"
+    },
+    {
+     "id": 83,
+     "code": "kuwait",
+     "name": "Кувейт",
+     "name_en": "Kuwait"
+    },
+    {
+     "id": 84,
+     "code": "oman",
+     "name": "Оман",
+     "name_en": "Oman"
+    },
+    {
+     "id": 85,
+     "code": "new_zealand",
+     "name": "Новая Зеландия",
+     "name_en": "New Zealand"
+    },
+    {
+     "id": 86,
+     "code": "kyrgyzstan",
+     "name": "Кыргызстан",
+     "name_en": "Kyrgyzstan"
+    },
+    {
+     "id": 89,
+     "code": "albania",
+     "name": "Албания",
+     "name_en": "Albania"
+    },
+    {
+     "id": 90,
+     "code": "moldova",
+     "name": "Молдова",
+     "name_en": "Moldova"
+    },
+    {
+     "id": 93,
+     "code": "bahrain",
+     "name": "Бахрейн",
+     "name_en": "Bahrain"
+    },
+    {
+     "id": 94,
+     "code": "kenya",
+     "name": "Кения",
+     "name_en": "Kenya"
+    },
+    {
+     "id": 97,
+     "code": "mongolia",
+     "name": "Монголия",
+     "name_en": "Mongolia"
+    },
+    {
+     "id": 101,
+     "code": "ethiopia",
+     "name": "Эфиопия",
+     "name_en": "Ethiopia"
+    },
+    {
+     "id": 103,
+     "code": "haiti",
+     "name": "Гаити",
+     "name_en": "Haiti"
+    },
+    {
+     "id": 106,
+     "code": "egypt",
+     "name": "Египет",
+     "name_en": "Egypt"
+    },
+    {
+     "id": 111,
+     "code": "nigeria",
+     "name": "Нигерия",
+     "name_en": "Nigeria"
+    },
+    {
+     "id": 114,
+     "code": "myanmar",
+     "name": "Мьянма",
+     "name_en": "Myanmar"
+    },
+    {
+     "id": 115,
+     "code": "senegal",
+     "name": "Сенегал",
+     "name_en": "Senegal"
+    },
+    {
+     "id": 116,
+     "code": "bangladesh",
+     "name": "Бангладеш",
+     "name_en": "Bangladesh"
+    },
+    {
+     "id": 117,
+     "code": "nepal",
+     "name": "Непал",
+     "name_en": "Nepal"
+    },
+    {
+     "id": 119,
+     "code": "tajikistan",
+     "name": "Таджикистан",
+     "name_en": "Tajikistan"
+    },
+    {
+     "id": 120,
+     "code": "turkmenistan",
+     "name": "Туркменистан",
+     "name_en": "Turkmenistan"
+    },
+    {
+     "id": 125,
+     "code": "bahamas",
+     "name": "Багамские Острова",
+     "name_en": "Bahamas"
+    },
+    {
+     "id": 128,
+     "code": "bosnia_and_herzegovina",
+     "name": "Босния и Герцеговина",
+     "name_en": "Bosnia and Herzegovina"
+    },
+    {
+     "id": 129,
+     "code": "north_macedonia",
+     "name": "Северная Македония",
+     "name_en": "North Macedonia"
+    },
+    {
+     "id": 130,
+     "code": "iraq",
+     "name": "Ирак",
+     "name_en": "Iraq"
+    },
+    {
+     "id": 131,
+     "code": "morocco",
+     "name": "Марокко",
+     "name_en": "Morocco"
+    },
+    {
+     "id": 132,
+     "code": "mauritius",
+     "name": "Маврикий",
+     "name_en": "Mauritius"
+    },
+    {
+     "id": 136,
+     "code": "liberia",
+     "name": "Либерия",
+     "name_en": "Liberia"
+    },
+    {
+     "id": 141,
+     "code": "samoa",
+     "name": "Самоа",
+     "name_en": "Samoa"
+    },
+    {
+     "id": 142,
+     "code": "dominican_republic",
+     "name": "Доминиканская Республика",
+     "name_en": "Dominican Republic"
+    },
+    {
+     "id": 144,
+     "code": "guinea",
+     "name": "Гвинея",
+     "name_en": "Guinea"
+    },
+    {
+     "id": 181,
+     "code": "washington",
+     "name": "Вашингтон",
+     "name_en": "Washington"
+    },
+    {
+     "id": 238,
+     "code": "slovenia",
+     "name": "Словения",
+     "name_en": "Slovenia"
+    }
+   ],
+   "relocation_regions": []
+  },
+  {
+   "id": 1051455,
+   "spec_vocab_version": "v4",
+   "main_stack": [
+    "c#",
+    "asp.net core",
+    "sql"
+   ],
+   "slug": "1051455-trainee-net-developer",
+   "title": "Trainee .NET Developer",
+   "original_title": ".NET Traineeship",
+   "vacancy_score": 6,
+   "company_title": "Andersen Lab",
+   "work_format": [
+    "remote"
+   ],
+   "remote_type": "europe",
+   "remote_restrictions": [
+    "serbia"
+   ],
+   "excluded_locations": [],
+   "work_type": "fulltime",
+   "english_level": "b1",
+   "language_requirements": null,
+   "employee_type": [
+    "employment"
+   ],
+   "company_type": "outsourcing_company",
+   "vacancy_language": "en",
+   "tldr": "Trainee .NET Developer (Backend): Building modern backend solutions and enterprise-level applications with an accent on C# and ASP.NET Core. Focus on mastering OOP, SOLID principles, and relational databases through an intensive 5-month practice-oriented program.",
+   "application_instructions": null,
+   "text_mode": "original",
+   "user_id": null,
+   "recruiter_meta_id": 2583,
+   "application_channel": "platform",
+   "suppress_distribution": false,
+   "company_id": 17014,
+   "macroregion_id": 4,
+   "premium": false,
+   "verified": true,
+   "is_scam": false,
+   "is_potential_scam": false,
+   "scam_categories": null,
+   "source": "verified",
+   "source_secondary": "hirify_recruiter",
+   "linkedin": null,
+   "is_archived": false,
+   "no_response_reports_count": 0,
+   "og_image_url": "https://api.hirify.me/og-media/1051455.jpg?v=1791262603",
+   "created_at": "2026-09-09T05:35:46.000000Z",
+   "updated_at": "2026-10-13T05:40:04.000000Z",
+   "reopened_at": "2026-10-06 08:56:41",
+   "archived_at": "2026-10-06 08:56:30",
+   "allowed_locations": [],
+   "location_reason": null,
+   "timezone_overlap": null,
+   "office_locations": [],
+   "visa_sponsorship": null,
+   "visa_requirements": [],
+   "global_signals": null,
+   "remote_type_source": null,
+   "geo_inference": null,
+   "field_inference": null,
+   "nice_to_have_tags": null,
+   "crypto_payment": null,
+   "can_apply_directly": true,
+   "apply_url": null,
+   "location_scope": "restricted",
+   "eligible_countries": [
+    "serbia"
+   ],
+   "ineligible_countries": [],
+   "geo_basis": "model_judgment",
+   "geo_confidence": "medium",
+   "seen": false,
+   "is_favorite": false,
+   "has_applied": false,
+   "application_id": null,
+   "valid_through": "2026-11-04T09:35:46+04:00",
+   "tags": [
+    {
+     "id": 34,
+     "name": "c#"
+    },
+    {
+     "id": 36,
+     "name": ".net"
+    },
+    {
+     "id": 46,
+     "name": "sql"
+    },
+    {
+     "id": 292,
+     "name": "algorithms"
+    },
+    {
+     "id": 479,
+     "name": "oop"
+    },
+    {
+     "id": 879,
+     "name": "solid"
+    },
+    {
+     "id": 914,
+     "name": "web api"
+    },
+    {
+     "id": 2288,
+     "name": "asp.net core"
+    },
+    {
+     "id": 2347,
+     "name": "entity framework"
+    }
+   ],
+   "salary": null,
+   "specializations": [
+    {
+     "id": 2,
+     "code": "backend_dev",
+     "name": "Бэкенд",
+     "name_en": "Backend"
+    }
+   ],
+   "grades": [
+    {
+     "id": 1,
+     "name": "trainee"
+    }
+   ],
+   "regions": [
+    {
+     "id": 7,
+     "code": "serbia",
+     "name": "Сербия",
+     "name_en": "Serbia"
+    }
+   ],
+   "relocation_regions": []
+  },
+  {
+   "id": 1206576,
+   "spec_vocab_version": "v4",
+   "main_stack": [
+    "1c",
+    "excel"
+   ],
+   "slug": "1206576-finance-operations-specialist-billing-accountant",
+   "title": "Finance Operations Specialist (Billing Accountant)",
+   "original_title": null,
+   "vacancy_score": 6,
+   "company_title": "ITea",
+   "work_format": [
+    "remote",
+    "hybrid",
+    "onsite"
+   ],
+   "remote_type": null,
+   "remote_restrictions": [
+    "сербия",
+    "армения",
+    "грузия",
+    "азербайджан",
+    "акташ (узбекистан)"
+   ],
+   "excluded_locations": [
+    "russia",
+    "belarus",
+    "ukraine",
+    "турция",
+    "кипр"
+   ],
+   "work_type": "fulltime",
+   "english_level": "b1",
+   "language_requirements": null,
+   "employee_type": [
+    "employment",
+    "b2b_contract"
+   ],
+   "company_type": "product_company",
+   "vacancy_language": "ru",
+   "tldr": "ITea - активно растущая IT-компания, реализующая международные проекты и инновационные IT-решения. Продукты, разработанные, ITea активно применяются крупнейшими мировыми компаниями, лидерами своих индустрий.",
+   "application_instructions": null,
+   "text_mode": "original",
+   "user_id": null,
+   "recruiter_meta_id": 3025,
+   "application_channel": "platform",
+   "suppress_distribution": false,
+   "company_id": 18100,
+   "macroregion_id": null,
+   "premium": false,
+   "verified": true,
+   "is_scam": false,
+   "is_potential_scam": false,
+   "scam_categories": null,
+   "source": "verified",
+   "source_secondary": "hirify_recruiter",
+   "linkedin": null,
+   "is_archived": false,
+   "no_response_reports_count": 0,
+   "og_image_url": "https://api.hirify.me/og-media/1206576.jpg?v=1791211512",
+   "created_at": "2026-10-05T14:45:00.000000Z",
+   "updated_at": "2026-10-13T02:45:07.000000Z",
+   "reopened_at": null,
+   "archived_at": null,
+   "allowed_locations": [],
+   "location_reason": null,
+   "timezone_overlap": null,
+   "office_locations": [],
+   "visa_sponsorship": null,
+   "visa_requirements": [],
+   "global_signals": [],
+   "remote_type_source": null,
+   "geo_inference": null,
+   "field_inference": null,
+   "nice_to_have_tags": [],
+   "crypto_payment": 0,
+   "can_apply_directly": true,
+   "apply_url": null,
+   "location_scope": "restricted",
+   "eligible_countries": [
+    "armenia",
+    "azerbaijan",
+    "georgia",
+    "serbia"
+   ],
+   "ineligible_countries": [],
+   "geo_basis": "unknown",
+   "geo_confidence": "low",
+   "seen": false,
+   "is_favorite": false,
+   "has_applied": false,
+   "application_id": null,
+   "valid_through": "2026-11-30T18:45:00+04:00",
+   "tags": [
+    {
+     "id": 105,
+     "name": "excel"
+    },
+    {
+     "id": 177,
+     "name": "1c"
+    },
+    {
+     "id": 430,
+     "name": "английский язык"
+    },
+    {
+     "id": 1087,
+     "name": "microsoft excel"
+    },
+    {
+     "id": 2319,
+     "name": "ms excel"
+    },
+    {
+     "id": 3212,
+     "name": "billing"
+    },
+    {
+     "id": 4795,
+     "name": "invoicing"
+    },
+    {
+     "id": 361017,
+     "name": "деловой английский язык"
+    }
+   ],
+   "salary": null,
+   "specializations": [
+    {
+     "id": 116,
+     "code": "accounting_tax_audit",
+     "name": "Бухгалтерия, налоги и аудит",
+     "name_en": "Accounting, Tax & Audit"
+    }
+   ],
+   "grades": [
+    {
+     "id": 2,
+     "name": "junior"
+    }
+   ],
+   "regions": [
+    {
+     "id": 7,
+     "code": "serbia",
+     "name": "Сербия",
+     "name_en": "Serbia"
+    },
+    {
+     "id": 38,
+     "code": "georgia",
+     "name": "Грузия",
+     "name_en": "Georgia"
+    }
+   ],
+   "relocation_regions": []
+  },
+  {
+   "id": 1246101,
+   "spec_vocab_version": "v4",
+   "main_stack": [
+    "figma"
+   ],
+   "slug": "1246101-ux-ui-designer-ad-tech",
+   "title": "UX/UI Designer (Ad Tech)",
+   "original_title": "UX/UI Designer",
+   "vacancy_score": 6,
+   "company_title": "%hirify_global%",
+   "work_format": [
+    "remote"
+   ],
+   "remote_type": "europe",
+   "remote_restrictions": [
+    "brazil",
+    "romania",
+    "italy",
+    "serbia",
+    "slovenia",
+    "hungary"
+   ],
+   "excluded_locations": [],
+   "work_type": "fulltime",
+   "english_level": "c1",
+   "language_requirements": null,
+   "employee_type": [
+    "b2b_contract"
+   ],
+   "company_type": "startup",
+   "vacancy_language": "en",
+   "tldr": "UX/UI Designer (Ad Tech): Designing responsive, accessible web and mobile interfaces for multiple client projects with an accent on user research, design systems, and high-fidelity prototyping in Figma. Focus on validating design decisions through usability testing, translating complex requirements into intuitive experiences, and using AI tools to improve design workflows.",
+   "application_instructions": null,
+   "text_mode": null,
+   "user_id": null,
+   "recruiter_meta_id": null,
+   "application_channel": "contacts",
+   "suppress_distribution": false,
+   "company_id": 7844,
+   "macroregion_id": 3,
+   "premium": true,
+   "verified": false,
+   "is_scam": false,
+   "is_potential_scam": false,
+   "scam_categories": null,
+   "source": "scout",
+   "source_secondary": "global",
+   "linkedin": "https://www.linkedin.com/company/pubgenius/people/",
+   "is_archived": false,
+   "no_response_reports_count": 0,
+   "og_image_url": "https://api.hirify.me/og-media/1246101.jpg?v=1791837287",
+   "created_at": "2026-10-12T20:34:41.000000Z",
+   "updated_at": "2026-10-12T20:34:44.000000Z",
+   "reopened_at": null,
+   "archived_at": null,
+   "allowed_locations": [
+    "brazil",
+    "romania",
+    "italy",
+    "serbia",
+    "slovenia",
+    "hungary"
+   ],
+   "location_reason": "unspecified",
+   "timezone_overlap": null,
+   "office_locations": [],
+   "visa_sponsorship": null,
+   "visa_requirements": [],
+   "global_signals": [],
+   "remote_type_source": "stated",
+   "geo_inference": {
+    "chip_reason": "\"option to work from anywhere\" and fully remote work"
+   },
+   "field_inference": null,
+   "nice_to_have_tags": [
+    "html",
+    "css",
+    "prototyping and usability testing tools",
+    "fintech",
+    "igaming",
+    "healthcare",
+    "ecommerce",
+    "cursor",
+    "claude code"
+   ],
+   "crypto_payment": null,
+   "can_apply_directly": false,
+   "apply_url": null,
+   "location_scope": "restricted",
+   "eligible_countries": [
+    "brazil",
+    "hungary",
+    "italy",
+    "romania",
+    "serbia",
+    "slovenia"
+   ],
+   "ineligible_countries": [],
+   "geo_basis": "stated_list",
+   "geo_confidence": "high",
+   "seen": false,
+   "is_favorite": false,
+   "has_applied": false,
+   "application_id": null,
+   "valid_through": "2026-11-12T18:30:28+04:00",
+   "tags": [
+    {
+     "id": 23,
+     "name": "ai"
+    },
+    {
+     "id": 31,
+     "name": "figma"
+    },
+    {
+     "id": 61,
+     "name": "user research"
+    },
+    {
+     "id": 335,
+     "name": "ui design"
+    },
+    {
+     "id": 1145,
+     "name": "design systems"
+    },
+    {
+     "id": 1460,
+     "name": "startup"
+    },
+    {
+     "id": 1844,
+     "name": "adtech"
+    },
+    {
+     "id": 3231,
+     "name": "ux design"
+    },
+    {
+     "id": 3939,
+     "name": "responsive design"
+    }
+   ],
+   "salary": null,
+   "specializations": [
+    {
+     "id": 38,
+     "code": "uiux_design",
+     "name": "UI/UX дизайн",
+     "name_en": "UI/UX Design"
+    }
+   ],
+   "grades": [
+    {
+     "id": 2,
+     "name": "junior"
+    }
+   ],
+   "regions": [
+    {
+     "id": 7,
+     "code": "serbia",
+     "name": "Сербия",
+     "name_en": "Serbia"
+    },
+    {
+     "id": 24,
+     "code": "romania",
+     "name": "Румыния",
+     "name_en": "Romania"
+    },
+    {
+     "id": 42,
+     "code": "italy",
+     "name": "Италия",
+     "name_en": "Italy"
+    },
+    {
+     "id": 52,
+     "code": "hungary",
+     "name": "Венгрия",
+     "name_en": "Hungary"
+    },
+    {
+     "id": 79,
+     "code": "brazil",
+     "name": "Бразилия",
+     "name_en": "Brazil"
+    },
+    {
+     "id": 238,
+     "code": "slovenia",
+     "name": "Словения",
+     "name_en": "Slovenia"
+    }
+   ],
+   "relocation_regions": []
+  },
+  {
+   "id": 1241739,
+   "spec_vocab_version": "v4",
+   "main_stack": [
+    "aloha",
+    "point of sale"
+   ],
+   "slug": "1241739-aloha-support-technician-french",
+   "title": "SW Support Hospitality L2 Aloha Technician (French and English)",
+   "original_title": "SW Support Hospitality L2 Aloha Technician",
+   "vacancy_score": 6,
+   "company_title": "%hirify_global%",
+   "work_format": [
+    "onsite"
+   ],
+   "remote_type": "europe",
+   "remote_restrictions": [
+    "serbia"
+   ],
+   "excluded_locations": [],
+   "work_type": "fulltime",
+   "english_level": "c1",
+   "language_requirements": [
+    {
+     "level": "c1",
+     "language": "french"
+    }
+   ],
+   "employee_type": [
+    "employment"
+   ],
+   "company_type": "corporation",
+   "vacancy_language": "en",
+   "tldr": "SW Support Hospitality L2 Aloha Technician (Aloha/POS Support): Providing technical phone and remote support for ALOHA hospitality software, point-of-sale devices, and related products with an accent on incident troubleshooting, customer communication, and timely issue resolution. Focus on analyzing recurring faults, coordinating service dispatches, escalating complex incidents, and maintaining accurate work-order updates.",
+   "application_instructions": null,
+   "text_mode": null,
+   "user_id": null,
+   "recruiter_meta_id": null,
+   "application_channel": "contacts",
+   "suppress_distribution": false,
+   "company_id": 5546,
+   "macroregion_id": 4,
+   "premium": true,
+   "verified": false,
+   "is_scam": false,
+   "is_potential_scam": false,
+   "scam_categories": null,
+   "source": "scout",
+   "source_secondary": "global",
+   "linkedin": "https://www.linkedin.com/company/ncrvoyix/people/",
+   "is_archived": false,
+   "no_response_reports_count": 0,
+   "og_image_url": "https://api.hirify.me/og-media/1241739.jpg?v=1791800975",
+   "created_at": "2026-10-12T10:29:31.000000Z",
+   "updated_at": "2026-10-12T10:29:33.000000Z",
+   "reopened_at": null,
+   "archived_at": null,
+   "allowed_locations": [
+    "serbia"
+   ],
+   "location_reason": "office_presence",
+   "timezone_overlap": "8am–4pm and 3pm–11pm CET shift rotation",
+   "office_locations": [
+    "serbia",
+    "united_states"
+   ],
+   "visa_sponsorship": null,
+   "visa_requirements": [],
+   "global_signals": [],
+   "remote_type_source": "office",
+   "geo_inference": null,
+   "field_inference": null,
+   "nice_to_have_tags": [],
+   "crypto_payment": null,
+   "can_apply_directly": false,
+   "apply_url": null,
+   "location_scope": "restricted",
+   "eligible_countries": [
+    "serbia"
+   ],
+   "ineligible_countries": [],
+   "geo_basis": "stated_list",
+   "geo_confidence": "high",
+   "seen": false,
+   "is_favorite": false,
+   "has_applied": false,
+   "application_id": null,
+   "valid_through": "2026-11-12T18:30:28+04:00",
+   "tags": [
+    {
+     "id": 164,
+     "name": "technical support"
+    },
+    {
+     "id": 165,
+     "name": "english"
+    },
+    {
+     "id": 840,
+     "name": "troubleshooting"
+    },
+    {
+     "id": 1565,
+     "name": "french"
+    },
+    {
+     "id": 2607,
+     "name": "incident management"
+    },
+    {
+     "id": 3414,
+     "name": "helpdesk"
+    },
+    {
+     "id": 22175,
+     "name": "point of sale"
+    },
+    {
+     "id": 84759,
+     "name": "aloha"
+    }
+   ],
+   "salary": null,
+   "specializations": [
+    {
+     "id": 107,
+     "code": "tech_support",
+     "name": "Инженер технической поддержки",
+     "name_en": "Technical Support Engineer"
+    }
+   ],
+   "grades": [
+    {
+     "id": 2,
+     "name": "junior"
+    }
+   ],
+   "regions": [
+    {
+     "id": 7,
+     "code": "serbia",
+     "name": "Сербия",
+     "name_en": "Serbia"
+    }
+   ],
+   "relocation_regions": []
+  },
+  {
+   "id": 1104800,
+   "spec_vocab_version": "v4",
+   "main_stack": [
+    "kubernetes",
+    "docker",
+    "ansible"
+   ],
+   "slug": "1104800-junior-devops-engineer",
+   "title": "Junior DevOps Engineer",
+   "original_title": "Junior DevOps Engineer",
+   "vacancy_score": null,
+   "company_title": "Emerging Travel Group",
+   "work_format": [
+    "remote"
+   ],
+   "remote_type": "global",
+   "remote_restrictions": [
+    "serbia",
+    "kazakhstan",
+    "thailand",
+    "vietnam",
+    "armenia",
+    "georgia",
+    "uzbekistan"
+   ],
+   "excluded_locations": [],
+   "work_type": "fulltime",
+   "english_level": "b1",
+   "language_requirements": null,
+   "employee_type": [
+    "employment"
+   ],
+   "company_type": null,
+   "vacancy_language": "en",
+   "tldr": "Junior DevOps Engineer (Linux/Ansible/Docker/Kubernetes): Supporting and developing infrastructure for a large-scale IT product with an accent on service operations, CI/CD delivery, and routine-task automation. Focus on configuring build pipelines, optimizing operational workflows, and participating in real incidents.",
+   "application_instructions": null,
+   "text_mode": null,
+   "user_id": null,
+   "recruiter_meta_id": null,
+   "application_channel": "contacts",
+   "suppress_distribution": false,
+   "company_id": 6247,
+   "macroregion_id": 4,
+   "premium": false,
+   "verified": false,
+   "is_scam": false,
+   "is_potential_scam": false,
+   "scam_categories": null,
+   "source": "scout",
+   "source_secondary": "ru",
+   "linkedin": null,
+   "is_archived": false,
+   "no_response_reports_count": 0,
+   "og_image_url": "https://api.hirify.me/og-media/1104800.jpg?v=1791736075",
+   "created_at": "2026-09-16T16:34:43.000000Z",
+   "updated_at": "2026-10-11T16:27:53.000000Z",
+   "reopened_at": null,
+   "archived_at": null,
+   "allowed_locations": [
+    "serbia",
+    "kazakhstan",
+    "thailand",
+    "vietnam",
+    "armenia",
+    "georgia",
+    "uzbekistan"
+   ],
+   "location_reason": "unspecified",
+   "timezone_overlap": null,
+   "office_locations": [],
+   "visa_sponsorship": null,
+   "visa_requirements": [],
+   "global_signals": [],
+   "remote_type_source": "model",
+   "geo_inference": {
+    "chip_reason": null
+   },
+   "field_inference": null,
+   "nice_to_have_tags": null,
+   "crypto_payment": null,
+   "can_apply_directly": false,
+   "apply_url": null,
+   "location_scope": "anywhere",
+   "eligible_countries": [],
+   "ineligible_countries": [],
+   "geo_basis": "stated_list",
+   "geo_confidence": "high",
+   "seen": false,
+   "is_favorite": false,
+   "has_applied": false,
+   "application_id": null,
+   "valid_through": "2026-11-12T18:30:28+04:00",
+   "tags": [
+    {
+     "id": 51,
+     "name": "kubernetes"
+    },
+    {
+     "id": 112,
+     "name": "docker"
+    },
+    {
+     "id": 181,
+     "name": "devops"
+    },
+    {
+     "id": 183,
+     "name": "linux"
+    },
+    {
+     "id": 184,
+     "name": "ansible"
+    },
+    {
+     "id": 538,
+     "name": "ci cd"
+    }
+   ],
+   "salary": null,
+   "specializations": [
+    {
+     "id": 19,
+     "code": "devops",
+     "name": "DevOps",
+     "name_en": "DevOps"
+    }
+   ],
+   "grades": [
+    {
+     "id": 2,
+     "name": "junior"
+    }
+   ],
+   "regions": [
+    {
+     "id": 7,
+     "code": "serbia",
+     "name": "Сербия",
+     "name_en": "Serbia"
+    },
+    {
+     "id": 18,
+     "code": "armenia",
+     "name": "Армения",
+     "name_en": "Armenia"
+    },
+    {
+     "id": 31,
+     "code": "kazakhstan",
+     "name": "Казахстан",
+     "name_en": "Kazakhstan"
+    },
+    {
+     "id": 38,
+     "code": "georgia",
+     "name": "Грузия",
+     "name_en": "Georgia"
+    },
+    {
+     "id": 55,
+     "code": "vietnam",
+     "name": "Вьетнам",
+     "name_en": "Vietnam"
+    },
+    {
+     "id": 56,
+     "code": "uzbekistan",
+     "name": "Узбекистан",
+     "name_en": "Uzbekistan"
+    },
+    {
+     "id": 70,
+     "code": "thailand",
+     "name": "Таиланд",
+     "name_en": "Thailand"
+    }
+   ],
+   "relocation_regions": []
+  },
+  {
+   "id": 1239508,
+   "spec_vocab_version": "v4",
+   "main_stack": [
+    "product design",
+    "ux",
+    "ui"
+   ],
+   "slug": "1239508-product-designer-fintech",
+   "title": "Product Designer (Fintech)",
+   "original_title": "Product Designer",
+   "vacancy_score": 6,
+   "company_title": "Qonto",
+   "work_format": [
+    "hybrid"
+   ],
+   "remote_type": "europe",
+   "remote_restrictions": [
+    "france",
+    "germany",
+    "spain",
+    "italy",
+    "serbia"
+   ],
+   "excluded_locations": [],
+   "work_type": "fulltime",
+   "english_level": null,
+   "language_requirements": null,
+   "employee_type": [
+    "employment"
+   ],
+   "company_type": "product_company",
+   "vacancy_language": "ru",
+   "tldr": "Product Designer (Fintech): Проектирование цифровых финансовых продуктов для малого и среднего бизнеса с акцентом на структурное продуктовое мышление, понятные пользовательские флоу и проработанные интерфейсы. Focus on end-to-end работе — от discovery до поставки, анализа результатов и итеративного улучшения продукта.",
+   "application_instructions": null,
+   "text_mode": null,
+   "user_id": null,
+   "recruiter_meta_id": null,
+   "application_channel": "contacts",
+   "suppress_distribution": false,
+   "company_id": null,
+   "macroregion_id": 4,
+   "premium": false,
+   "verified": false,
+   "is_scam": false,
+   "is_potential_scam": true,
+   "scam_categories": null,
+   "source": "telegram",
+   "source_secondary": "telegram",
+   "linkedin": null,
+   "is_archived": false,
+   "no_response_reports_count": 0,
+   "og_image_url": "https://api.hirify.me/og-media/1239508.jpg?v=1791654347",
+   "created_at": "2026-10-10T17:45:45.000000Z",
+   "updated_at": "2026-10-10T17:45:45.000000Z",
+   "reopened_at": null,
+   "archived_at": null,
+   "allowed_locations": [
+    "france",
+    "germany",
+    "spain",
+    "italy",
+    "serbia"
+   ],
+   "location_reason": "office_presence",
+   "timezone_overlap": null,
+   "office_locations": [],
+   "visa_sponsorship": null,
+   "visa_requirements": [],
+   "global_signals": [],
+   "remote_type_source": "office",
+   "geo_inference": {
+    "chip_reason": "Гибридный формат работы с локациями в Париже, Берлине, Барселоне, Милане и Белграде."
+   },
+   "field_inference": null,
+   "nice_to_have_tags": [],
+   "crypto_payment": 0,
+   "can_apply_directly": false,
+   "apply_url": null,
+   "location_scope": "restricted",
+   "eligible_countries": [
+    "france",
+    "germany",
+    "italy",
+    "serbia",
+    "spain"
+   ],
+   "ineligible_countries": [],
+   "geo_basis": "stated_list",
+   "geo_confidence": "high",
+   "seen": false,
+   "is_favorite": false,
+   "has_applied": false,
+   "application_id": null,
+   "valid_through": "2026-11-07T21:45:45+04:00",
+   "tags": [
+    {
+     "id": 17,
+     "name": "fintech"
+    },
+    {
+     "id": 153,
+     "name": "ux"
+    },
+    {
+     "id": 154,
+     "name": "ui"
+    },
+    {
+     "id": 793,
+     "name": "product design"
+    },
+    {
+     "id": 1145,
+     "name": "design systems"
+    },
+    {
+     "id": 3339,
+     "name": "product discovery"
+    }
+   ],
+   "salary": null,
+   "specializations": [
+    {
+     "id": 39,
+     "code": "product_design",
+     "name": "Продуктовый дизайн",
+     "name_en": "Product Design"
+    }
+   ],
+   "grades": [
+    {
+     "id": 2,
+     "name": "junior"
+    }
+   ],
+   "regions": [
+    {
+     "id": 3,
+     "code": "france",
+     "name": "Франция",
+     "name_en": "France"
+    },
+    {
+     "id": 7,
+     "code": "serbia",
+     "name": "Сербия",
+     "name_en": "Serbia"
+    },
+    {
+     "id": 17,
+     "code": "spain",
+     "name": "Испания",
+     "name_en": "Spain"
+    },
+    {
+     "id": 42,
+     "code": "italy",
+     "name": "Италия",
+     "name_en": "Italy"
+    },
+    {
+     "id": 46,
+     "code": "germany",
+     "name": "Германия",
+     "name_en": "Germany"
+    }
+   ],
+   "relocation_regions": []
+  },
+  {
+   "id": 346143,
+   "spec_vocab_version": "v4",
+   "main_stack": [
+    "c#",
+    ".net",
+    "postgresql"
+   ],
+   "slug": "346143-software-engineer-intern-c-sharp",
+   "title": "Software Engineer (Intern, C#)",
+   "original_title": "Software Engineer (Intern, C#)",
+   "vacancy_score": null,
+   "company_title": "%hirify_global%",
+   "work_format": [
+    "remote",
+    "hybrid"
+   ],
+   "remote_type": "europe",
+   "remote_restrictions": [
+    "germany",
+    "bulgaria",
+    "serbia",
+    "turkey",
+    "singapore"
+   ],
+   "excluded_locations": [],
+   "work_type": "fulltime",
+   "english_level": "b2",
+   "language_requirements": null,
+   "employee_type": [],
+   "company_type": "product_company",
+   "vacancy_language": "en",
+   "tldr": "Software Engineer Intern (C#): Learning and contributing to real backend services and REST APIs for educational platforms with an accent on C# and .NET backend development, database interaction, and clean coding practices. Focus on building learning platform functionality, integrating various services, and participating in the full software development lifecycle within an Agile environment.",
+   "application_instructions": null,
+   "text_mode": null,
+   "user_id": null,
+   "recruiter_meta_id": null,
+   "application_channel": "contacts",
+   "suppress_distribution": false,
+   "company_id": 3463,
+   "macroregion_id": 4,
+   "premium": true,
+   "verified": false,
+   "is_scam": false,
+   "is_potential_scam": false,
+   "scam_categories": null,
+   "source": "scout",
+   "source_secondary": "global",
+   "linkedin": "https://www.linkedin.com/company/constructortech/people/",
+   "is_archived": false,
+   "no_response_reports_count": 0,
+   "og_image_url": "https://api.hirify.me/og-media/346143.jpg?v=1791611346",
+   "created_at": "2026-02-02T15:23:34.000000Z",
+   "updated_at": "2026-10-10T05:49:03.000000Z",
+   "reopened_at": null,
+   "archived_at": null,
+   "allowed_locations": [
+    "germany",
+    "bulgaria",
+    "serbia",
+    "turkey",
+    "singapore"
+   ],
+   "location_reason": "unspecified",
+   "timezone_overlap": null,
+   "office_locations": [
+    "germany",
+    "bulgaria",
+    "serbia",
+    "turkey",
+    "singapore"
+   ],
+   "visa_sponsorship": null,
+   "visa_requirements": [],
+   "global_signals": [],
+   "remote_type_source": null,
+   "geo_inference": {
+    "chip_reason": null
+   },
+   "field_inference": {
+    "grade": {
+     "p": 1,
+     "basis": "clarifier",
+     "value": [
+      "trainee"
+     ],
+     "choice": "intern"
+    }
+   },
+   "nice_to_have_tags": [],
+   "crypto_payment": 0,
+   "can_apply_directly": false,
+   "apply_url": null,
+   "location_scope": "restricted",
+   "eligible_countries": [
+    "bulgaria",
+    "germany",
+    "serbia",
+    "singapore",
+    "turkey"
+   ],
+   "ineligible_countries": [],
+   "geo_basis": "stated_list",
+   "geo_confidence": "high",
+   "seen": false,
+   "is_favorite": false,
+   "has_applied": false,
+   "application_id": null,
+   "valid_through": "2026-11-12T18:30:28+04:00",
+   "tags": [
+    {
+     "id": 34,
+     "name": "c#"
+    },
+    {
+     "id": 36,
+     "name": ".net"
+    },
+    {
+     "id": 46,
+     "name": "sql"
+    },
+    {
+     "id": 55,
+     "name": "backend"
+    },
+    {
+     "id": 68,
+     "name": "kafka"
+    },
+    {
+     "id": 70,
+     "name": "git"
+    },
+    {
+     "id": 587,
+     "name": "rest"
+    },
+    {
+     "id": 768,
+     "name": "distributed systems"
+    },
+    {
+     "id": 1609,
+     "name": "edtech"
+    },
+    {
+     "id": 21590,
+     "name": "postgresql"
+    }
+   ],
+   "salary": null,
+   "specializations": [
+    {
+     "id": 2,
+     "code": "backend_dev",
+     "name": "Бэкенд",
+     "name_en": "Backend"
+    }
+   ],
+   "grades": [
+    {
+     "id": 1,
+     "name": "trainee"
+    }
+   ],
+   "regions": [
+    {
+     "id": 5,
+     "code": "singapore",
+     "name": "Сингапур",
+     "name_en": "Singapore"
+    },
+    {
+     "id": 7,
+     "code": "serbia",
+     "name": "Сербия",
+     "name_en": "Serbia"
+    },
+    {
+     "id": 40,
+     "code": "turkey",
+     "name": "Турция",
+     "name_en": "Turkey"
+    },
+    {
+     "id": 46,
+     "code": "germany",
+     "name": "Германия",
+     "name_en": "Germany"
+    },
+    {
+     "id": 53,
+     "code": "bulgaria",
+     "name": "Болгария",
+     "name_en": "Bulgaria"
+    }
+   ],
+   "relocation_regions": []
+  },
+  {
+   "id": 346111,
+   "spec_vocab_version": "v4",
+   "main_stack": null,
+   "slug": "346111-qa-intern",
+   "title": "QA Intern",
+   "original_title": "QA Intern",
+   "vacancy_score": null,
+   "company_title": "%hirify_global%",
+   "work_format": [
+    "remote",
+    "hybrid"
+   ],
+   "remote_type": "global",
+   "remote_restrictions": [
+    "germany",
+    "bulgaria",
+    "serbia",
+    "turkey",
+    "singapore"
+   ],
+   "excluded_locations": [],
+   "work_type": "fulltime",
+   "english_level": "b2",
+   "language_requirements": null,
+   "employee_type": [],
+   "company_type": "product_company",
+   "vacancy_language": "en",
+   "tldr": "QA Intern (Web/API Testing): Executing manual test cases for web and API-based applications and identifying bugs to ensure software quality. Focus on validating new features, participating in requirement reviews, and improving test documentation under mentorship.",
+   "application_instructions": null,
+   "text_mode": null,
+   "user_id": null,
+   "recruiter_meta_id": null,
+   "application_channel": "contacts",
+   "suppress_distribution": false,
+   "company_id": 3463,
+   "macroregion_id": 4,
+   "premium": true,
+   "verified": false,
+   "is_scam": false,
+   "is_potential_scam": false,
+   "scam_categories": null,
+   "source": "scout",
+   "source_secondary": "global",
+   "linkedin": "https://www.linkedin.com/company/constructortech/people/",
+   "is_archived": false,
+   "no_response_reports_count": 0,
+   "og_image_url": "https://api.hirify.me/og-media/346111.jpg?v=1791611162",
+   "created_at": "2026-02-02T15:17:54.000000Z",
+   "updated_at": "2026-10-10T05:45:59.000000Z",
+   "reopened_at": null,
+   "archived_at": null,
+   "allowed_locations": [
+    "germany",
+    "bulgaria",
+    "serbia",
+    "turkey",
+    "singapore"
+   ],
+   "location_reason": null,
+   "timezone_overlap": null,
+   "office_locations": [
+    "germany",
+    "bulgaria",
+    "serbia",
+    "turkey",
+    "singapore"
+   ],
+   "visa_sponsorship": null,
+   "visa_requirements": [],
+   "global_signals": [],
+   "remote_type_source": null,
+   "geo_inference": {
+    "chip_reason": "The role explicitly states 100% remote globally."
+   },
+   "field_inference": null,
+   "nice_to_have_tags": [
+    "scrum",
+    "databases",
+    "rest api",
+    "exploratory testing",
+    "usability testing",
+    "git",
+    "test management tools"
+   ],
+   "crypto_payment": 0,
+   "can_apply_directly": false,
+   "apply_url": null,
+   "location_scope": "anywhere",
+   "eligible_countries": [],
+   "ineligible_countries": [],
+   "geo_basis": "stated_list",
+   "geo_confidence": "high",
+   "seen": false,
+   "is_favorite": false,
+   "has_applied": false,
+   "application_id": null,
+   "valid_through": "2026-11-12T18:30:28+04:00",
+   "tags": [
+    {
+     "id": 5,
+     "name": "agile"
+    },
+    {
+     "id": 25,
+     "name": "qa"
+    },
+    {
+     "id": 46,
+     "name": "sql"
+    },
+    {
+     "id": 231,
+     "name": "api testing"
+    },
+    {
+     "id": 232,
+     "name": "postman"
+    },
+    {
+     "id": 708,
+     "name": "sdlc"
+    },
+    {
+     "id": 735,
+     "name": "bug tracking"
+    },
+    {
+     "id": 996,
+     "name": "web applications"
+    },
+    {
+     "id": 3942,
+     "name": "manual qa"
+    }
+   ],
+   "salary": null,
+   "specializations": [
+    {
+     "id": 82,
+     "code": "manual_qa",
+     "name": "Manual QA",
+     "name_en": "Manual QA"
+    }
+   ],
+   "grades": [
+    {
+     "id": 1,
+     "name": "trainee"
+    }
+   ],
+   "regions": [
+    {
+     "id": 5,
+     "code": "singapore",
+     "name": "Сингапур",
+     "name_en": "Singapore"
+    },
+    {
+     "id": 7,
+     "code": "serbia",
+     "name": "Сербия",
+     "name_en": "Serbia"
+    },
+    {
+     "id": 40,
+     "code": "turkey",
+     "name": "Турция",
+     "name_en": "Turkey"
+    },
+    {
+     "id": 46,
+     "code": "germany",
+     "name": "Германия",
+     "name_en": "Germany"
+    },
+    {
+     "id": 53,
+     "code": "bulgaria",
+     "name": "Болгария",
+     "name_en": "Bulgaria"
+    }
+   ],
+   "relocation_regions": []
+  },
+  {
+   "id": 346013,
+   "spec_vocab_version": "v4",
+   "main_stack": [
+    "javascript",
+    "html",
+    "css"
+   ],
+   "slug": "346013-frontend-engineer-intern",
+   "title": "Frontend Engineer",
+   "original_title": "Frontend Engineer (Intern)",
+   "vacancy_score": null,
+   "company_title": "%hirify_global%",
+   "work_format": [
+    "remote",
+    "hybrid"
+   ],
+   "remote_type": "global",
+   "remote_restrictions": [
+    "germany",
+    "bulgaria",
+    "serbia",
+    "turkey",
+    "singapore"
+   ],
+   "excluded_locations": [],
+   "work_type": "fulltime",
+   "english_level": "b2",
+   "language_requirements": null,
+   "employee_type": [],
+   "company_type": "product_company",
+   "vacancy_language": "en",
+   "tldr": "Frontend Engineer (Intern): Developing and maintaining responsive and engaging user interfaces using modern web technologies with an accent on efficient and reusable frontend systems. Focus on optimizing web applications for speed and scalability, conducting thorough testing, and participating in code reviews.",
+   "application_instructions": null,
+   "text_mode": null,
+   "user_id": null,
+   "recruiter_meta_id": null,
+   "application_channel": "contacts",
+   "suppress_distribution": false,
+   "company_id": 3463,
+   "macroregion_id": 4,
+   "premium": true,
+   "verified": false,
+   "is_scam": false,
+   "is_potential_scam": false,
+   "scam_categories": null,
+   "source": "scout",
+   "source_secondary": "global",
+   "linkedin": "https://www.linkedin.com/company/constructortech/people/",
+   "is_archived": false,
+   "no_response_reports_count": 0,
+   "og_image_url": "https://api.hirify.me/og-media/346013.jpg?v=1791610987",
+   "created_at": "2026-02-02T15:06:11.000000Z",
+   "updated_at": "2026-10-10T05:43:04.000000Z",
+   "reopened_at": null,
+   "archived_at": null,
+   "allowed_locations": [
+    "germany",
+    "bulgaria",
+    "serbia",
+    "turkey",
+    "singapore"
+   ],
+   "location_reason": "office_presence",
+   "timezone_overlap": null,
+   "office_locations": [
+    "germany",
+    "bulgaria",
+    "serbia",
+    "turkey",
+    "singapore"
+   ],
+   "visa_sponsorship": null,
+   "visa_requirements": [],
+   "global_signals": [],
+   "remote_type_source": null,
+   "geo_inference": {
+    "chip_reason": "The role explicitly states that 100% remote work is available globally."
+   },
+   "field_inference": null,
+   "nice_to_have_tags": [],
+   "crypto_payment": 0,
+   "can_apply_directly": false,
+   "apply_url": null,
+   "location_scope": "anywhere",
+   "eligible_countries": [],
+   "ineligible_countries": [],
+   "geo_basis": "stated_list",
+   "geo_confidence": "high",
+   "seen": false,
+   "is_favorite": false,
+   "has_applied": false,
+   "application_id": null,
+   "valid_through": "2026-11-12T18:30:28+04:00",
+   "tags": [
+    {
+     "id": 67,
+     "name": "angular"
+    },
+    {
+     "id": 70,
+     "name": "git"
+    },
+    {
+     "id": 103,
+     "name": "javascript"
+    },
+    {
+     "id": 211,
+     "name": "html"
+    },
+    {
+     "id": 481,
+     "name": "css"
+    },
+    {
+     "id": 2014,
+     "name": "react"
+    },
+    {
+     "id": 2867,
+     "name": "web performance"
+    },
+    {
+     "id": 4695,
+     "name": "vue"
+    }
+   ],
+   "salary": null,
+   "specializations": [
+    {
+     "id": 3,
+     "code": "frontend_dev",
+     "name": "Фронтенд",
+     "name_en": "Frontend"
+    }
+   ],
+   "grades": [
+    {
+     "id": 1,
+     "name": "trainee"
+    }
+   ],
+   "regions": [
+    {
+     "id": 5,
+     "code": "singapore",
+     "name": "Сингапур",
+     "name_en": "Singapore"
+    },
+    {
+     "id": 7,
+     "code": "serbia",
+     "name": "Сербия",
+     "name_en": "Serbia"
+    },
+    {
+     "id": 40,
+     "code": "turkey",
+     "name": "Турция",
+     "name_en": "Turkey"
+    },
+    {
+     "id": 46,
+     "code": "germany",
+     "name": "Германия",
+     "name_en": "Germany"
+    },
+    {
+     "id": 53,
+     "code": "bulgaria",
+     "name": "Болгария",
+     "name_en": "Bulgaria"
+    }
+   ],
+   "relocation_regions": []
+  }
+ ],
+ "first_page_url": "https://api.hirify.me/api/vacancies?query=&page=1",
+ "from": 1,
+ "last_page": 8,
+ "last_page_url": "https://api.hirify.me/api/vacancies?query=&page=8",
+ "links": [
+  {
+   "url": null,
+   "label": "&laquo; Previous",
+   "page": null,
+   "active": false
+  },
+  {
+   "url": "https://api.hirify.me/api/vacancies?query=&page=1",
+   "label": "1",
+   "page": 1,
+   "active": true
+  },
+  {
+   "url": "https://api.hirify.me/api/vacancies?query=&page=2",
+   "label": "2",
+   "page": 2,
+   "active": false
+  },
+  {
+   "url": "https://api.hirify.me/api/vacancies?query=&page=3",
+   "label": "3",
+   "page": 3,
+   "active": false
+  },
+  {
+   "url": "https://api.hirify.me/api/vacancies?query=&page=4",
+   "label": "4",
+   "page": 4,
+   "active": false
+  },
+  {
+   "url": "https://api.hirify.me/api/vacancies?query=&page=5",
+   "label": "5",
+   "page": 5,
+   "active": false
+  },
+  {
+   "url": "https://api.hirify.me/api/vacancies?query=&page=6",
+   "label": "6",
+   "page": 6,
+   "active": false
+  },
+  {
+   "url": "https://api.hirify.me/api/vacancies?query=&page=7",
+   "label": "7",
+   "page": 7,
+   "active": false
+  },
+  {
+   "url": "https://api.hirify.me/api/vacancies?query=&page=8",
+   "label": "8",
+   "page": 8,
+   "active": false
+  },
+  {
+   "url": "https://api.hirify.me/api/vacancies?query=&page=2",
+   "label": "Next &raquo;",
+   "page": 2,
+   "active": false
+  }
+ ],
+ "next_page_url": "https://api.hirify.me/api/vacancies?query=&page=2",
+ "path": "https://api.hirify.me/api/vacancies",
+ "per_page": 15,
+ "prev_page_url": null,
+ "to": 15,
+ "total": 109
+}

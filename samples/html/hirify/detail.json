@@ -1,0 +1,1126 @@
+{
+ "id": 1233108,
+ "spec_vocab_version": "v4",
+ "main_stack": [
+  "kotlin",
+  "jetpack compose",
+  "android"
+ ],
+ "slug": "1233108-junior-android-developer-fintech",
+ "title": "Junior Android Developer (Fintech)",
+ "original_title": "Junior Android Developer",
+ "vacancy_score": 5,
+ "company_title": "Andersen Lab",
+ "work_format": [
+  "remote"
+ ],
+ "remote_type": "europe",
+ "remote_restrictions": [
+  "беларусь",
+  "грузия",
+  "казахстан",
+  "азербайджан",
+  "сербия"
+ ],
+ "excluded_locations": [],
+ "work_type": "fulltime",
+ "english_level": "b2",
+ "language_requirements": null,
+ "employee_type": [
+  "employment",
+  "b2b_contract"
+ ],
+ "company_type": "outsourcing_company",
+ "vacancy_language": "en",
+ "text": "<p><strong>Junior Android Developer (Fintech)</strong></p><p>Andersen is hiring a Junior Android Developer for a project developing a mobile banking application and delivering a secure, seamless cashback experience with partner integrations.</p><p>Our customer is a large international technology organization operating in the digital infrastructure domain. It develops and maintains high-load platforms that process and manage significant volumes of data across multiple regions. The engineering landscape includes distributed systems, cloud-based environments, system integrations, and advanced security practices, with a focus on reliability, scalability, and continuous platform evolution.</p><p>The project is focused on developing a new mobile banking application that provides users with a seamless cashback experience. It includes secure transaction processing, real-time cashback tracking, and integration with partner services and financial APIs to deliver a reliable and convenient digital banking experience.</p><p><strong>Responsibilities:</strong></p><ul><li>Designing and developing scalable Android features for a banking application.</li><li>Implementing secure financial flows (transactions, cashback logic, tracking).</li><li>Integrating with external APIs (payments, geolocation, partner services).</li><li>Ensuring high performance, stability, and security of the application.</li><li>Collaborating with backend, QA, and product teams to deliver features end-to-end.</li><li>Maintaining and improving app architecture aligned with modern best practices.</li><li>Lead code reviews, enforce coding standards, and mentor team members.</li><li>Monitoring app health (crashes, performance, analytics) and proactively improving it.</li><li>Working with analytics tools (Firebase, GA) to track user behavior and optimize features.</li><li>Continuously improving development processes, documentation, and codebase quality.</li></ul><p><strong>Must-haves:</strong></p><ul><li>Experience in Android development using Kotlin for 2+ years.</li><li>Good knowledge of Android fundamentals, application lifecycle, OOP and common architectural approaches such as MVVM/MVI.</li><li>Experience building Android UIs with Jetpack Compose and/or the traditional View/XML system.</li><li>Experience with Kotlin Coroutines and basic/working knowledge of Flow.</li><li>Experience integrating REST APIs, handling responses, errors and serialization.</li><li>Basic experience with local data persistence using Room and/or other Android storage solutions.</li><li>Familiarity with dependency injection using Hilt, Dagger, Koin or equivalent.</li><li>Experience writing unit tests and understanding basic UI testing principles.</li><li>Working knowledge of Git and basic understanding of CI/CD.</li><li>Ability to independently implement well-defined features and collaborate with the development team.</li><li>Level of English – from Intermediate+.</li></ul><p><strong>Reasons why this job would be interesting to you:</strong></p><ul><li>Experience in teamwork with leaders in FinTech, Healthcare, Retail, Telecom, and others. Andersen cooperates with such businesses as Samsung, Siemens, Johnson &amp; Johnson, BNP Paribas, Ryanair, Mercedes, TUI, Verivox, Allianz, T-Systems, etc..</li><li>The opportunity to change the project and/or develop expertise in an interesting business domain.</li><li>Guarantee of professional, financial, and career growth! The company has introduced systems of mentoring and adaptation for each new employee.</li><li>The opportunity to earn up to an additional 1,000 EUR per month, depending on the level of expertise, which will be included in the annual bonus, by participating in the company's activities.</li><li>Access to the corporate training portal, where the entire knowledge base of the company is collected and which is constantly updated.</li><li>Bright corporate life (parties / pizza days / PlayStation / fruits / coffee / snacks / movies).</li><li>Certification compensation (AWS, PMP, etc).</li><li>Referral program.</li><li>Private health insurance and sports compensation, depending on the type of employment.</li></ul><p>Join us! %contact_placeholder%</p>",
+ "tldr": "Junior Android Developer (Fintech): Developing features for a mobile banking application with an accent on secure transaction processing and partner integrations. Focus on building scalable UI components using Jetpack Compose and implementing robust financial logic within a professional team environment.",
+ "application_instructions": null,
+ "text_mode": "original",
+ "clear_text": "",
+ "user_id": null,
+ "recruiter_meta_id": 3130,
+ "application_channel": "platform",
+ "suppress_distribution": false,
+ "company_id": 17014,
+ "macroregion_id": null,
+ "premium": false,
+ "verified": true,
+ "is_scam": false,
+ "is_potential_scam": false,
+ "scam_categories": null,
+ "source": "verified",
+ "source_secondary": "hirify_recruiter",
+ "linkedin": null,
+ "is_archived": false,
+ "no_response_reports_count": 0,
+ "og_image_url": "https://api.hirify.me/og-media/1233108.jpg?v=1791537029",
+ "created_at": "2026-10-09T09:10:02.000000Z",
+ "updated_at": "2026-10-13T09:10:07.000000Z",
+ "reopened_at": null,
+ "archived_at": null,
+ "allowed_locations": [],
+ "location_reason": null,
+ "timezone_overlap": null,
+ "office_locations": [],
+ "visa_sponsorship": null,
+ "visa_requirements": [],
+ "global_signals": [],
+ "remote_type_source": null,
+ "geo_inference": null,
+ "field_inference": null,
+ "nice_to_have_tags": [],
+ "crypto_payment": 0,
+ "seo_description": "Junior Android Developer (Fintech) at Andersen Lab (remote, fulltime). Work with kotlin, android, rest api, koin, jetpack compose",
+ "seo_keywords": {
+  "0": "kotlin",
+  "1": "android",
+  "2": "rest api",
+  "3": "koin",
+  "4": "jetpack compose",
+  "5": "hilt",
+  "6": "dagger",
+  "7": "junior",
+  "9": "developer",
+  "10": "(fintech)"
+ },
+ "seo_noindex": false,
+ "contacts_type": [
+  "url"
+ ],
+ "location_scope": "restricted",
+ "eligible_countries": [
+  "azerbaijan",
+  "belarus",
+  "georgia",
+  "kazakhstan",
+  "serbia"
+ ],
+ "ineligible_countries": [],
+ "geo_basis": "model_judgment",
+ "geo_confidence": "medium",
+ "has_applied": false,
+ "application_id": null,
+ "is_in_manager": false,
+ "can_apply_directly": true,
+ "apply_url": null,
+ "similar_vacancies_source": "table",
+ "similar_vacancies": [
+  {
+   "id": 1218872,
+   "spec_vocab_version": "v4",
+   "main_stack": [
+    "kotlin",
+    "android",
+    "jetpack compose"
+   ],
+   "slug": "1218872-junior-android-fintech-developer",
+   "title": "Junior Android Developer (Fintech)",
+   "original_title": "Junior Android Developer",
+   "vacancy_score": 5,
+   "company_title": "Andersen",
+   "work_format": [
+    "onsite",
+    "remote",
+    "hybrid"
+   ],
+   "remote_type": "europe",
+   "remote_restrictions": [
+    "georgia"
+   ],
+   "excluded_locations": [],
+   "work_type": "fulltime",
+   "english_level": "b2",
+   "language_requirements": null,
+   "employee_type": [
+    "employment"
+   ],
+   "company_type": "outsourcing_company",
+   "vacancy_language": "en",
+   "tldr": "Junior Android Developer (Fintech): Building a secure mobile banking application with an accent on cashback flows, financial transactions, partner integrations, and application stability. Focus on implementing Android features with Kotlin, integrating financial APIs, monitoring performance and crashes, and collaborating with backend, QA, and product teams.",
+   "application_instructions": null,
+   "text_mode": null,
+   "user_id": null,
+   "recruiter_meta_id": null,
+   "application_channel": "contacts",
+   "suppress_distribution": false,
+   "company_id": 12570,
+   "macroregion_id": 4,
+   "premium": false,
+   "verified": false,
+   "is_scam": false,
+   "is_potential_scam": false,
+   "scam_categories": null,
+   "source": "scout",
+   "source_secondary": "hh",
+   "linkedin": null,
+   "is_archived": false,
+   "no_response_reports_count": 0,
+   "og_image_url": "https://api.hirify.me/og-media/1218872.jpg?v=1791361011",
+   "created_at": "2026-10-07T08:16:42.000000Z",
+   "updated_at": "2026-10-07T08:16:50.000000Z",
+   "reopened_at": null,
+   "archived_at": null,
+   "allowed_locations": [
+    "georgia"
+   ],
+   "location_reason": "unspecified",
+   "timezone_overlap": null,
+   "office_locations": [],
+   "visa_sponsorship": null,
+   "visa_requirements": [],
+   "global_signals": [],
+   "remote_type_source": "stated",
+   "geo_inference": null,
+   "field_inference": null,
+   "nice_to_have_tags": [
+    "firebase",
+    "google analytics",
+    "fintech",
+    "healthcare",
+    "retail",
+    "telecom"
+   ],
+   "crypto_payment": 0,
+   "seen": false,
+   "valid_through": "2026-11-12T18:30:30+04:00",
+   "tags": [
+    {
+     "id": 65,
+     "name": "kotlin"
+    },
+    {
+     "id": 161,
+     "name": "android"
+    },
+    {
+     "id": 189,
+     "name": "rest api"
+    },
+    {
+     "id": 693,
+     "name": "qa automation"
+    },
+    {
+     "id": 1043,
+     "name": "mvi"
+    },
+    {
+     "id": 1045,
+     "name": "mvvm"
+    },
+    {
+     "id": 1808,
+     "name": "jetpack compose"
+    },
+    {
+     "id": 2843,
+     "name": "room"
+    },
+    {
+     "id": 3248,
+     "name": "hilt"
+    },
+    {
+     "id": 9484,
+     "name": "kotlin coroutines"
+    }
+   ],
+   "salary": null,
+   "specializations": [
+    {
+     "id": 59,
+     "code": "android_dev",
+     "name": "Android-разработчик",
+     "name_en": "Android Developer"
+    }
+   ],
+   "grades": [
+    {
+     "id": 2,
+     "name": "junior"
+    }
+   ],
+   "regions": [
+    {
+     "id": 38,
+     "code": "georgia",
+     "name": "Грузия",
+     "name_en": "Georgia"
+    }
+   ],
+   "relocation_regions": []
+  },
+  {
+   "id": 1205510,
+   "spec_vocab_version": "v4",
+   "main_stack": [
+    "kotlin",
+    "android",
+    "jetpack compose"
+   ],
+   "slug": "1205510-android-developer-kotlin-fintech",
+   "title": "Android Developer (Fintech)",
+   "original_title": "Android Developer",
+   "vacancy_score": 4,
+   "company_title": "%hirify_global%",
+   "work_format": [
+    "remote",
+    "hybrid",
+    "onsite"
+   ],
+   "remote_type": "global",
+   "remote_restrictions": [],
+   "excluded_locations": [],
+   "work_type": "fulltime",
+   "english_level": "b1",
+   "language_requirements": null,
+   "employee_type": [
+    "employment"
+   ],
+   "company_type": "outsourcing_company",
+   "vacancy_language": "en",
+   "tldr": "Android Developer (Fintech) (Kotlin/Android): Building a secure mobile banking application with cashback features, partner integrations, and financial API connectivity with an accent on transaction security, real-time tracking, and scalable Android architecture. Focus on implementing complex financial flows, optimizing application performance and stability, and integrating analytics, external APIs, and local data storage.",
+   "application_instructions": null,
+   "text_mode": null,
+   "user_id": null,
+   "recruiter_meta_id": null,
+   "application_channel": "contacts",
+   "suppress_distribution": false,
+   "company_id": 405,
+   "macroregion_id": null,
+   "premium": true,
+   "verified": false,
+   "is_scam": false,
+   "is_potential_scam": false,
+   "scam_categories": null,
+   "source": "scout",
+   "source_secondary": "ru-global",
+   "linkedin": null,
+   "is_archived": false,
+   "no_response_reports_count": 0,
+   "og_image_url": "https://api.hirify.me/og-media/1205510.jpg?v=1791201786",
+   "created_at": "2026-10-05T12:03:00.000000Z",
+   "updated_at": "2026-10-05T12:03:03.000000Z",
+   "reopened_at": null,
+   "archived_at": null,
+   "allowed_locations": [
+    "anywhere"
+   ],
+   "location_reason": null,
+   "timezone_overlap": null,
+   "office_locations": [],
+   "visa_sponsorship": null,
+   "visa_requirements": [],
+   "global_signals": [],
+   "remote_type_source": "stated",
+   "geo_inference": {
+    "chip_reason": "The role explicitly states \"Locations: Worldwide\" and \"Conditions: Worldwide\"."
+   },
+   "field_inference": null,
+   "nice_to_have_tags": [],
+   "crypto_payment": 0,
+   "seen": false,
+   "valid_through": "2026-11-12T18:30:30+04:00",
+   "tags": [
+    {
+     "id": 65,
+     "name": "kotlin"
+    },
+    {
+     "id": 161,
+     "name": "android"
+    },
+    {
+     "id": 189,
+     "name": "rest api"
+    },
+    {
+     "id": 1043,
+     "name": "mvi"
+    },
+    {
+     "id": 1045,
+     "name": "mvvm"
+    },
+    {
+     "id": 1788,
+     "name": "coroutines"
+    },
+    {
+     "id": 1790,
+     "name": "flow"
+    },
+    {
+     "id": 1808,
+     "name": "jetpack compose"
+    },
+    {
+     "id": 2843,
+     "name": "room"
+    },
+    {
+     "id": 3248,
+     "name": "hilt"
+    }
+   ],
+   "salary": {
+    "id": 486824,
+    "vacancy_id": 1205510,
+    "currency": "EUR",
+    "salary_period": "month",
+    "min": 980,
+    "max": 1800,
+    "salary_in_usd": 1564,
+    "created_at": "2026-10-05T12:03:03.000000Z",
+    "updated_at": "2026-10-05T12:03:03.000000Z"
+   },
+   "specializations": [
+    {
+     "id": 59,
+     "code": "android_dev",
+     "name": "Android-разработчик",
+     "name_en": "Android Developer"
+    }
+   ],
+   "grades": [
+    {
+     "id": 2,
+     "name": "junior"
+    }
+   ],
+   "regions": [],
+   "relocation_regions": []
+  },
+  {
+   "id": 1219148,
+   "spec_vocab_version": "v4",
+   "main_stack": [
+    "android",
+    "kotlin"
+   ],
+   "slug": "1219148-junior-android-developer-kotlin",
+   "title": "Junior Android Developer (Fintech)",
+   "original_title": "Junior Android Developer",
+   "vacancy_score": 6,
+   "company_title": "Andersen",
+   "work_format": [
+    "onsite",
+    "remote",
+    "hybrid"
+   ],
+   "remote_type": "russia",
+   "remote_restrictions": [
+    "belarus"
+   ],
+   "excluded_locations": [],
+   "work_type": "fulltime",
+   "english_level": "b1",
+   "language_requirements": null,
+   "employee_type": [
+    "employment"
+   ],
+   "company_type": "outsourcing_company",
+   "vacancy_language": "en",
+   "tldr": "Junior Android Developer (Fintech): Developing a mobile banking application with secure transaction processing, real-time cashback tracking, and partner API integrations with an accent on Kotlin, scalable Android architecture, and application security. Focus on implementing financial flows, optimizing performance and stability, and integrating analytics, backend services, and external financial APIs.",
+   "application_instructions": null,
+   "text_mode": null,
+   "user_id": null,
+   "recruiter_meta_id": null,
+   "application_channel": "contacts",
+   "suppress_distribution": false,
+   "company_id": 12570,
+   "macroregion_id": 6,
+   "premium": false,
+   "verified": false,
+   "is_scam": false,
+   "is_potential_scam": false,
+   "scam_categories": null,
+   "source": "scout",
+   "source_secondary": "hh",
+   "linkedin": null,
+   "is_archived": false,
+   "no_response_reports_count": 0,
+   "og_image_url": "https://api.hirify.me/og-media/1219148.jpg?v=1791363283",
+   "created_at": "2026-10-07T08:54:38.000000Z",
+   "updated_at": "2026-10-07T08:54:41.000000Z",
+   "reopened_at": null,
+   "archived_at": null,
+   "allowed_locations": [
+    "belarus"
+   ],
+   "location_reason": "unspecified",
+   "timezone_overlap": null,
+   "office_locations": [],
+   "visa_sponsorship": null,
+   "visa_requirements": [],
+   "global_signals": [],
+   "remote_type_source": "stated",
+   "geo_inference": null,
+   "field_inference": null,
+   "nice_to_have_tags": [
+    "google analytics"
+   ],
+   "crypto_payment": 0,
+   "seen": false,
+   "valid_through": "2026-11-12T18:30:30+04:00",
+   "tags": [
+    {
+     "id": 65,
+     "name": "kotlin"
+    },
+    {
+     "id": 161,
+     "name": "android"
+    },
+    {
+     "id": 189,
+     "name": "rest api"
+    },
+    {
+     "id": 605,
+     "name": "firebase"
+    },
+    {
+     "id": 1018,
+     "name": "unit testing"
+    },
+    {
+     "id": 1051,
+     "name": "dependency injection"
+    },
+    {
+     "id": 1790,
+     "name": "flow"
+    },
+    {
+     "id": 1808,
+     "name": "jetpack compose"
+    },
+    {
+     "id": 2843,
+     "name": "room"
+    },
+    {
+     "id": 9484,
+     "name": "kotlin coroutines"
+    }
+   ],
+   "salary": null,
+   "specializations": [
+    {
+     "id": 59,
+     "code": "android_dev",
+     "name": "Android-разработчик",
+     "name_en": "Android Developer"
+    }
+   ],
+   "grades": [
+    {
+     "id": 2,
+     "name": "junior"
+    }
+   ],
+   "regions": [
+    {
+     "id": 54,
+     "code": "belarus",
+     "name": "Беларусь",
+     "name_en": "Belarus"
+    }
+   ],
+   "relocation_regions": []
+  },
+  {
+   "id": 1203825,
+   "spec_vocab_version": "v4",
+   "main_stack": [
+    "kotlin",
+    "jetpack compose",
+    "coroutines"
+   ],
+   "slug": "1203825-senior-android-razrabotcik-fintech",
+   "title": "Senior Android-разработчик (Fintech)",
+   "original_title": "Android-разработчик — Senior",
+   "vacancy_score": 5,
+   "company_title": null,
+   "work_format": [
+    "remote"
+   ],
+   "remote_type": "russia",
+   "remote_restrictions": [
+    "russia"
+   ],
+   "excluded_locations": [
+    "moscow",
+    "saint_petersburg"
+   ],
+   "work_type": "fulltime",
+   "english_level": null,
+   "language_requirements": null,
+   "employee_type": [
+    "employment"
+   ],
+   "company_type": null,
+   "vacancy_language": "ru",
+   "tldr": "Senior Android-разработчик (Kotlin/Jetpack Compose): Разработка и поддержка Android-приложений финтех-компании с акцентом на Kotlin, Coroutines/Flow, Jetpack Compose, XML и архитектуры MVVM/MVI. Focus on поддержке больших кодовых баз, реализации функций до продакшена, навигации, dependency injection и командном code review.",
+   "application_instructions": null,
+   "text_mode": null,
+   "user_id": null,
+   "recruiter_meta_id": null,
+   "application_channel": "contacts",
+   "suppress_distribution": false,
+   "company_id": null,
+   "macroregion_id": 5,
+   "premium": false,
+   "verified": false,
+   "is_scam": false,
+   "is_potential_scam": false,
+   "scam_categories": null,
+   "source": "telegram",
+   "source_secondary": "telegram",
+   "linkedin": null,
+   "is_archived": false,
+   "no_response_reports_count": 0,
+   "og_image_url": "https://api.hirify.me/og-media/1203825.jpg?v=1791894643",
+   "created_at": "2026-10-05T03:54:23.000000Z",
+   "updated_at": "2026-10-13T12:30:40.000000Z",
+   "reopened_at": null,
+   "archived_at": null,
+   "allowed_locations": [
+    "russia"
+   ],
+   "location_reason": "unspecified",
+   "timezone_overlap": null,
+   "office_locations": [],
+   "visa_sponsorship": null,
+   "visa_requirements": [
+    "russia"
+   ],
+   "global_signals": [],
+   "remote_type_source": "stated",
+   "geo_inference": {
+    "chip_reason": "Фраза «полностью удалённая работа по РФ» и требование проживать на территории РФ"
+   },
+   "field_inference": null,
+   "nice_to_have_tags": [
+    "многомодульные проекты",
+    "unit тесты",
+    "миграции экранов с xml на jetpack compose"
+   ],
+   "crypto_payment": null,
+   "seen": false,
+   "valid_through": "2026-11-10T16:30:40+04:00",
+   "tags": [
+    {
+     "id": 65,
+     "name": "kotlin"
+    },
+    {
+     "id": 161,
+     "name": "android"
+    },
+    {
+     "id": 278,
+     "name": "xml"
+    },
+    {
+     "id": 1043,
+     "name": "mvi"
+    },
+    {
+     "id": 1045,
+     "name": "mvvm"
+    },
+    {
+     "id": 1788,
+     "name": "coroutines"
+    },
+    {
+     "id": 1789,
+     "name": "koin"
+    },
+    {
+     "id": 1790,
+     "name": "flow"
+    },
+    {
+     "id": 1808,
+     "name": "jetpack compose"
+    },
+    {
+     "id": 7528,
+     "name": "jetpack navigation"
+    },
+    {
+     "id": 9485,
+     "name": "dagger"
+    }
+   ],
+   "salary": {
+    "id": 486238,
+    "vacancy_id": 1203825,
+    "currency": "RUB",
+    "salary_period": "month",
+    "min": 215000,
+    "max": 300000,
+    "salary_in_usd": 3076,
+    "created_at": "2026-10-05T03:54:23.000000Z",
+    "updated_at": "2026-10-05T03:54:23.000000Z"
+   },
+   "specializations": [
+    {
+     "id": 59,
+     "code": "android_dev",
+     "name": "Android-разработчик",
+     "name_en": "Android Developer"
+    }
+   ],
+   "grades": [
+    {
+     "id": 4,
+     "name": "senior"
+    }
+   ],
+   "regions": [
+    {
+     "id": 1,
+     "code": "russia",
+     "name": "Россия",
+     "name_en": "Russia"
+    }
+   ],
+   "relocation_regions": []
+  },
+  {
+   "id": 1124506,
+   "spec_vocab_version": "v4",
+   "main_stack": [
+    "kotlin",
+    "android",
+    "jetpack compose"
+   ],
+   "slug": "1124506-android-developer-ecommerce",
+   "title": "Android Developer (eCommerce)",
+   "original_title": "Android Developer",
+   "vacancy_score": null,
+   "company_title": "%hirify_global%",
+   "work_format": [
+    "remote",
+    "hybrid",
+    "onsite"
+   ],
+   "remote_type": "global",
+   "remote_restrictions": [],
+   "excluded_locations": [],
+   "work_type": "fulltime",
+   "english_level": "b1",
+   "language_requirements": null,
+   "employee_type": [
+    "employment"
+   ],
+   "company_type": "outsourcing_company",
+   "vacancy_language": "en",
+   "tldr": "Android Developer (Kotlin/eCommerce): Developing customer and courier mobile applications for a large-scale eCommerce marketplace with an accent on Jetpack Compose, modular architecture, API integration, and delivery workflows. Focus on building complex shopping and courier journeys, implementing feature flags and testing, and stabilizing functionality through release.",
+   "application_instructions": null,
+   "text_mode": null,
+   "user_id": null,
+   "recruiter_meta_id": null,
+   "application_channel": "contacts",
+   "suppress_distribution": false,
+   "company_id": 405,
+   "macroregion_id": null,
+   "premium": true,
+   "verified": false,
+   "is_scam": false,
+   "is_potential_scam": false,
+   "scam_categories": null,
+   "source": "scout",
+   "source_secondary": "ru-global",
+   "linkedin": null,
+   "is_archived": false,
+   "no_response_reports_count": 0,
+   "og_image_url": "https://api.hirify.me/og-media/1124506.jpg?v=1791187567",
+   "created_at": "2026-09-19T23:19:46.000000Z",
+   "updated_at": "2026-10-05T08:06:03.000000Z",
+   "reopened_at": "2026-10-05 12:06:03",
+   "archived_at": "2026-09-29 18:03:56",
+   "allowed_locations": [
+    "anywhere"
+   ],
+   "location_reason": null,
+   "timezone_overlap": null,
+   "office_locations": [],
+   "visa_sponsorship": null,
+   "visa_requirements": [],
+   "global_signals": [],
+   "remote_type_source": "stated",
+   "geo_inference": {
+    "chip_reason": "The Locations and Conditions sections state \"Worldwide\"."
+   },
+   "field_inference": null,
+   "nice_to_have_tags": [
+    "ecommerce",
+    "delivery",
+    "fintech"
+   ],
+   "crypto_payment": null,
+   "seen": false,
+   "valid_through": "2026-11-12T18:30:30+04:00",
+   "tags": [
+    {
+     "id": 65,
+     "name": "kotlin"
+    },
+    {
+     "id": 161,
+     "name": "android"
+    },
+    {
+     "id": 1043,
+     "name": "mvi"
+    },
+    {
+     "id": 1045,
+     "name": "mvvm"
+    },
+    {
+     "id": 1788,
+     "name": "coroutines"
+    },
+    {
+     "id": 1790,
+     "name": "flow"
+    },
+    {
+     "id": 1808,
+     "name": "jetpack compose"
+    },
+    {
+     "id": 3248,
+     "name": "hilt"
+    }
+   ],
+   "salary": {
+    "id": 447673,
+    "vacancy_id": 1124506,
+    "currency": "EUR",
+    "salary_period": "month",
+    "min": 1600,
+    "max": 3000,
+    "salary_in_usd": 2588,
+    "created_at": "2026-09-19T23:19:48.000000Z",
+    "updated_at": "2026-10-05T08:06:03.000000Z"
+   },
+   "specializations": [
+    {
+     "id": 59,
+     "code": "android_dev",
+     "name": "Android-разработчик",
+     "name_en": "Android Developer"
+    }
+   ],
+   "grades": [
+    {
+     "id": 3,
+     "name": "middle"
+    }
+   ],
+   "regions": [],
+   "relocation_regions": []
+  },
+  {
+   "id": 1229724,
+   "spec_vocab_version": "v4",
+   "main_stack": [
+    "kotlin",
+    "android",
+    "jetpack compose"
+   ],
+   "slug": "1229724-senior-android-engineer-kotlin",
+   "title": "Senior Android Engineers (Kotlin)",
+   "original_title": "Senior Android Engineers",
+   "vacancy_score": 7,
+   "company_title": "%hirify_global%",
+   "work_format": [
+    "remote"
+   ],
+   "remote_type": null,
+   "remote_restrictions": [
+    "latam"
+   ],
+   "excluded_locations": [],
+   "work_type": "fulltime",
+   "english_level": "b2",
+   "language_requirements": null,
+   "employee_type": [
+    "employment"
+   ],
+   "company_type": "outsourcing_company",
+   "vacancy_language": "en",
+   "tldr": "Senior Android Engineers (Kotlin): Building scalable Android applications across the full development lifecycle with an accent on Kotlin, Jetpack Compose, Android architecture components, and dependency injection. Focus on designing well-architected solutions, solving performance and resource challenges, and delivering highly available applications through agile collaboration.",
+   "application_instructions": null,
+   "text_mode": null,
+   "user_id": null,
+   "recruiter_meta_id": null,
+   "application_channel": "contacts",
+   "suppress_distribution": false,
+   "company_id": 819,
+   "macroregion_id": null,
+   "premium": true,
+   "verified": false,
+   "is_scam": false,
+   "is_potential_scam": false,
+   "scam_categories": null,
+   "source": "scout",
+   "source_secondary": "global",
+   "linkedin": null,
+   "is_archived": false,
+   "no_response_reports_count": 0,
+   "og_image_url": "https://api.hirify.me/og-media/1229724.jpg?v=1791482889",
+   "created_at": "2026-10-08T18:08:04.000000Z",
+   "updated_at": "2026-10-08T18:08:06.000000Z",
+   "reopened_at": null,
+   "archived_at": null,
+   "allowed_locations": [
+    "latam"
+   ],
+   "location_reason": "unspecified",
+   "timezone_overlap": null,
+   "office_locations": [],
+   "visa_sponsorship": null,
+   "visa_requirements": [],
+   "global_signals": [],
+   "remote_type_source": null,
+   "geo_inference": null,
+   "field_inference": {
+    "work_format": {
+     "p": 0.64,
+     "basis": "clarifier",
+     "value": null,
+     "choice": "remote"
+    }
+   },
+   "nice_to_have_tags": [],
+   "crypto_payment": 0,
+   "seen": false,
+   "valid_through": "2026-11-12T18:30:30+04:00",
+   "tags": [
+    {
+     "id": 65,
+     "name": "kotlin"
+    },
+    {
+     "id": 161,
+     "name": "android"
+    },
+    {
+     "id": 1051,
+     "name": "dependency injection"
+    },
+    {
+     "id": 1492,
+     "name": "android sdk"
+    },
+    {
+     "id": 1808,
+     "name": "jetpack compose"
+    },
+    {
+     "id": 2850,
+     "name": "viewmodel"
+    },
+    {
+     "id": 3248,
+     "name": "hilt"
+    },
+    {
+     "id": 4371,
+     "name": "navigation"
+    },
+    {
+     "id": 9485,
+     "name": "dagger"
+    },
+    {
+     "id": 373164,
+     "name": "live data"
+    }
+   ],
+   "salary": null,
+   "specializations": [
+    {
+     "id": 59,
+     "code": "android_dev",
+     "name": "Android-разработчик",
+     "name_en": "Android Developer"
+    }
+   ],
+   "grades": [
+    {
+     "id": 4,
+     "name": "senior"
+    }
+   ],
+   "regions": [],
+   "relocation_regions": []
+  }
+ ],
+ "salary_stats": {
+  "vacancy_id": 1233108,
+  "vacancy_salary_usd": null,
+  "vacancy_salary_comparable_usd": null,
+  "vacancy_salary_annualized": false,
+  "vacancy_market": "international",
+  "display_currency": null,
+  "vacancy_salary": null,
+  "primary": {
+   "market": "international",
+   "period": "year",
+   "median_usd": null,
+   "p25_usd": null,
+   "p75_usd": null,
+   "sample_size": 1,
+   "sufficient": false,
+   "currency": null,
+   "median": null,
+   "p25": null,
+   "p75": null
+  },
+  "secondary": {
+   "market": "cis",
+   "period": "month",
+   "median_usd": null,
+   "p25_usd": null,
+   "p75_usd": null,
+   "sample_size": 0,
+   "sufficient": false
+  },
+  "comparison": null
+ },
+ "valid_through": "2026-12-04T13:10:02+04:00",
+ "tags": [
+  {
+   "id": 65,
+   "name": "kotlin"
+  },
+  {
+   "id": 161,
+   "name": "android"
+  },
+  {
+   "id": 189,
+   "name": "rest api"
+  },
+  {
+   "id": 1789,
+   "name": "koin"
+  },
+  {
+   "id": 1808,
+   "name": "jetpack compose"
+  },
+  {
+   "id": 3248,
+   "name": "hilt"
+  },
+  {
+   "id": 9485,
+   "name": "dagger"
+  }
+ ],
+ "salary": null,
+ "specializations": [
+  {
+   "id": 59,
+   "code": "android_dev",
+   "name": "Android-разработчик",
+   "name_en": "Android Developer"
+  }
+ ],
+ "grades": [
+  {
+   "id": 2,
+   "name": "junior"
+  }
+ ],
+ "regions": [
+  {
+   "id": 7,
+   "code": "serbia",
+   "name": "Сербия",
+   "name_en": "Serbia"
+  },
+  {
+   "id": 38,
+   "code": "georgia",
+   "name": "Грузия",
+   "name_en": "Georgia"
+  }
+ ],
+ "relocation_regions": [],
+ "evaluation": {
+  "id": 1087810,
+  "vacancy_id": 1233108,
+  "data": {
+   "highlights": [
+    {
+     "title_en": "Scope mismatch",
+     "title_ru": "Несовпадение уровня",
+     "assessment": "negative",
+     "explanation_en": "For a junior role, leading code reviews and mentoring teammates suggest responsibilities beyond the stated level.",
+     "explanation_ru": "Для junior-позиции ведение код-ревью и наставничество выглядят как обязанности более высокого уровня."
+    },
+    {
+     "title_en": "Salary not specified",
+     "title_ru": "Зарплата не указана",
+     "assessment": "neutral",
+     "explanation_en": "No salary range is provided, so you cannot assess compensation upfront; junior Android pay varies widely by country and contract type.",
+     "explanation_ru": "Диапазон зарплаты не указан, поэтому заранее оценить условия оплаты нельзя; доход junior-разработчика Android сильно зависит от страны и типа договора."
+    },
+    {
+     "title_en": "Outsourcing work",
+     "title_ru": "Аутсорс-проекты",
+     "assessment": "neutral",
+     "explanation_en": "Andersen is an outsourcing company, so the client project and day-to-day work may change over time.",
+     "explanation_ru": "Andersen работает как аутсорсинговая компания, поэтому проект и повседневные задачи со временем могут меняться."
+    },
+    {
+     "title_en": "Modern stack",
+     "title_ru": "Актуальный стек",
+     "assessment": "positive",
+     "explanation_en": "Kotlin, Android and Jetpack Compose are current, in-demand technologies for Android development.",
+     "explanation_ru": "Kotlin, Android и Jetpack Compose востребованы и актуальны для Android-разработки."
+    },
+    {
+     "title_en": "Fintech project",
+     "title_ru": "Финтех-проект",
+     "assessment": "positive",
+     "explanation_en": "Building banking and cashback features can provide experience with financial flows, integrations and security requirements.",
+     "explanation_ru": "Разработка банковских и cashback-функций даст опыт работы с финансовыми сценариями, интеграциями и требованиями безопасности."
+    }
+   ],
+   "vacancy_score": {
+    "score": 54,
+    "score_summary": "The role offers a relevant Android stack and fintech project, but the junior title conflicts with expectations to lead reviews and mentor others, while salary details are missing.",
+    "score_title_en": "Middle job",
+    "score_title_ru": "Средняя вакансия",
+    "score_summary_ru": "В вакансии актуальный Android-стек и финтех-проект, но ожидания вести код-ревью и наставлять коллег не совпадают с уровнем junior, а зарплата не указана."
+   }
+  },
+  "ai_log_id": 19915586,
+  "created_at": "2026-10-09T09:11:30.000000Z",
+  "updated_at": "2026-10-09T09:11:30.000000Z"
+ },
+ "company": {
+  "id": 17014,
+  "name": "Andersen Lab",
+  "slug": "andersen-lab",
+  "seo_public": true,
+  "logo": "https://hire.hirify.me/storage/company-logos/480/XpmXv3kXprPRn7P8yqCQV27MenE6xRMfauTu4iSE.png",
+  "tagline": null,
+  "industry": null,
+  "headcount": null,
+  "open_count": 69,
+  "remote_friendly": true
+ }
+}

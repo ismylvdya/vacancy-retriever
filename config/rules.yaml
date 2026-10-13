@@ -76,7 +76,9 @@ serbia_country_names: [serbia, srbija, сербия, србија, rs]
 prefilter:
   # Слова в ЗАГОЛОВКЕ, по которым вакансия сразу уходит в Auto-skipped.
   # Сравнение — по целым словам, без учёта регистра.
-  title_deny_keywords:
+  # Слова грейда. НЕ применяются, если в заголовке есть слово из title_junior_markers
+  # ("Junior-Middle", "Стажёр / младший" — оставляем).
+  title_grade_keywords:
     - senior
     - middle
     - middle+
@@ -91,6 +93,9 @@ prefilter:
     - ведущий
     - старший
     - руководитель
+  title_junior_markers: [junior, intern, trainee, стажер, стажёр, джун, джуниор, младший, начинающий]
+  # Роли, которые точно не подходят (применяются всегда).
+  title_deny_keywords:
     - qa
     - тестировщик
     - 1с

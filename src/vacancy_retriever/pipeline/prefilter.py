@@ -25,12 +25,10 @@ class Prefilter:
 
     def __init__(self, rules: Rules):
         self._rules = rules
-        words = sorted(rules.prefilter.title_deny_keywords, key=len, reverse=True)
-        self._deny = (
-            re.compile(r"(?<![\w+#])(" + "|".join(re.escape(w.lower()) for w in words) + r")(?![\w+#])", re.I)
-            if words
-            else None
-        )
+        prefilter = rules.prefilter
+        self._deny = _word_pattern(prefilter.title_deny_keywords)
+        self._grades = _word_pattern(prefilter.title_grade_keywords)
+        self._junior = _word_pattern(prefilter.title_junior_markers)
 
     def check(self, item: StoredRawItem, now: datetime) -> PrefilterResult:
         if item.published_at and now - item.published_at > timedelta(days=self._rules.max_age_days):
@@ -52,9 +50,23 @@ class Prefilter:
         return self._check_title(item.title)
 
     def _check_title(self, title: str) -> PrefilterResult:
-        if not title or not self._deny:
+        if not title:
             return KEEP
-        match = self._deny.search(title.lower())
+        lowered = title.lower()
+        reason = self._rules.prefilter.title_deny_reason
+        match = self._deny.search(lowered) if self._deny else None
         if match:
-            return PrefilterResult("skip", f"{self._rules.prefilter.title_deny_reason}: {match.group(1)}")
+            return PrefilterResult("skip", f"{reason}: {match.group(1)}")
+        if self._junior and self._junior.search(lowered):
+            return KEEP
+        match = self._grades.search(lowered) if self._grades else None
+        if match:
+            return PrefilterResult("skip", f"{reason}: {match.group(1)}")
         return KEEP
+
+
+def _word_pattern(words: list[str]) -> re.Pattern[str] | None:
+    if not words:
+        return None
+    ordered = sorted(words, key=len, reverse=True)
+    return re.compile(r"(?<![\w+#])(" + "|".join(re.escape(w.lower()) for w in ordered) + r")(?![\w+#])", re.I)

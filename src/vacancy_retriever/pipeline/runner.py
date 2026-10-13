@@ -462,16 +462,34 @@ class Pipeline:
             f" AND status != 'pending_llm' AND (run_id = ? OR id IN ({marks}))",
             (summary.run_id, *ids),
         )
+        pending_uids = self._pending_email_uids()
         for row in rows:
             meta = json.loads(row["meta_json"] or "{}")
-            if meta.get("email"):
+            email_meta = meta.get("email") or {}
+            if email_meta and (row["source_id"], str(email_meta.get("uid"))) not in pending_uids:
                 processed[row["source_id"]].append(meta)
         for source_id, metas in processed.items():
             collector = self._collectors.get(source_id)
             if collector is None:
                 continue
-            for error in collector.after_commit(metas):
-                log.warning("after_commit %s: %s", source_id, error)
+            errors = collector.after_commit(metas)
+            if errors:
+                log.warning("after_commit %s: %s", source_id, errors)
+                self.storage.db.execute(
+                    "UPDATE source_runs SET alert = 'mail_flags', error = ? WHERE run_id = ? AND source_id = ?",
+                    ("; ".join(errors)[:500], summary.run_id, source_id),
+                )
+
+    def _pending_email_uids(self) -> set[tuple[str, str]]:
+        """A letter split into several items is flagged only when none of them waits for the LLM."""
+        rows = self.storage.db.query(
+            "SELECT source_id, meta_json FROM raw_items WHERE status = 'pending_llm' AND meta_json LIKE '%\"email\"%'"
+        )
+        result: set[tuple[str, str]] = set()
+        for row in rows:
+            email_meta = json.loads(row["meta_json"] or "{}").get("email") or {}
+            result.add((row["source_id"], str(email_meta.get("uid"))))
+        return result
 
     # ------------------------------------------------------------------ texts
     @staticmethod

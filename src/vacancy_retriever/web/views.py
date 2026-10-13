@@ -33,7 +33,7 @@ STAGE_LABELS = {"scoring": "Evaluation", "scoring_email": "Evaluation · e-mail 
 ALERT_LABELS = {
     "http_403": "HTTP 403 — blocked?", "http_429": "HTTP 429 — rate limited", "captcha": "Captcha",
     "cloudflare": "Cloudflare challenge", "login_redirect": "Redirect to login", "not_json": "Unexpected response",
-    "zero_items": "0 items (usually more)",
+    "zero_items": "0 items (usually more)", "mail_flags": "Could not label / move processed e-mails",
 }
 
 

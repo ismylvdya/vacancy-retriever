@@ -82,8 +82,18 @@ $("run-btn").addEventListener("click", async () => {
   }
 });
 
+let cancelArmed = null;
 $("cancel-btn").addEventListener("click", async () => {
-  if (!confirm("Cancel the run? Everything collected in this run will be discarded.")) return;
+  const button = $("cancel-btn");
+  if (!cancelArmed) {
+    button.textContent = "Click again to cancel";
+    toast("Everything collected in this run will be discarded", 4000);
+    cancelArmed = setTimeout(() => { cancelArmed = null; button.textContent = "Cancel"; }, 4000);
+    return;
+  }
+  clearTimeout(cancelArmed);
+  cancelArmed = null;
+  button.textContent = "Cancel";
   $("cancel-btn").disabled = true;
   try {
     await api("POST", "/api/cancel");

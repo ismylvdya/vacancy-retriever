@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import hashlib
 import logging
 from pathlib import Path
 from typing import Any
@@ -51,6 +52,14 @@ def describe_status(state: dict[str, Any]) -> dict[str, Any]:
     return state
 
 
+def _static_version() -> str:
+    """Changes whenever a static file changes, so browsers never keep an old app.js / style.css."""
+    digest = hashlib.sha1(APP_VERSION.encode())
+    for path in sorted((WEB_DIR / "static").glob("*.*")):
+        digest.update(path.read_bytes())
+    return digest.hexdigest()[:10]
+
+
 def _allowed_hosts(port: int) -> set[str]:
     return {f"127.0.0.1:{port}", f"localhost:{port}"}
 
@@ -60,7 +69,7 @@ def create_app(config: AppConfig, storage: Storage, port: int, manager: RunManag
     manager = manager or RunManager(config, storage)
     manager.recover()
     templates = Jinja2Templates(directory=str(WEB_DIR / "templates"))
-    templates.env.globals.update(app_name=APP_NAME, version=APP_VERSION)
+    templates.env.globals.update(app_name=APP_NAME, version=_static_version())
     icons = IconStore(config.paths)
     cards = views.CardBuilder(config, storage)
     allowed_hosts = _allowed_hosts(port)

@@ -1,0 +1,119 @@
+# Правила, по которым КОД (не LLM) считает группу, звёзды, ВНЖ и отсев.
+# LLM только извлекает факты (см. config/prompts/scoring.md).
+# После правки этого файла пересчитать ленту без новых вызовов LLM:
+#   vacancy-retriever recalculate   (или кнопка "Recalculate" во вкладке Feed)
+
+# Вакансии старше стольких дней — отсев ("expired") и не собираются.
+max_age_days: 30
+# Самый первый прогон источника собирает только за столько дней.
+first_run_days: 7
+
+# Категории ролей. kind:
+#   it      — IT/Data-роль (группы 1 и 3)
+#   manual  — работа руками (группы 2 и 4)
+#   other   — не подошло ни под одну категорию
+#   drop    — отсев, карточка уходит в Processed → Auto-skipped с причиной drop_reason
+#   hidden  — не вакансия, не показывается нигде
+# base / cap — база и потолок звёзд (1–5).
+# label — подпись категории в интерфейсе (английский).
+# Синонимы категорий описаны для LLM в config/prompts/scoring.md.
+categories:
+  ds_ml:                 {label: "Data Science / ML",        kind: it,     base: 5, cap: 5}
+  cv:                    {label: "Computer Vision",          kind: it,     base: 5, cap: 5}
+  data_analyst:          {label: "Data Analyst",             kind: it,     base: 5, cap: 5}
+  bi_dwh:                {label: "BI / DWH",                 kind: it,     base: 4, cap: 4}
+  data_labeling:         {label: "Data labeling",            kind: it,     base: 3, cap: 3}
+  nlp_llm:               {label: "NLP / LLM",                kind: it,     base: 3, cap: 3}
+  data_engineer:         {label: "Data Engineer",            kind: it,     base: 3, cap: 3}
+  python_backend:        {label: "Python backend",           kind: it,     base: 1, cap: 1}
+  sys_business_analyst:  {label: "Systems / Business analyst", kind: it,   base: 1, cap: 1}
+  other_dev:             {label: "Other development / DevOps", kind: drop, drop_reason: "Other development / DevOps"}
+  it_management:         {label: "IT management",            kind: drop,   drop_reason: "IT management"}
+  qa:                    {label: "QA",                       kind: drop,   drop_reason: "QA / testing"}
+  onec:                  {label: "1C",                       kind: drop,   drop_reason: "1C"}
+  support:               {label: "Support",                  kind: drop,   drop_reason: "Tech / customer support"}
+  manual_wood:           {label: "Woodwork / furniture",     kind: manual, base: 5, cap: 5}
+  manual_production:     {label: "Production",               kind: manual, base: 4, cap: 4}
+  manual_construction:   {label: "Construction",             kind: manual, base: 4, cap: 4}
+  manual_trades:         {label: "Trades",                   kind: manual, base: 3, cap: 3}
+  manual_warehouse:      {label: "Warehouse",                kind: manual, base: 4, cap: 4}
+  manual_food:           {label: "Kitchen",                  kind: drop,   drop_reason: "Kitchen"}
+  manual_driver:         {label: "Driver / heavy machinery", kind: drop,   drop_reason: "Driver / heavy machinery"}
+  service:               {label: "Service",                  kind: drop,   drop_reason: "Service industry"}
+  office_non_tech:       {label: "Office (non-tech)",        kind: drop,   drop_reason: "Office non-tech role"}
+  care_medical_education: {label: "Medicine / education",    kind: drop,   drop_reason: "Medicine / care / education"}
+  not_a_vacancy:         {label: "Not a vacancy",            kind: hidden}
+  other:                 {label: "Other",                    kind: other,  base: 1, cap: 1}
+
+# Минусы к звёздам.
+#   IT: стек частично −stack_partial, не совпадает −stack_none; английский рабочий −english_working;
+#       опыт >= experience_years_threshold лет −experience.
+#   Работа руками: опыт >= порога −experience.
+penalties:
+  stack_partial: 1
+  stack_none: 2
+  english_working: 1
+  experience_years_threshold: 2
+  experience: 1
+
+# Грейды, которые отсеиваются, если указаны в заголовке или грейд-метке.
+# "опыт от N лет" в тексте — НЕ отсев.
+dropped_seniority: [middle, senior, lead]
+
+# Группы ленты (заголовки — на английском, это интерфейс).
+groups:
+  1: {title: "Serbia + residence permit · IT / Data"}
+  2: {title: "Serbia + residence permit · Hands-on work"}
+  3: {title: "Russian-speaking employer · Remote IT / Data"}
+  4: {title: "Serbia · no residence permit", note: "Informal, no residence permit"}
+  5: {title: "Unclear", collapsed: true}
+
+# Как в фактах может быть записана Сербия (сравнение без учёта регистра).
+serbia_country_names: [serbia, srbija, сербия, србија, rs]
+
+# Предфильтр без LLM. Применяется ТОЛЬКО к элементам "одна вакансия"
+# (карточки сайтов, посты RVC). К постам-дайджестам и письмам — не применяется.
+prefilter:
+  # Слова в ЗАГОЛОВКЕ, по которым вакансия сразу уходит в Auto-skipped.
+  # Сравнение — по целым словам, без учёта регистра.
+  title_deny_keywords:
+    - senior
+    - middle
+    - middle+
+    - lead
+    - teamlead
+    - team lead
+    - head of
+    - principal
+    - staff engineer
+    - сеньор
+    - мидл
+    - ведущий
+    - старший
+    - руководитель
+    - qa
+    - тестировщик
+    - 1с
+    - 1c
+    - devops
+    - frontend
+    - front-end
+    - fullstack
+    - full-stack
+    - ios
+    - android
+    - java
+    - golang
+    - php
+    - "c#"
+    - unity
+    - sales manager
+    - бариста
+    - официант
+    - курьер
+  title_deny_reason: "Title keyword"
+  # Посты каналов RVC (revacancy, revacancy_global): первая строка начинается с эмодзи грейда.
+  # 🟩 Junior, ⬜️ не указан — оставляем; 🟨 Middle, 🟥 Senior, 🟪 Middle/Senior — отсев "RVC grade".
+  rvc_allowed_grade_emoji: ["🟩", "⬜"]
+  # Признаки рекламных постов RVC (не вакансия, не показывать).
+  rvc_ad_markers: ["walllet", "реклама", "#реклама", "erid"]

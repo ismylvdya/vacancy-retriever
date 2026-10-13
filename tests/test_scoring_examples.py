@@ -1,0 +1,149 @@
+"""Examples from the specification (section D): extracted facts -> code verdict."""
+
+from __future__ import annotations
+
+from datetime import timedelta
+
+import pytest
+
+from vacancy_retriever.scoring.engine import ScoringEngine
+from vacancy_retriever.scoring.facts import VacancyFacts
+
+from .conftest import NOW
+
+BELGRADE = {"country": "Serbia", "city": "Belgrade"}
+CONFIDENT = {"confidence": "high"}
+
+EXAMPLES = [
+    # (id, facts, expected: decision, skip_reason substring, group, stars, permit, english_flag)
+    (1, {**BELGRADE, "role_category": "ds_ml", "seniority": "junior", "seniority_source": "title",
+         "stack_overlap": "strong", "serbian_entity": "yes", "serbian_entity_evidence": "d.o.o.",
+         "employment": "official", "russian_speaking_team": "yes", "employer_type": "ru_with_serbian_entity"},
+     ("show", None, 1, 5, "yes", False)),
+    (2, {**BELGRADE, "role_category": "manual_wood", "employment": "official", "visa_support": "yes",
+         "serbian_entity": "likely", "ad_language": "ru"},
+     ("show", None, 2, 5, "yes", False)),
+    (3, {**BELGRADE, "role_category": "manual_construction", "employment": "informal",
+         "employer_type": "private_person"},
+     ("show", None, 4, 4, "no", False)),
+    (4, {**BELGRADE, "role_category": "manual_wood", "employment": "informal"},
+     ("show", None, 4, 5, "no", False)),
+    (5, {**BELGRADE, "role_category": "manual_production", "employment": "unknown", "serbian_entity": "unknown"},
+     ("show", None, 2, 4, "likely", False)),
+    (6, {**BELGRADE, "role_category": "manual_wood", "ad_language": "sr", "serbian_required": True,
+         "required_languages": ["sr"]},
+     ("skip", "Ad in Serbian", None, None, None, None)),
+    (7, {"role_category": "data_analyst", "seniority": "middle", "seniority_source": "title",
+         "work_format": "remote", "employer_type": "russian", "country": "Russia"},
+     ("skip", "Grade: middle", None, None, None, None)),
+    (8, {"role_category": "data_analyst", "experience_years": 2, "stack_overlap": "strong",
+         "employer_type": "russian", "work_format": "remote", "country": "Russia"},
+     ("show", None, 3, 4, "no", False)),
+    (9, {"role_category": "python_backend", "seniority": "junior", "seniority_source": "title",
+         "employer_type": "russian", "work_format": "remote", "stack_overlap": "strong"},
+     ("show", None, 3, 1, "no", False)),
+    (10, {"role_category": "nlp_llm", "seniority": "junior", "seniority_source": "title", "country": "Cyprus",
+          "employer_type": "intl_russian_speaking", "russian_speaking_team": "yes", "work_format": "remote",
+          "stack_overlap": "strong"},
+     ("show", None, 3, 3, "no", False)),
+    (11, {**BELGRADE, "role_category": "data_engineer", "seniority": "junior", "seniority_source": "title",
+          "english_working": True, "russian_speaking_team": "no", "employer_type": "intl_english",
+          "serbian_entity": "likely", "work_format": "office", "stack_overlap": "strong"},
+     ("show", None, 1, 2, "likely", True)),
+    (12, {**BELGRADE, "role_category": "data_analyst", "seniority": "junior", "seniority_source": "title",
+          "ad_language": "en", "english_level": "b2", "english_working": False, "russian_speaking_team": "yes",
+          "serbian_entity": "yes", "employer_type": "serbian", "employment": "official", "stack_overlap": "strong"},
+     ("show", None, 1, 5, "yes", False)),
+    (13, {"role_category": "data_labeling", "employer_type": "russian", "work_format": "remote"},
+     ("show", None, 3, 3, "no", False)),
+    ("14a", {"role_category": "onec", "employer_type": "russian"},
+     ("skip", "1C", None, None, None, None)),
+    ("14b", {"role_category": "sys_business_analyst", "employer_type": "russian", "work_format": "remote"},
+     ("show", None, 3, 1, "no", False)),
+    ("15a", {"role_category": "bi_dwh", "seniority": "junior", "seniority_source": "title",
+             "employer_type": "russian", "work_format": "remote", "stack_overlap": "strong"},
+     ("show", None, 3, 4, "no", False)),
+    ("15b", {"role_category": "other_dev", "seniority": "senior", "seniority_source": "title"},
+     ("skip", "Other development", None, None, None, None)),
+    ("15c", {"role_category": "qa", "seniority": "intern", "seniority_source": "title"},
+     ("skip", "QA", None, None, None, None)),
+    (16, {**BELGRADE, "role_category": "manual_food", "employment": "official"},
+     ("skip", "Kitchen", None, None, None, None)),
+    (17, {"role_category": "manual_driver"}, ("skip", "Driver", None, None, None, None)),
+    (18, {"role_category": "service"}, ("skip", "Service", None, None, None, None)),
+    (19, {"role_category": "office_non_tech"}, ("skip", "Office", None, None, None, None)),
+    (20, {"role_category": "other", "confidence": "low"}, ("show", None, 5, 1, None, False)),
+    (21, {"role_category": "not_a_vacancy"}, ("hidden", "Not a vacancy", None, None, None, None)),
+    (22, {"role_category": "ds_ml", "seniority": "junior", "seniority_source": "title", "work_format": "remote",
+          "serbian_entity": "yes", "employment": "official", "employer_type": "ru_with_serbian_entity",
+          "country": "Serbia", "stack_overlap": "strong"},
+     ("show", None, 1, 5, "yes", False)),
+    (23, {**BELGRADE, "role_category": "manual_wood", "ad_language": "sr", "required_languages": ["ru", "sr"],
+          "serbian_required": True, "employment": "official"},
+     ("show", None, 2, 5, "likely", False)),
+    (24, {**BELGRADE, "role_category": "manual_warehouse", "ad_language": "sr", "required_languages": []},
+     ("skip", "Ad in Serbian", None, None, None, None)),
+    (25, {**BELGRADE, "role_category": "manual_trades", "employment": "official", "experience_years": 3},
+     ("show", None, 2, 2, "likely", False)),
+    (26, {**BELGRADE, "role_category": "manual_warehouse", "employment": "official"},
+     ("show", None, 2, 4, "likely", False)),
+]
+
+
+@pytest.fixture(scope="module")
+def engine(config):
+    return ScoringEngine(config.rules)
+
+
+@pytest.mark.parametrize(("example_id", "facts", "expected"), EXAMPLES, ids=[str(e[0]) for e in EXAMPLES])
+def test_spec_example(engine, example_id, facts, expected):
+    decision, reason_part, group, stars, permit, english = expected
+    payload = {**CONFIDENT, **facts}
+    verdict = engine.evaluate(VacancyFacts.model_validate(payload), NOW - timedelta(days=1), NOW)
+
+    assert verdict.decision == decision
+    if reason_part:
+        assert reason_part in (verdict.skip_reason or "")
+    if decision == "show":
+        assert verdict.skip_reason is None
+        assert verdict.group == group
+        assert verdict.stars == stars
+        if permit:
+            assert verdict.residence_permit == permit
+        assert verdict.english_flag == english
+
+
+def test_group_4_is_marked_informal(engine):
+    facts = VacancyFacts.model_validate({**CONFIDENT, **BELGRADE, "role_category": "manual_wood",
+                                         "employment": "informal"})
+    assert engine.evaluate(facts, NOW, NOW).informal_flag
+
+
+def test_old_vacancy_is_expired(engine):
+    facts = VacancyFacts.model_validate({**CONFIDENT, "role_category": "ds_ml"})
+    verdict = engine.evaluate(facts, NOW - timedelta(days=31), NOW)
+    assert verdict.decision == "skip"
+    assert verdict.skip_reason == "Expired"
+
+
+def test_english_company_outside_serbia_is_dropped(engine):
+    facts = VacancyFacts.model_validate({**CONFIDENT, "role_category": "ds_ml", "employer_type": "intl_english",
+                                         "english_working": True, "russian_speaking_team": "no",
+                                         "country": "Germany"})
+    assert engine.evaluate(facts, NOW, NOW).skip_reason == "English-speaking company outside Serbia"
+
+
+def test_experience_in_text_is_not_a_drop(engine):
+    facts = VacancyFacts.model_validate({**CONFIDENT, "role_category": "data_analyst", "seniority": "middle",
+                                         "seniority_source": "text", "employer_type": "russian",
+                                         "work_format": "remote", "stack_overlap": "strong"})
+    assert engine.evaluate(facts, NOW, NOW).decision == "show"
+
+
+def test_unknown_enum_values_fall_back_to_defaults():
+    facts = VacancyFacts.model_validate({"seniority": "Medior", "employment": "contract??", "confidence": "HIGH",
+                                         "required_languages": ["RU", "en-US", ""]})
+    assert facts.seniority == "unknown"
+    assert facts.employment == "unknown"
+    assert facts.confidence == "high"
+    assert facts.required_languages == ["en", "ru"]

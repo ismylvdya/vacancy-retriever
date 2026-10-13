@@ -4,6 +4,7 @@ If a fact is not in the text → "unknown" / null / [] / "". Never guess. `hints
 
 Output ONLY minified JSON, no prose, no markdown:
 {"results":[{"input_id":<id>,"vacancies":[{...fields...}]}]}
+OMIT every field whose value equals its default (default = first "unknown"/"none"/"not_mentioned" value, null, [], "", false) — absent fields are read as defaults. Always include title_ru, title_original, role_category, summary_ru, confidence.
 
 Fields of each vacancy (enums are exact lowercase strings):
 - title_ru: short Russian job title; title_original: title as written
@@ -22,8 +23,8 @@ Fields of each vacancy (enums are exact lowercase strings):
 - serbian_entity: yes|likely|no|unknown — employer has a Serbian legal entity; serbian_entity_evidence: short quote ("d.o.o.", "офис в Белграде", "поможем с ВНЖ")
 - employment: official|informal|freelance_contract|unknown ("оплата наличными", "частный мастер ищет помощника" → informal)
 - visa_support: yes|no|not_mentioned (help with Serbian residence/work permit or relocation visa)
-- salary_text: as written or ""
-- summary_ru: 1–2 lines IN RUSSIAN (always, any ad language): what to do + key requirements
+- summary_ru: 1–2 short lines IN RUSSIAN (always, any ad language), ≤ 200 chars: what to do + key requirements
+- salary_text: keep it short (≤ 60 chars)
 - link: direct URL of this specific vacancy if present in the text, else ""
 - confidence: high|medium|low (low = vague post like "ищем ребят, пишите в личку")
 

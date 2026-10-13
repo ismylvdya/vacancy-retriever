@@ -33,6 +33,11 @@ claude_sdk:
   # true = structured output CLI (строже, но ~2x накладных токенов и 2 хода). false = JSON в тексте + валидация.
   structured_output: false
   timeout_seconds: 300
+  # Глубина "размышлений" модели: low | medium | high. Для извлечения фактов хватает low (меньше токенов).
+  effort: low
+  # disabled = без скрытых размышлений (на haiku −35% токенов выхода, качество то же).
+  # Для sonnet/opus оставьте пустым: у них отключение мышления может не поддерживаться.
+  thinking: disabled
 
 anthropic_api:
   base_url: https://api.anthropic.com

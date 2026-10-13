@@ -117,6 +117,8 @@ class ClaudeSdkSettings(_Strict):
     cli_path: str | None = None
     structured_output: bool = False
     timeout_seconds: int = 300
+    effort: Literal["low", "medium", "high", "xhigh", "max"] | None = "low"
+    thinking: Literal["adaptive", "disabled"] | None = None
 
 
 class ApiSettings(_Strict):

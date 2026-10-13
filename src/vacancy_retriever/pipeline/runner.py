@@ -348,8 +348,9 @@ class Pipeline:
         verdict = self.engine.evaluate(facts, item.published_at, now)
         if verdict.decision == "hidden":
             return None
+        title = item.title if (not item.multi and item.title) else facts.display_title
         return NewVacancy(
-            primary_raw_id=item.id, origin="llm", title=facts.display_title,
+            primary_raw_id=item.id, origin="llm", title=title,
             employer=facts.employer_name if facts.employer_name != "unknown" else "",
             category=facts.role_category, seniority=facts.seniority, decision=verdict.decision,
             skip_reason=verdict.skip_reason, published_at=item.published_at, facts=facts, verdict=verdict,

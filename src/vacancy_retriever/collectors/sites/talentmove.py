@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import re
-from datetime import datetime, timedelta
 from email.utils import parsedate_to_datetime
 
 import httpx
@@ -9,36 +8,14 @@ from bs4 import BeautifulSoup, Tag
 
 from ..base import CollectContext, Collector, CollectResult, CollectStatus, RawItem
 from ..registry import register
+from ._common import html_to_text, stop_date
 
 SITE_URL = "https://talent-move.ru"
 FEED_URL = f"{SITE_URL}/jobs/feed/"
 DEFAULT_FILTERS = {"seniority": "junior", "job_category": "data,analytics,ai"}
 MAX_TEXT_CHARS = 8000
 _POST_ID = re.compile(r"-(\d+)/?$")
-_WS = re.compile(r"[ \t\r\f\v\xa0]+")
-_BLOCKS = ("p", "div", "li", "ul", "ol", "h1", "h2", "h3", "h4", "h5", "h6", "tr", "table", "blockquote", "pre")
-_BULLET = "•"
 _DETAIL_SKIP = ("job-header", "job-quality", "job-bun", "job-footer")
-
-
-def html_to_text(node: Tag) -> str:
-    for br in node.find_all("br"):
-        br.replace_with("\n")
-    for block in node.find_all(_BLOCKS):
-        block.insert_before("\n")
-        block.insert_after("\n")
-    for li in node.find_all("li"):
-        li.insert(0, f"{_BULLET} ")
-    lines: list[str] = []
-    for raw in node.get_text().splitlines():
-        line = _WS.sub(" ", raw).strip()
-        if not line:
-            continue
-        if lines and lines[-1] == _BULLET:
-            lines[-1] = f"{_BULLET} {line}"
-        else:
-            lines.append(line)
-    return "\n".join(lines)[:MAX_TEXT_CHARS]
 
 
 def feed_page_url(filters: dict[str, str], page: int) -> str:
@@ -120,7 +97,7 @@ class TalentMoveCollector(Collector):
         return {k: str(v) for k, v in (self.source.params.get("filters") or DEFAULT_FILTERS).items()}
 
     def collect(self, ctx: CollectContext) -> CollectResult:
-        stop_before = _stop_before(ctx)
+        stop_before = stop_date(ctx)
         found: dict[str, RawItem] = {}
         for page in range(1, ctx.max_pages + 1):
             ctx.check_cancel()
@@ -155,9 +132,3 @@ class TalentMoveCollector(Collector):
 
     def icon_url(self) -> str | None:
         return f"{SITE_URL}/wp-content/uploads/2024/11/cropped-tm-logo-32x32-optimized.png"
-
-
-def _stop_before(ctx: CollectContext) -> datetime:
-    if ctx.cursor.last_published_at is None:
-        return ctx.since
-    return max(ctx.since, ctx.cursor.last_published_at - timedelta(days=1))

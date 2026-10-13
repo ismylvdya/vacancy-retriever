@@ -1,14 +1,12 @@
 from __future__ import annotations
 
-import re
-from datetime import UTC, datetime, timedelta
+from datetime import UTC, datetime
 from typing import Any
 from urllib.parse import urlsplit
 
-from bs4 import BeautifulSoup
-
 from ..base import CollectContext, Collector, CollectResult, CollectStatus, RawItem, SourceError
 from ..registry import register
+from ._common import fragment_text, stop_date
 
 SITE_URL = "https://hirify.me"
 API_URL = "https://api.hirify.me/api/vacancies"
@@ -18,32 +16,8 @@ DEFAULT_LISTINGS = (
     "&grade=junior,trainee&work_format=remote&vacancy_language=ru",
 )
 MAX_TEXT_CHARS = 8000
-_WS = re.compile(r"[ \t\r\f\v\xa0]+")
-_BLOCKS = ("p", "div", "li", "ul", "ol", "h1", "h2", "h3", "h4", "h5", "h6", "tr", "table", "blockquote", "pre")
-_BULLET = "•"
 _HIDDEN_COMPANY = "%hirify_global%"
 _WORK_FORMATS = {"remote": "удалённо", "hybrid": "гибрид", "onsite": "офис"}
-
-
-def html_to_text(html: str) -> str:
-    node = BeautifulSoup(html, "lxml")
-    for br in node.find_all("br"):
-        br.replace_with("\n")
-    for block in node.find_all(_BLOCKS):
-        block.insert_before("\n")
-        block.insert_after("\n")
-    for li in node.find_all("li"):
-        li.insert(0, f"{_BULLET} ")
-    lines: list[str] = []
-    for raw in node.get_text().splitlines():
-        line = _WS.sub(" ", raw).strip()
-        if not line:
-            continue
-        if lines and lines[-1] == _BULLET:
-            lines[-1] = f"{_BULLET} {line}"
-        else:
-            lines.append(line)
-    return "\n".join(lines)[:MAX_TEXT_CHARS]
 
 
 def api_listing_url(listing: str) -> str:
@@ -134,7 +108,7 @@ def _salary(salary: dict[str, Any]) -> str:
 def parse_detail(payload: dict[str, Any]) -> str:
     item = vacancy_item(payload)
     header = item.text.split("\n\n", 1)[0]
-    body = html_to_text(payload.get("text") or "") or (payload.get("tldr") or "").strip()
+    body = fragment_text(payload.get("text")) or (payload.get("tldr") or "").strip()
     text = f"{header}\n\n{body}".strip().replace(_HIDDEN_COMPANY, "The company")
     return text[:MAX_TEXT_CHARS]
 
@@ -164,7 +138,7 @@ class HirifyCollector(Collector):
     def _collect_listing(
         self, ctx: CollectContext, api_url: str, found: dict[str, RawItem], pages_before: int
     ) -> tuple[CollectStatus, int]:
-        stop_before = _stop_before(ctx)
+        stop_before = stop_date(ctx)
         for page in range(1, ctx.max_pages + 1):
             ctx.check_cancel()
             ctx.on_page(pages_before + page)
@@ -196,9 +170,3 @@ class HirifyCollector(Collector):
 
     def icon_url(self) -> str | None:
         return f"{SITE_URL}/favicon-96x96.png"
-
-
-def _stop_before(ctx: CollectContext) -> datetime:
-    if ctx.cursor.last_published_at is None:
-        return ctx.since
-    return max(ctx.since, ctx.cursor.last_published_at - timedelta(days=1))

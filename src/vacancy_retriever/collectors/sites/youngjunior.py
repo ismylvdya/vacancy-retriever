@@ -1,13 +1,11 @@
 from __future__ import annotations
 
-import re
-from datetime import datetime, timedelta
+from datetime import datetime
 from typing import Any
-
-from bs4 import BeautifulSoup, Tag
 
 from ..base import CollectContext, Collector, CollectResult, CollectStatus, RawItem, SourceError
 from ..registry import register
+from ._common import fragment_text, stop_date
 
 BASE_URL = "https://youngjunior.ru"
 API_URL = f"{BASE_URL}/api/vacancies/"
@@ -15,30 +13,6 @@ DEFAULT_SPECIALITIES = ("ml_engineer", "data_scientist", "analyst_data")
 DEFAULT_PAGE_SIZE = 50
 MAX_TEXT_CHARS = 8000
 _WORK_FORMATS = {"remote": "удалённо", "hybrid": "гибрид", "office": "офис", "onsite": "офис"}
-_WS = re.compile(r"[ \t\r\f\v\xa0]+")
-_BLOCKS = ("p", "div", "li", "ul", "ol", "h1", "h2", "h3", "h4", "h5", "h6", "tr", "table", "blockquote", "pre")
-_BULLET = "•"
-
-
-def html_to_text(html: str) -> str:
-    node = BeautifulSoup(html, "lxml")
-    for br in node.find_all("br"):
-        br.replace_with("\n")
-    for block in node.find_all(_BLOCKS):
-        block.insert_before("\n")
-        block.insert_after("\n")
-    for li in node.find_all("li"):
-        li.insert(0, f"{_BULLET} ")
-    lines: list[str] = []
-    for raw in node.get_text().splitlines():
-        line = _WS.sub(" ", raw).strip()
-        if not line:
-            continue
-        if lines and lines[-1] == _BULLET:
-            lines[-1] = f"{_BULLET} {line}"
-        else:
-            lines.append(line)
-    return "\n".join(lines)[:MAX_TEXT_CHARS]
 
 
 def vacancy_url(vacancy_id: int | str) -> str:
@@ -67,7 +41,7 @@ def vacancy_item(vacancy: dict[str, Any]) -> RawItem:
         f"Зарплата: {vacancy['salary']}" if vacancy.get("salary") else "",
         f"Теги: {tags}" if tags else "",
     ]
-    description = html_to_text(vacancy.get("description") or vacancy.get("summary") or "")
+    description = fragment_text(vacancy.get("description") or vacancy.get("summary"))
     text = "\n".join(line for line in header if line)
     if description:
         text = f"{text}\n\n{description}"
@@ -114,7 +88,7 @@ class YoungJuniorCollector(Collector):
 
     def collect(self, ctx: CollectContext) -> CollectResult:
         page_size = int(self.source.params.get("page_size") or DEFAULT_PAGE_SIZE)
-        stop_before = _stop_before(ctx)
+        stop_before = stop_date(ctx)
         found: dict[str, RawItem] = {}
         for page in range(1, ctx.max_pages + 1):
             ctx.check_cancel()
@@ -143,10 +117,3 @@ class YoungJuniorCollector(Collector):
 
     def icon_url(self) -> str | None:
         return f"{BASE_URL}/favicon.ico"
-
-
-def _stop_before(ctx: CollectContext) -> datetime:
-    """Listing is sorted by date: anything older than `since` or the cursor (minus a day of slack) ends the walk."""
-    if ctx.cursor.last_published_at is None:
-        return ctx.since
-    return max(ctx.since, ctx.cursor.last_published_at - timedelta(days=1))

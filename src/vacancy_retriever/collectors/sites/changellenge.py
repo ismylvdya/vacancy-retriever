@@ -1,12 +1,12 @@
 from __future__ import annotations
 
-import re
 from urllib.parse import urljoin
 
 from bs4 import BeautifulSoup, Tag
 
 from ..base import CollectContext, Collector, CollectResult, RawItem
 from ..registry import register
+from ._common import html_to_text
 
 BASE_URL = "https://changellenge.com"
 DEFAULT_LISTING = (
@@ -14,31 +14,6 @@ DEFAULT_LISTING = (
     "type_vacancy-is-vacancy/indystry-is-analytics/apply/"
 )
 MAX_DETAIL_CHARS = 8000
-_WS = re.compile(r"[ \t\r\f\v\xa0]+")
-
-
-_BLOCKS = ("p", "div", "li", "ul", "ol", "h1", "h2", "h3", "h4", "h5", "h6", "tr", "table", "blockquote", "pre")
-_BULLET = "•"
-
-
-def html_to_text(node: Tag) -> str:
-    for br in node.find_all("br"):
-        br.replace_with("\n")
-    for block in node.find_all(_BLOCKS):
-        block.insert_before("\n")
-        block.insert_after("\n")
-    for li in node.find_all("li"):
-        li.insert(0, f"{_BULLET} ")
-    lines: list[str] = []
-    for raw in node.get_text().splitlines():
-        line = _WS.sub(" ", raw).strip()
-        if not line:
-            continue
-        if lines and lines[-1] == _BULLET:
-            lines[-1] = f"{_BULLET} {line}"
-        else:
-            lines.append(line)
-    return "\n".join(lines)[:MAX_DETAIL_CHARS]
 
 
 def parse_listing(html: str) -> tuple[list[RawItem], str | None]:
@@ -143,4 +118,3 @@ class ChangellengeCollector(Collector):
 
     def icon_url(self) -> str | None:
         return f"{BASE_URL}/icons/favicon.ico"
-

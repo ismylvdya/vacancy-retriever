@@ -31,6 +31,10 @@ def html_to_text(node: Tag, limit: int = DETAIL_TEXT_LIMIT) -> str:
     return join_lines("".join(parts).splitlines(), limit)
 
 
+def fragment_text(html: str | None, limit: int = DETAIL_TEXT_LIMIT) -> str:
+    return html_to_text(BeautifulSoup(html, "lxml"), limit) if html else ""
+
+
 def _collect_text(node: Tag, parts: list[str]) -> None:
     for child in node.children:
         if isinstance(child, NavigableString):
@@ -54,10 +58,17 @@ def _collect_text(node: Tag, parts: list[str]) -> None:
 
 def join_lines(lines: Iterable[str], limit: int = DETAIL_TEXT_LIMIT) -> str:
     cleaned: list[str] = []
+    bullet = False
     for line in lines:
         line = _SPACES.sub(" ", line).strip()
-        if line in ("", "•"):
+        if line == "•":
+            bullet = True
             continue
+        if not line:
+            continue
+        if bullet and not line.startswith("•"):
+            line = f"• {line}"
+        bullet = False
         if line in (",", ";") and cleaned:
             cleaned[-1] += line
             continue

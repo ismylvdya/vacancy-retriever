@@ -18,7 +18,7 @@ from ..pipeline.manager import AlreadyRunning, RunManager
 from ..pipeline.recalculate import recalculate
 from ..pipeline.runner import RunOptions
 from ..storage import Storage
-from ..timeutil import format_local, from_iso
+from ..timeutil import format_local, from_iso, local, utcnow
 from . import views
 
 log = logging.getLogger(__name__)
@@ -34,11 +34,14 @@ def describe_status(state: dict[str, Any]) -> dict[str, Any]:
     """Adds the header texts: 'Last run: 13 Oct 08:12 (14 min)' and the run summary line."""
     last = state.get("last_run")
     state["last_run_line"] = "No runs yet"
+    state["last_run_short"] = "No runs yet"
     state["summary_line"] = ""
     if last:
         started, finished = from_iso(last["started_at"]), from_iso(last["finished_at"])
         minutes = round((finished - started).total_seconds() / 60) if started and finished else 0
         state["last_run_line"] = f"Last run: {format_local(started)} ({minutes} min)"
+        same_day = local(started) and local(started).date() == local(utcnow()).date()
+        state["last_run_short"] = f"Updated {format_local(started, '%H:%M' if same_day else '%-d %b %H:%M')}"
         summary = last.get("summary") or {}
         if last["status"] == "failed":
             state["summary_line"] = f"Run {format_local(started)} failed"
@@ -91,8 +94,12 @@ def create_app(config: AppConfig, storage: Storage, port: int, manager: RunManag
     def page(request: Request, template: str, tab: str, **context: Any) -> HTMLResponse:
         counts = storage.vacancies.processed_counts()
         return templates.TemplateResponse(request, template, {
-            "tab": tab, "feed_count": counts.get("new", 0), "status": full_status(), **context,
+            "tab": tab, "feed_count": counts.get("new", 0), "status": full_status(),
+            "health_problems": health_problems(), **context,
         })
+
+    def health_problems() -> int:
+        return sum(1 for row in views.latest_source_states(views.health(config, storage, limit=6)) if row.warn)
 
     @app.get("/", response_class=HTMLResponse)
     def feed(request: Request) -> HTMLResponse:
@@ -104,8 +111,8 @@ def create_app(config: AppConfig, storage: Storage, port: int, manager: RunManag
         built = [cards.build(record) for record in storage.vacancies.processed(filter)]
         counts = storage.vacancies.processed_counts()
         return page(request, "processed.html", "processed", cards=built, current=filter or "all",
-                    counts=counts, filters=[("all", "All"), ("applied", "Applied"), ("skipped", "Skipped"),
-                                            ("not_now", "Not now"), ("auto_skipped", "Auto-skipped")])
+                    counts=counts, filters=[("all", "All"), ("applied", "Applied"), ("not_now", "Not now"),
+                                            ("skipped", "Skipped"), ("auto_skipped", "Auto-skipped")])
 
     @app.get("/health", response_class=HTMLResponse)
     def health(request: Request) -> HTMLResponse:

@@ -1,44 +1,50 @@
 {% extends "base.html" %}
 {% block content %}
-<h2>Sources — latest state</h2>
-<table class="table">
-  <thead><tr><th>Source</th><th>Status</th><th class="num">Collected</th><th class="num">Passed filters</th><th class="num">To feed</th><th class="num">Time</th><th>Problem</th></tr></thead>
-  <tbody>
-  {% for r in latest %}
-    <tr class="{{ 'warn-row' if r.warn }}">
-      <td>{{ r.name }}</td><td><span class="pill st-{{ r.status }}">{{ r.status }}</span></td>
-      <td class="num">{{ r.collected }}</td><td class="num">{{ r.passed }}</td><td class="num">{{ r.to_feed }}</td>
-      <td class="num">{{ r.duration }}</td>
-      <td>{% if r.alert %}<strong class="alert">⚠ {{ r.alert }}</strong> {% endif %}<span class="dim">{{ r.error }}</span></td>
-    </tr>
-  {% else %}<tr><td colspan="7" class="empty">No runs yet.</td></tr>{% endfor %}
-  </tbody>
-</table>
-
-<h2>Run history</h2>
-{% for run in runs %}
-<details class="run {{ 'has-problems' if run.problems }}">
-  <summary>
-    <span class="run-time">{{ run.started }}</span>
-    <span class="pill st-{{ run.status }}">{{ run.status }}</span>
-    <span>{{ run.duration_min }} min</span>
-    {% if run.summary.new_total is defined %}<span>· new {{ run.summary.new_total }}</span>{% endif %}
-    {% if run.problems %}<span class="alert">· ⚠ {{ run.problems }} source problems</span>{% endif %}
-    {% if run.summary.llm_error %}<span class="alert">· LLM: {{ run.summary.llm_error[:120] }}</span>{% endif %}
-  </summary>
-  <table class="table compact">
-    <thead><tr><th>Source</th><th>Status</th><th class="num">Collected</th><th class="num">Passed</th><th class="num">To feed</th><th class="num">Time</th><th>Problem</th></tr></thead>
+<section class="group">
+  <div class="section-head"><h2>Sources</h2><span class="sub">State after the latest run</span></div>
+  <table class="table">
+    <thead><tr><th>Source</th><th>Status</th><th class="r">New</th><th class="r">Shown</th><th class="r">To feed</th><th class="r">Time</th><th>Problem</th></tr></thead>
     <tbody>
-    {% for r in run.rows %}
-      <tr class="{{ 'warn-row' if r.warn }}">
-        <td>{{ r.name }}</td><td><span class="pill st-{{ r.status }}">{{ r.status }}</span></td>
-        <td class="num">{{ r.collected }}</td><td class="num">{{ r.passed }}</td><td class="num">{{ r.to_feed }}</td>
-        <td class="num">{{ r.duration }}</td>
-        <td>{% if r.alert %}<strong class="alert">⚠ {{ r.alert }}</strong> {% endif %}<span class="dim">{{ r.error }}</span></td>
+    {% for r in latest %}
+      <tr class="{{ 'warn' if r.warn }}">
+        <td><span class="src-name"><img src="/icons/{{ r.source_id }}" alt="" loading="lazy">{{ r.name }}</span></td>
+        <td><span class="status s-{{ r.status }}">{{ r.status | replace('_', ' ') }}</span></td>
+        <td class="r">{{ r.collected }}</td><td class="r">{{ r.seen if r.seen is not none else '' }}</td><td class="r">{{ r.to_feed }}</td>
+        <td class="r muted">{{ r.duration }}</td>
+        <td class="problem">{% if r.alert %}<span class="alert">{{ r.alert }}</span>{% endif %}{% if r.error %}<span class="muted">{{ r.error }}</span>{% endif %}</td>
       </tr>
-    {% endfor %}
+    {% else %}<tr><td colspan="7" class="muted">No runs yet.</td></tr>{% endfor %}
     </tbody>
   </table>
-</details>
-{% else %}<p class="empty">No runs yet.</p>{% endfor %}
+</section>
+
+<section class="group">
+  <div class="section-head"><h2>Runs</h2></div>
+  <div class="runs">
+  {% for run in runs %}
+    <details class="run">
+      <summary class="cells run-row">
+        <span class="run-time">{{ run.started }}</span>
+        <span class="status s-{{ run.status }}">{{ run.status }}</span>
+        <span class="r muted">{{ run.duration_min }} min</span>
+        <span class="r">{% if run.summary.new_total is defined %}{{ run.summary.new_total }} new{% endif %}</span>
+        <span class="problem">{% if run.problems %}<span class="alert">{{ run.problems }} source problems</span>{% endif %}{% if run.summary.llm_error %}<span class="alert">LLM: {{ run.summary.llm_error[:90] }}</span>{% endif %}</span>
+      </summary>
+      <table class="table inner">
+        <thead><tr><th>Source</th><th>Status</th><th class="r">New</th><th class="r">Shown</th><th class="r">To feed</th><th class="r">Time</th><th>Problem</th></tr></thead>
+        <tbody>
+        {% for r in run.rows %}
+          <tr class="{{ 'warn' if r.warn }}">
+            <td>{{ r.name }}</td><td><span class="status s-{{ r.status }}">{{ r.status | replace('_', ' ') }}</span></td>
+            <td class="r">{{ r.collected }}</td><td class="r">{{ r.seen if r.seen is not none else '' }}</td><td class="r">{{ r.to_feed }}</td>
+            <td class="r muted">{{ r.duration }}</td>
+            <td class="problem">{% if r.alert %}<span class="alert">{{ r.alert }}</span>{% endif %}{% if r.error %}<span class="muted">{{ r.error }}</span>{% endif %}</td>
+          </tr>
+        {% endfor %}
+        </tbody>
+      </table>
+    </details>
+  {% else %}<p class="muted pad">No runs yet.</p>{% endfor %}
+  </div>
+</section>
 {% endblock %}

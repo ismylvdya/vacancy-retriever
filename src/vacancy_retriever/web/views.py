@@ -11,34 +11,34 @@ from ..storage import Storage
 from ..storage.vacancies import VacancyRecord
 from ..timeutil import format_local, from_iso
 
-LANG_FLAGS = {
-    "ru": "🇷🇺", "en": "🇬🇧", "sr": "🇷🇸", "de": "🇩🇪", "fr": "🇫🇷", "es": "🇪🇸", "it": "🇮🇹", "pl": "🇵🇱",
-    "uk": "🇺🇦", "kk": "🇰🇿", "nl": "🇳🇱", "pt": "🇵🇹", "tr": "🇹🇷", "zh": "🇨🇳", "ja": "🇯🇵", "cs": "🇨🇿",
-}
-EMPLOYER_TYPES = {
-    "serbian": "Serbian company",
-    "ru_with_serbian_entity": "Russian-speaking, Serbian entity",
-    "russian": "Russian company",
-    "intl_russian_speaking": "International, Russian-speaking",
-    "intl_english": "International, English-speaking",
-    "private_person": "Private person",
+LANGUAGES = {
+    "ru": "Russian", "en": "English", "sr": "Serbian", "de": "German", "fr": "French", "es": "Spanish",
+    "it": "Italian", "pl": "Polish", "uk": "Ukrainian", "kk": "Kazakh", "ky": "Kyrgyz", "nl": "Dutch",
+    "pt": "Portuguese", "tr": "Turkish", "zh": "Chinese", "ja": "Japanese", "cs": "Czech",
 }
 WORK_FORMATS = {"office": "Office", "hybrid": "Hybrid", "remote": "Remote"}
-PERMIT_LABELS = {"yes": "yes", "likely": "likely", "no": "no"}
+PERMIT_LABELS = {"yes": "Yes", "likely": "Likely", "no": "No"}
 STATUS_LABELS = {
     "applied": "Applied", "skipped": "Skipped", "not_now": "Not now", "auto_skipped": "Auto-skipped", "new": "New",
 }
+PERMIT_GROUPS = {1, 2}
 STAGE_ORDER = ["scoring", "scoring_email", "dedup"]
-STAGE_LABELS = {"scoring": "Evaluation", "scoring_email": "Evaluation · e-mail (generic parser)", "dedup": "LLM dedup"}
+STAGE_LABELS = {"scoring": "Evaluation", "scoring_email": "Evaluation of e-mails (generic parser)", "dedup": "Duplicate check"}
 ALERT_LABELS = {
-    "http_403": "HTTP 403 — blocked?", "http_429": "HTTP 429 — rate limited", "captcha": "Captcha",
+    "http_403": "Blocked (HTTP 403)", "http_429": "Rate limited (HTTP 429)", "captcha": "Captcha",
     "cloudflare": "Cloudflare challenge", "login_redirect": "Redirect to login", "not_json": "Unexpected response",
-    "zero_items": "Source showed nothing (usually it does) — blocked or layout changed?", "mail_flags": "Could not label / move processed e-mails",
+    "zero_items": "Showed nothing — blocked or layout changed?", "mail_flags": "Could not label / move processed e-mails",
 }
 
 
-def lang_flag(code: str) -> str:
-    return LANG_FLAGS.get(code, code.upper() if code and code != "other" else "🌐")
+def _known(value: str | None) -> str:
+    return "" if not value or value.strip().lower() in {"unknown", "n/a", "none"} else value.strip()
+
+
+def _salary(value: str | None) -> str:
+    """'По договорённости' and the like are not a salary — show nothing."""
+    value = _known(value)
+    return value if any(ch.isdigit() for ch in value) else ""
 
 
 @dataclass
@@ -51,77 +51,86 @@ class SourceLink:
 
 @dataclass
 class Card:
+    """One vacancy for the UI. Every field is shown in its own place — never concatenated."""
+
     id: int
     title: str
-    grade: str
-    stars: int | None
     employer: str
-    employer_type: str
-    place: str
-    permit: str | None
+    fit: int | None
+    permit: str
+    permit_level: str
     permit_reason: str
+    work_format: str
+    city: str
+    country: str
     salary: str
-    ad_language: str
-    required_languages: list[str]
-    summary: str
-    english_flag: bool
-    informal: bool
     published: str
-    sites: list[SourceLink]
-    channels: list[SourceLink]
+    is_new: bool
+    summary: str
+    flags: list[str]
+    languages_note: str
+    sources: list[SourceLink]
     description: str
     user_status: str
     status_label: str
     skip_reason: str | None
     group: int | None
-    category: str
+
+    @property
+    def low_fit(self) -> bool:
+        return self.fit is not None and self.fit <= 2
 
 
 class CardBuilder:
     def __init__(self, config: AppConfig, storage: Storage):
         self._sources: dict[str, SourceConfig] = {s.id: s for s in config.sources.sources}
-        self._mailboxes = {m.id for m in config.mail.mailboxes}
-        self._categories = config.rules.categories
         self._storage = storage
+        latest = storage.runs.last_finished()
+        self._latest_run = latest["id"] if latest and latest["status"] == "committed" else None
 
     def build(self, record: VacancyRecord) -> Card:
         facts = record.facts
         raw = self._storage.items.get(record.primary_raw_id)
-        sites, channels = self._links(record)
-        place = ", ".join(p for p in (
-            WORK_FORMATS.get(facts.work_format, "") if facts else "",
-            facts.city if facts and facts.city not in ("", "unknown") else "",
-        ) if p)
-        grade = record.seniority if record.seniority not in ("", "unknown") else ""
-        category = self._categories.get(record.category)
+        flags = []
+        if record.english_flag:
+            flags.append("English team")
+        if record.informal_flag:
+            flags.append("Informal")
         return Card(
             id=record.id,
             title=record.title,
-            grade=grade.capitalize(),
-            stars=record.stars,
-            employer=record.employer,
-            employer_type=EMPLOYER_TYPES.get(facts.employer_type, "") if facts else "",
-            place=place,
-            permit=PERMIT_LABELS.get(record.residence_permit or "") if facts else None,
-            permit_reason=record.residence_reason or "",
-            salary=facts.salary_text if facts else "",
-            ad_language=lang_flag(facts.ad_language) if facts and facts.ad_language != "other" else "",
-            required_languages=[lang_flag(code) for code in (facts.required_languages if facts else [])],
-            summary=facts.summary_ru if facts else "",
-            english_flag=record.english_flag,
-            informal=record.informal_flag,
-            published=format_local(record.published_at, "%d %b") if record.published_at else "",
-            sites=sites,
-            channels=channels,
+            employer=_known(record.employer),
+            fit=record.stars,
+            permit=PERMIT_LABELS.get(record.residence_permit or "", ""),
+            permit_level=record.residence_permit or "",
+            permit_reason=_known(record.residence_reason),
+            work_format=WORK_FORMATS.get(facts.work_format, "") if facts else "",
+            city=_known(facts.city) if facts else "",
+            country=_known(facts.country) if facts else "",
+            salary=_salary(facts.salary_text) if facts else "",
+            published=format_local(record.published_at, "%-d %b") if record.published_at else "",
+            is_new=record.run_id == self._latest_run and record.user_status == "new",
+            summary=_known(facts.summary_ru) if facts else "",
+            flags=flags,
+            languages_note=self._languages_note(record),
+            sources=self._links(record),
             description=raw.full_text if raw else "",
             user_status=record.user_status,
             status_label=STATUS_LABELS.get(record.user_status, record.user_status),
             skip_reason=record.skip_reason,
             group=record.group_no,
-            category=category.label if category else "",
         )
 
-    def _links(self, record: VacancyRecord) -> tuple[list[SourceLink], list[SourceLink]]:
+    @staticmethod
+    def _languages_note(record: VacancyRecord) -> str:
+        """Only when languages are a risk: anything required besides Russian."""
+        facts = record.facts
+        if facts is None:
+            return ""
+        other = [LANGUAGES.get(code, code.upper()) for code in facts.required_languages if code != "ru"]
+        return ", ".join(other)
+
+    def _links(self, record: VacancyRecord) -> list[SourceLink]:
         sites: list[SourceLink] = []
         channels: list[SourceLink] = []
         seen: set[tuple[str, str]] = set()
@@ -136,9 +145,8 @@ class CardBuilder:
             kind = "telegram" if config and config.type == "telegram" else (
                 "email" if config and config.type == "email" else "site")
             url = link if kind == "email" and link else source.url
-            entry = SourceLink(source.source_id, name, url, kind)
-            (channels if kind == "telegram" else sites).append(entry)
-        return sites, channels
+            (channels if kind == "telegram" else sites).append(SourceLink(source.source_id, name, url, kind))
+        return sites + channels
 
 
 def full_text(storage: Storage, vacancy_id: int) -> str:
@@ -157,13 +165,16 @@ def full_text(storage: Storage, vacancy_id: int) -> str:
 
 
 def group_feed(cards: list[Card], config: AppConfig) -> list[dict[str, Any]]:
+    if cards and all(card.is_new for card in cards):
+        for card in cards:
+            card.is_new = False
     by_group: dict[int, list[Card]] = defaultdict(list)
     for card in cards:
         by_group[card.group or 5].append(card)
     groups = []
     for number, info in sorted(config.rules.groups.items()):
         groups.append({"number": number, "title": info.title, "collapsed": info.collapsed, "note": info.note,
-                       "cards": by_group.get(number, [])})
+                       "permit_column": number in PERMIT_GROUPS, "cards": by_group.get(number, [])})
     return groups
 
 
@@ -175,6 +186,7 @@ class HealthRow:
     name: str
     status: str
     collected: int
+    seen: int | None
     passed: int
     to_feed: int
     duration: str
@@ -215,7 +227,7 @@ def health(config: AppConfig, storage: Storage, limit: int = 60) -> list[HealthR
             if row["status"] in ("ok", "truncated", "error"):
                 history[source_id].append(seen)
             health_run.rows.append(HealthRow(
-                source_id, names.get(source_id, source_id), row["status"], row["collected"], row["passed"],
+                source_id, names.get(source_id, source_id), row["status"], row["collected"], row["seen"], row["passed"],
                 row["to_feed"], f"{row['duration_s']:.0f}s", row["error"] or row["note"] or "",
                 ALERT_LABELS.get(alert, alert), warn,
             ))
@@ -235,6 +247,16 @@ def latest_source_states(runs: list[HealthRun]) -> list[HealthRow]:
 
 
 # ---------------------------------------------------------------- tokens
+
+def model_label(model: str) -> str:
+    """claude-haiku-5-5 → Haiku 5.5, gpt-5.4-nano → GPT-5.4 nano."""
+    if model.startswith("claude-"):
+        family, *version = model.removeprefix("claude-").split("-")
+        return f"{family.capitalize()} {'.'.join(version)}".strip()
+    if model.startswith("gpt-"):
+        return "GPT-" + model.removeprefix("gpt-").replace("-", " ", 1)
+    return model
+
 
 def _cost(config: AppConfig, model: str, inp: int, out: int, cr: int, cw: int) -> float | None:
     price = config.llm.pricing.get(model)
@@ -275,7 +297,7 @@ def tokens(config: AppConfig, storage: Storage) -> dict[str, Any]:
             stage["share"] = round(100 * stage_total / run_total, 1)
             stage["input_share"] = round(100 * (stage_total - stage["output"]) / (stage_total or 1))
             stage["output_share"] = 100 - stage["input_share"] if stage_total else 0
-            stage["models"] = ", ".join(sorted(stage["models"]))
+            stage["models"] = ", ".join(model_label(m) for m in sorted(stage["models"]))
             stage["costs"] = {m: _cost(config, m, stage["input"], stage["output"], stage["cache_read"], stage["cache_write"])
                               for m in comparison}
             for key in ("calls", "input", "output", "cache_read", "cache_write", "unknown"):
@@ -293,4 +315,5 @@ def tokens(config: AppConfig, storage: Storage) -> dict[str, Any]:
             "costs": {m: sum((s["costs"][m] or 0.0) for s in ordered) for m in comparison},
         })
     return {"runs": run_views, "totals": totals, "total_costs": total_costs, "comparison": comparison,
+            "labels": {m: model_label(m) for m in comparison},
             "provider": config.llm.provider, "auth_source": storage.llm_calls.last_auth_source()}

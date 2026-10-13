@@ -1,11 +1,19 @@
 {% extends "base.html" %}
-{% from "_card.html" import card %}
+{% from "_row.html" import row %}
 {% block content %}
-<div class="filters">
+<div class="segmented" role="tablist">
   {% for key, label in filters %}
-    <a href="/processed{% if key != 'all' %}?filter={{ key }}{% endif %}" class="chip {{ 'active' if current == key }}">{{ label }}
-      {% if key != 'all' %}<span class="count">{{ counts.get(key, 0) }}</span>{% endif %}</a>
+    <a href="/processed{% if key != 'all' %}?filter={{ key }}{% endif %}" class="seg {{ 'on' if current == key }}">{{ label }}{% if key != 'all' %}<span class="count">{{ counts.get(key, 0) }}</span>{% endif %}</a>
   {% endfor %}
 </div>
-{% for c in cards %}{{ card(c, processed=True) }}{% else %}<p class="empty">Nothing here yet.</p>{% endfor %}
+{% if cards %}
+<section class="group">
+  <div class="group-body">
+    <div class="cells cells-processed head"><span>Fit</span><span>Role</span><span>Status</span><span class="r">Posted</span></div>
+    {% for c in cards %}{{ row(c, processed=True) }}{% endfor %}
+  </div>
+</section>
+{% else %}
+<section class="empty-state"><h1>Nothing here yet</h1><p>Vacancies you mark in the feed land here.</p></section>
+{% endif %}
 {% endblock %}

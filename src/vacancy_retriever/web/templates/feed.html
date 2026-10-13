@@ -1,17 +1,32 @@
 {% extends "base.html" %}
-{% from "_card.html" import card %}
+{% from "_row.html" import row, head %}
 {% block content %}
-{% for g in groups %}
-<section class="group" data-group="{{ g.number }}">
-  <details {% if not g.collapsed %}open{% endif %}>
-    <summary class="group-title"><span class="group-no">{{ g.number }}</span> {{ g.title }} <span class="count">{{ g.cards | length }}</span>{% if g.note %} <span class="dim">· {{ g.note }}</span>{% endif %}</summary>
-    {% if g.cards %}
-      {% for c in g.cards %}{{ card(c) }}{% endfor %}
-    {% else %}
-      <p class="empty">Nothing here.</p>
-    {% endif %}
-  </details>
+{% set total = groups | map(attribute='cards') | map('length') | sum %}
+{% if total == 0 %}
+  <section class="empty-state">
+    <h1>You're all caught up</h1>
+    <p>New vacancies appear here after a run. Processed ones are in <a href="/processed">Processed</a>.</p>
+  </section>
+{% endif %}
+{% for g in groups %}{% if g.cards %}
+<section class="group{{ ' collapsed' if g.collapsed }}" data-group="{{ g.number }}">
+  <button class="group-head" aria-expanded="{{ 'false' if g.collapsed else 'true' }}">
+    <span class="chev" aria-hidden="true"></span>
+    <span class="group-title">{{ g.title }}</span>
+    <span class="group-count">{{ g.cards | length }}</span>
+    {% if g.note %}<span class="group-note">{{ g.note }}</span>{% endif %}
+  </button>
+  <div class="group-body">
+    {{ head('Permit' if g.permit_column else 'Country') }}
+    {% for c in g.cards %}{{ row(c, permit_column=g.permit_column) }}{% endfor %}
+  </div>
 </section>
-{% endfor %}
-<p class="footer-note">Changed <code>config/rules.yaml</code>? <button class="link" id="recalc-btn">Recalculate groups and stars</button> (no LLM calls).</p>
+{% endif %}{% endfor %}
+{% if total %}
+<footer class="keys">
+  <span><kbd>J</kbd><kbd>K</kbd>move</span><span><kbd>A</kbd>applied</span><span><kbd>N</kbd>not now</span><span><kbd>S</kbd>skip</span><span><kbd>C</kbd>copy text</span><span><kbd>↵</kbd>full text</span>
+  <span class="spacer"></span>
+  <button class="link quiet" id="recalc-btn" title="Re-apply config/rules.yaml without LLM calls">Recalculate</button>
+</footer>
+{% endif %}
 {% endblock %}

@@ -62,10 +62,10 @@ dropped_seniority: [middle, senior, lead]
 
 # Группы ленты (заголовки — на английском, это интерфейс).
 groups:
-  1: {title: "Serbia + residence permit · IT / Data"}
-  2: {title: "Serbia + residence permit · Hands-on work"}
-  3: {title: "Russian-speaking employer · Remote IT / Data"}
-  4: {title: "Serbia · no residence permit", note: "Informal, no residence permit"}
+  1: {title: "IT and data in Serbia", note: "With residence permit"}
+  2: {title: "Hands-on work in Serbia", note: "With residence permit"}
+  3: {title: "Remote, Russian-speaking employer", note: "No residence permit"}
+  4: {title: "Informal work in Serbia", note: "No residence permit"}
   5: {title: "Unclear", collapsed: true}
 
 # Как в фактах может быть записана Сербия (сравнение без учёта регистра).

@@ -1,0 +1,64 @@
+{% macro fit_dots(n) -%}
+{%- if n -%}<span class="fit" title="Fit {{ n }} of 5" aria-label="Fit {{ n }} of 5">{% for i in range(5) %}<i class="{{ 'on' if i < n }}"></i>{% endfor %}</span>
+{%- else -%}<span class="fit"></span>{%- endif -%}
+{%- endmacro %}
+
+{% macro role(c) -%}
+<div class="role">
+  <div class="title">{% if c.is_new %}<span class="new" title="New in the last run"></span>{% endif %}{{ c.title }}{% for f in c.flags %}<span class="flag">{{ f }}</span>{% endfor %}</div>
+  <div class="sub">{{ c.employer or '—' }}</div>
+</div>
+{%- endmacro %}
+
+{% macro row(c, permit_column=False, processed=False) %}
+<article class="vac{{ ' low' if c.low_fit and not processed }}" id="vac-{{ c.id }}" data-id="{{ c.id }}" tabindex="0">
+  {% if processed %}
+  <div class="cells cells-processed">
+    {{ fit_dots(c.fit) }}
+    {{ role(c) }}
+    <div><div class="st st-{{ c.user_status }}">{{ c.status_label }}</div>{% if c.user_status == 'auto_skipped' and c.skip_reason %}<div class="sub">{{ c.skip_reason }}</div>{% endif %}</div>
+    <div class="col-date">{{ c.published }}</div>
+  </div>
+  {% else %}
+  <div class="cells">
+    {{ fit_dots(c.fit) }}
+    {{ role(c) }}
+    {% if permit_column %}
+      <div><span class="permit permit-{{ c.permit_level }}">{{ c.permit or '—' }}</span></div>
+    {% else %}
+      <div>{{ c.country or '—' }}</div>
+    {% endif %}
+    <div class="col-format">
+      {% if c.work_format %}<div>{{ c.work_format }}</div>{% if c.city and c.work_format != 'Remote' %}<div class="sub">{{ c.city }}</div>{% endif %}
+      {% elif c.city %}<div>{{ c.city }}</div>
+      {% else %}<span class="none">—</span>{% endif %}
+    </div>
+    <div class="col-salary">{% if c.salary %}{{ c.salary }}{% else %}<span class="none">—</span>{% endif %}</div>
+    <div class="col-date">{{ c.published }}</div>
+  </div>
+  {% endif %}
+  <div class="detail">
+    {% if c.summary %}<p class="summary">{{ c.summary }}</p>{% endif %}
+    {% if permit_column and c.permit_reason %}<p class="why">Permit {{ c.permit | lower }}, based on “{{ c.permit_reason }}”</p>{% endif %}
+    {% if c.languages_note %}<p class="why">Requires {{ c.languages_note }}</p>{% endif %}
+    {% if c.sources %}<div class="sources">{% for s in c.sources %}<a class="src" href="{{ s.url }}" target="_blank" rel="noopener noreferrer"><img src="/icons/{{ s.source_id }}" alt="" loading="lazy">{{ s.name }}</a>{% endfor %}</div>{% endif %}
+    <div class="actions">
+      {% if processed %}
+        <button class="btn" data-action="status" data-status="new">Return to feed<kbd>R</kbd></button>
+      {% else %}
+        <button class="btn" data-action="status" data-status="applied">Applied<kbd>A</kbd></button>
+        <button class="btn" data-action="status" data-status="not_now">Not now<kbd>N</kbd></button>
+        <button class="btn" data-action="status" data-status="skipped">Skip<kbd>S</kbd></button>
+      {% endif %}
+      <span class="spacer"></span>
+      <button class="link quiet" data-action="copy">Copy text</button>
+      <button class="link quiet" data-action="fulltext">Full text</button>
+    </div>
+    <pre class="fulltext" hidden>{{ c.description }}</pre>
+  </div>
+</article>
+{% endmacro %}
+
+{% macro head(third) %}
+<div class="cells head"><span>Fit</span><span>Role</span><span>{{ third }}</span><span>Format</span><span class="r">Salary</span><span class="r">Posted</span></div>
+{% endmacro %}

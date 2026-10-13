@@ -9,33 +9,26 @@
 </head>
 <body data-tab="{{ tab }}">
 <header class="top">
-  <div class="top-row">
-    <a class="brand" href="/">🦮 {{ app_name }}</a>
-    <div class="run-area" id="run-area">
-      <div class="last-run" id="last-run">{{ status.last_run_line }}</div>
-      <button class="btn primary" id="run-btn" {% if status.running %}hidden{% endif %}>Start run</button>
-      <button class="btn danger" id="cancel-btn" {% if not status.running %}hidden{% endif %}>Cancel</button>
-    </div>
-  </div>
-  <div class="run-summary" id="run-summary">{{ status.summary_line }}</div>
-  <div class="progress-box" id="progress-box" {% if not status.running %}hidden{% endif %}>
-    <div class="progress"><div class="progress-bar" id="progress-bar" style="width: {{ status.percent or 0 }}%"></div></div>
-    <div class="progress-text"><span id="progress-percent">{{ status.percent or 0 }}%</span> · <span id="progress-phase"></span></div>
-    <div class="done-sources" id="done-sources"></div>
-  </div>
-  <div class="banner warn" id="pending-banner" hidden></div>
-  <div class="banner error" id="error-banner" hidden></div>
-  <nav class="tabs">
-    <a href="/" class="{{ 'active' if tab == 'feed' }}">Feed <span class="count" id="feed-count">{{ feed_count }}</span></a>
-    <a href="/processed" class="{{ 'active' if tab == 'processed' }}">Processed</a>
-    <a href="/health" class="{{ 'active' if tab == 'health' }}">Source health</a>
-    <a href="/tokens" class="{{ 'active' if tab == 'tokens' }}">Tokens</a>
+  <nav class="nav">
+    <a href="/" class="tab {{ 'on' if tab == 'feed' }}">Feed<span class="count" id="feed-count">{{ feed_count }}</span></a>
+    <a href="/processed" class="tab {{ 'on' if tab == 'processed' }}">Processed</a>
+    <a href="/health" class="tab {{ 'on' if tab == 'health' }}">Health{% if health_problems %}<span class="dot-alert" title="Some sources have problems"></span>{% endif %}</a>
+    <a href="/tokens" class="tab {{ 'on' if tab == 'tokens' }}">Tokens</a>
+    <span class="spacer"></span>
+    <span class="updated" id="last-run" title="{{ status.summary_line }}">{{ status.last_run_short }}</span>
+    <button class="btn" id="run-btn" {% if status.running %}hidden{% endif %}>Run</button>
+    <button class="btn" id="cancel-btn" {% if not status.running %}hidden{% endif %}>Cancel</button>
   </nav>
+  <div class="progress" id="progress" {% if not status.running %}hidden{% endif %}>
+    <div class="progress-track"><div class="progress-bar" id="progress-bar" style="width: {{ status.percent or 0 }}%"></div></div>
+    <div class="progress-text"><span id="progress-percent">{{ (status.percent or 0) | round | int }}%</span><span id="progress-phase"></span></div>
+  </div>
+  <div class="notice" id="notice" hidden></div>
 </header>
-<main>
+<main class="main">
 {% block content %}{% endblock %}
 </main>
-<div class="toast" id="toast" hidden></div>
+<div class="toast" id="toast" hidden><span id="toast-text"></span><button class="link" id="toast-undo" hidden>Undo</button></div>
 <script src="/static/app.js?v={{ version }}"></script>
 </body>
 </html>

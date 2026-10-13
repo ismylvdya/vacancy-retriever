@@ -55,9 +55,10 @@ def test_pages_render(client):
         assert response.status_code == 200, path
     feed = client.get("/").text
     assert "Junior Data Scientist" in feed
-    assert "Residence permit: yes" in feed
-    assert "🇷🇺" in feed and "🇬🇧" in feed
-    assert "Serbia + residence permit · IT / Data" in feed
+    assert 'class="permit permit-yes">Yes<' in feed
+    assert "Requires English" in feed, "non-Russian required languages are shown as a risk"
+    assert "IT and data in Serbia" in feed
+    assert "1500–2000 €" in feed
     assert "https://telegram.me/serbiawork/1" in feed
     assert "t.me/" not in feed.replace("telegram.me/", "")
 
@@ -101,8 +102,23 @@ def test_foreign_host_header_is_rejected(client):
 def test_tokens_page_shows_stage_and_cost(client):
     page = client.get("/tokens").text
     assert "Evaluation" in page
-    assert "claude-haiku-5-5" in page
-    assert "would cost via API" in page
+    assert "Haiku 5.5" in page
+    assert "Would cost via API" in page
+
+
+def test_salary_without_numbers_is_not_shown():
+    from vacancy_retriever.web.views import _salary
+
+    assert _salary("По договорённости") == ""
+    assert _salary("unknown") == ""
+    assert _salary("1500–2000 €") == "1500–2000 €"
+
+
+def test_model_labels_are_human_readable():
+    from vacancy_retriever.web.views import model_label
+
+    assert model_label("claude-haiku-5-5") == "Haiku 5.5"
+    assert model_label("gpt-5.4-nano") == "GPT-5.4 nano"
 
 
 def test_icon_fallback_for_telegram(client):

@@ -73,7 +73,7 @@ def test_zero_alert_only_when_source_showed_nothing(setup):
     assert not runs[0].rows[0].alert, "no new posts but the page was fine — not an alert"
     _source_run(storage, seen=0, collected=0)
     runs = views.health(config, storage)
-    assert "showed nothing" in runs[0].rows[0].alert
+    assert "showed nothing" in runs[0].rows[0].alert.lower()
     assert runs[0].rows[0].warn
 
 

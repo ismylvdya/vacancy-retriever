@@ -204,6 +204,7 @@ class Pipeline:
             is_known=lambda external_id: self.storage.items.is_known(source.id, external_id),
             cancel_event=self.cancel_event,
             limit=options.limit,
+            on_page=lambda page: self.progress.source_page(source.id, source.name, page, source.max_pages),
         )
         try:
             collector = collector_for(source, http)

@@ -7,7 +7,7 @@
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-PORT="${VR_PORT:-8765}"
+PORT="${VR_PORT:-18765}"
 BIN="$ROOT/.venv/bin/vacancy-retriever"
 SERVER_PID="$ROOT/data/server.pid"
 MENUBAR_PID="$ROOT/data/menubar.pid"

@@ -1,0 +1,269 @@
+# Vacancy Retriever — справочник
+
+Этот документ — для пользователя и для любого ИИ-ассистента, который видит проект впервые.
+Если вы потеряли доступ к чату, где проект собирался, — всё нужное здесь.
+
+## 1. Что это и зачем
+
+Данила живёт в Белграде и ищет работу; главная цель — **ВНЖ в Сербии по работе**. Источников вакансий
+около 45 (Telegram-каналы, сайты, почтовые рассылки), просматривать их руками каждый день невозможно.
+
+Vacancy Retriever — локальное приложение для macOS. По кнопке **Start run** оно:
+1. собирает новые вакансии из всех включённых источников;
+2. отсеивает очевидный мусор дешёвыми правилами (без LLM);
+3. отдаёт остальное LLM, которая **только извлекает факты** (категория роли, грейд, языки, юрлицо в Сербии…);
+4. **код** по таблицам из `config/rules.yaml` решает группу, звёзды, ВНЖ и отсев;
+5. показывает одну ленту, сгруппированную по жизненным приоритетам:
+
+| Группа | Что в ней |
+|---|---|
+| 1 | Сербия + ВНЖ, IT/Data (сербское юрлицо, в т.ч. российские компании с d.o.o.) |
+| 2 | Сербия + ВНЖ, работа руками (дерево/мебель, производство, стройка, склад) |
+| 3 | Русскоязычный работодатель, удалёнка, IT/Data (без ВНЖ, но доход) |
+| 4 | Сербия без ВНЖ (неофициально, «подмастерье») |
+| 5 | Неясно (свёрнута внизу) |
+
+Цель — утром за 10–15 минут просмотреть ленту и ничего не упустить; LLM тратит минимум токенов, а поломки
+источников (блокировки, смена вёрстки) сразу видны.
+
+## 2. Карта проекта
+
+```
+config/                 ← ВСЕ настройки (меняются без правки кода)
+  sources.yaml          источники: Telegram-каналы, сайты, почтовые ящики
+  rules.yaml            категории ролей, базы/потолки звёзд, минусы, группы, предфильтр
+  llm.yaml              провайдер LLM, модели, пачки, цены для вкладки Tokens
+  mail.yaml             почтовые ящики, отправители, имя ярлыка "🦆 retrievered"
+  profile.md            резюме — контекст для LLM
+  prompts/scoring.md    инструкция LLM для извлечения фактов (+ few-shot примеры)
+  prompts/dedup.md      инструкция LLM «одна и та же вакансия?»
+  icons/                свои иконки источников (необязательно)
+  .env.example → .env   пароли почты и ключи API (.env не в git)
+data/                   база и служебные файлы (не в git): vacancy_retriever.sqlite, token_log.jsonl,
+                        source_stats.json, progress.json, icons/, *.pid
+logs/                   логи (не в git)
+samples/                html/ — снимки страниц источников для тестов; emails/ — образцы писем;
+                        eval/ — набор для сравнения моделей
+src/vacancy_retriever/
+  cli.py                команды vacancy-retriever …
+  config.py             загрузка и проверка конфигов
+  collectors/           сборщики: telegram.py, sites/<сайт>.py, email/ (imap, generic, parsers/)
+  pipeline/             runner.py (весь прогон), prefilter, dedup, llm_stage, progress, manager, recalculate
+  scoring/              facts.py (что извлекает LLM), engine.py (группа/звёзды/ВНЖ/отсев)
+  llm/                  провайдеры: claude_sdk.py, http_providers.py (Anthropic/OpenAI API)
+  storage/              SQLite: прогоны, сырые элементы, вакансии, вызовы LLM
+  web/                  FastAPI + шаблоны + app.js/style.css
+  menubar/              иконка в меню-баре (rumps)
+tests/                  pytest
+scripts/                setup.sh · start.sh · stop.sh · eval_models.py
+```
+
+## 3. Как устроен прогон
+
+```
+ Start run ──► 1. Сбор ────► 2. Дедуп сырых ─► 3. Предфильтр ─► 4. Докачка описаний ─► 5. LLM: факты
+               (каждый        (та же ссылка,     (RVC-грейд,       (только сайты из        (пачки по 10,
+                источник       тот же текст,      стоп-слова        detail_domains)         ≤2 параллельно)
+                отдельно,      репост в другом    заголовка,                                    │
+                ошибка одного  канале — в LLM     старше 30 дн.)                                ▼
+                не мешает)     не идёт)                                               Код: группа, звёзды,
+                                                                                       ВНЖ, отсев (rules.yaml)
+                                                                                                │
+ Лента  ◄── 7. Коммит (одна короткая транзакция) ◄── 6. Дедуп вакансий (код + LLM для «серой зоны»)
+```
+
+- Всё, что пишет прогон, помечено `run_id` и `staged=1`. Пока прогон идёт, лента показывает старые данные.
+- **Коммит** — одна транзакция: staged → видимые, курсоры источников сдвигаются (только у собранных без ошибки),
+  вакансии старше 30 дней уходят в Auto-skipped «Expired».
+- **Отмена** (кнопка Cancel → второй клик) — всё с этим `run_id` удаляется, курсоры не трогаются. Остаются
+  только записи о токенах (помечены «отменён»; токены прерванного вызова — «неизвестно»).
+- **Сбой/сон ноутбука/kill** — при следующем старте незавершённый прогон считается отменённым.
+- **Отказ LLM** (лимит подписки, сеть) — не провал: собранное сохраняется, неоценённые элементы ждут со
+  статусом `pending_llm` и первыми идут в следующем прогоне; в шапке — «N items waiting for evaluation».
+- **Курсоры:** Telegram — номер последнего поста; сайты и почта — время старта прогона минус 1 час.
+  Первый прогон источника — за 7 дней (`first_run_days`), дальше — с курсора.
+- **Почта** помечается прочитанной и получает ярлык/папку `🦆 retrievered` **только после коммита** и только если
+  все вакансии письма оценены.
+
+## 4. Запуск и команды
+
+```bash
+scripts/start.sh          # сервер + иконка в меню-баре, открывает http://127.0.0.1:18765/
+scripts/stop.sh           # остановить
+```
+
+Команды (из папки проекта):
+
+| Команда | Что делает |
+|---|---|
+| `.venv/bin/vacancy-retriever run` | прогон из терминала (тот же конвейер, что кнопка) |
+| `… run --sources serbiawork,habr --limit 10 --since 1d --db data/dev.sqlite` | быстрый отладочный прогон в отдельную базу |
+| `… serve [--port 18765]` | только веб-сервер |
+| `… menubar` | только иконка в меню-баре |
+| `… check-sources` | быстрая проверка доступности всех источников (✓ / ✗ BLOCKED) |
+| `… export-email-samples --limit 3` | сохранить образцы писем в `samples/emails/` (только чтение ящика) |
+| `… recalculate` | пересчитать группы/звёзды по `rules.yaml` без LLM (или ссылка внизу ленты) |
+
+**Автозапуск при входе в систему** (по желанию): Системные настройки → Основные → Объекты входа →
+«+» → выбрать файл `scripts/start.sh` из папки проекта. (Приложение само ничего вне своей папки не создаёт.)
+
+## 5. Настройки (`config/`)
+
+Все файлы проверяются при запуске; опечатка даёт понятную ошибку вида
+`Configuration error: rules.yaml: categories.ds_ml.base: Input should be a valid integer`.
+
+- **`sources.yaml`** — список источников. Поля: `id`, `type`, `name`, `url`, `enabled`, `max_pages`
+  (предохранитель), `posts_per_day` (вес в прогресс-баре), `icon`, `params`. Внизу — `detail_domains`.
+- **`rules.yaml`** — категории ролей (`kind`: it / manual / drop / hidden / other, `base`, `cap`), минусы к
+  звёздам, грейды-отсев, названия групп, предфильтр (стоп-слова заголовка, правила RVC).
+  После правки — `recalculate` (без LLM).
+- **`llm.yaml`** — провайдер (`claude_sdk` / `anthropic_api` / `openai_api`), модели по этапам,
+  `batch_size`, `max_concurrency`, обрезка длинных текстов, `effort`/`thinking`, цены для вкладки Tokens.
+- **`mail.yaml`** — ящики (Gmail, Яндекс), отправители и их парсеры, имя ярлыка.
+- **`profile.md`** — резюме. Обновили резюме → следующий прогон оценивает по новому профилю.
+- **`prompts/scoring.md`** — что LLM извлекает и как. Меняется без кода; категории должны совпадать с ключами
+  `categories` в `rules.yaml`.
+
+## 6. Как добавить / отключить источник
+
+**Telegram-канал** — одна строка в `sources.yaml`:
+```yaml
+  - {id: new_channel, type: telegram, name: "Новый канал", url: "https://telegram.me/new_channel", posts_per_day: 3, max_pages: 5}
+```
+`id` = имя канала из ссылки. Всегда `telegram.me`, не `t.me` (в Сербии `t.me` не открывается).
+Работает только для публичных каналов с веб-превью (`https://telegram.me/s/<канал>` открывается в браузере).
+Группы (чаты) превью не имеют — их так не собрать.
+
+**Отключить** любой источник: `enabled: false` и (для себя) `disabled_reason: "..."`.
+
+**Новый сайт** — нужен сборщик: файл `src/vacancy_retriever/collectors/sites/<id>.py` по образцу соседних
+(общие помощники — `sites/_common.py`: обход страниц с правилами остановки, `html_to_text`),
+снимок страницы в `samples/html/<id>/` и тест `tests/test_site_<id>.py`. Затем строка в `sources.yaml` с
+`type: <id>` и, если есть докачка описания, домен в `detail_domains`.
+
+**Своя иконка источника:** положите `config/icons/<id>.png` (или `.svg`, `.ico`) — она важнее скачанной.
+Или укажите путь в поле `icon:` (относительно `config/icons/`). Скачанные иконки лежат в `data/icons/` и
+обновляются раз в ~30 дней.
+
+## 7. Почта
+
+1. Включите IMAP и создайте **пароль приложения**:
+   - Gmail: myaccount.google.com → Безопасность → Двухэтапная аутентификация → Пароли приложений;
+     Gmail → Настройки → Пересылка и POP/IMAP → включить IMAP.
+   - Яндекс: id.yandex.ru → Безопасность → Пароли приложений → «Почта»; Почта → Настройки → Почтовые программы → IMAP.
+2. Впишите в `config/.env`: `GMAIL_LOGIN`, `GMAIL_APP_PASSWORD`, `YANDEX_LOGIN`, `YANDEX_APP_PASSWORD`.
+3. Проверьте: `.venv/bin/vacancy-retriever check-sources --sources gmail,yandex`.
+
+Читаются только **непрочитанные** письма от отправителей из `mail.yaml` за 30 дней. Во время сбора ящик не
+меняется (BODY.PEEK). После успешного прогона письма помечаются прочитанными: в Gmail получают ярлык
+`🦆 retrievered`, в Яндексе переносятся в одноимённую папку (создаётся сама). Ссылки linkedin.com из писем
+**никогда не открываются** — только показываются.
+
+### Точный парсер письма (пошагово)
+
+По умолчанию письмо целиком отдаётся LLM (универсальный парсер — работает, но тратит больше токенов: видно
+строкой «Evaluation · e-mail» во вкладке Tokens). Точный парсер делит письмо на вакансии сам.
+
+1. Сохраните образцы: `.venv/bin/vacancy-retriever export-email-samples --limit 3` → появятся
+   `samples/emails/<отправитель>/*.eml`. Замените в них личные данные на `hidden@example.com`.
+2. Скопируйте шаблон: `cp src/vacancy_retriever/collectors/email/parsers/_template.py src/vacancy_retriever/collectors/email/parsers/hh_ru.py`
+3. В новом файле поменяйте имя в `@register_parser("hh_ru")` и напишите разбор: из HTML письма вернуть список
+   `ParsedVacancy(title=…, url=…, company=…, location=…, text=…)`. В шаблоне есть пример с BeautifulSoup.
+4. В `config/mail.yaml` у отправителя: `parser: hh_ru`.
+5. `.venv/bin/python -m pytest tests/test_email.py` — тест сам прогонит все образцы через парсеры.
+6. Если парсер вернул пустой список или упал — письмо автоматически уходит в универсальный парсер.
+
+Можно попросить Claude: «Вот образец письма samples/emails/hh_ru/…eml, напиши точный парсер по шаблону
+_template.py, см. docs/HANDBOOK.md раздел 7».
+
+## 8. Как читать вкладки
+
+**Feed** — только необработанные вакансии. Внутри группы: звёзды ↓, потом дата ↓. Кнопки:
+*Applied* / *Skip* / *Not now* — карточка уходит в Processed. *Copy full text* — оригинальный текст вакансии
+(для поста-дайджеста — весь пост) + ссылка, для вставки в скилл адаптации резюме.
+
+**Processed** — фильтры Applied / Skipped / Not now / Auto-skipped (с причиной отсева в одну строку).
+*Return to feed* — вернуть карточку (так исправляются ошибки отсева). «Not now» сам в ленту не возвращается.
+
+**Source health** — сверху последнее состояние каждого источника, ниже история прогонов.
+Колонки: Collected (новых элементов), Passed filters (дошло до LLM), To feed (попало в ленту), Time.
+Статусы: `ok`, `truncated` (упёрлись в `max_pages` — нормально для первого прогона RVC Global),
+`error`, `not_configured` (нет пароля почты — это не ошибка), `disabled`.
+**Тревожные признаки (подсвечены):** HTTP 403 / 429, Captcha, Cloudflare challenge, Redirect to login,
+«Source showed nothing (usually it does)». Это значит, что сайт начал блокировать или сменил вёрстку.
+
+**Tokens** — по каждому прогону и этапу (Evaluation, Evaluation · e-mail, LLM dedup): вызовы, input / output /
+cache, доля от прогона, модель, «≈ сколько стоило бы по API» для Haiku и дешёвой модели OpenAI.
+Процент лимита подписки программно недоступен. Те же данные — в `data/token_log.jsonl`.
+Если появилось «⚠ Claude CLI reported auth source …» — CLI пошёл не через подписку, а через платный ключ
+(в окружении есть `ANTHROPIC_API_KEY`); уберите его из `~/.zshrc` или переключитесь осознанно.
+
+## 9. Как сменить LLM
+
+Вся смена — в `config/llm.yaml` (+ ключ в `config/.env` для API). Код менять не нужно.
+
+**(а) Другая модель Claude по подписке.** В `models.claude_sdk` поменяйте `scoring: haiku` на `sonnet`
+(точнее, в ~8 раз дороже для лимита — см. EVAL.md). Для Sonnet/Opus очистите `claude_sdk.thinking:`.
+
+**(б) Платный API Anthropic.**
+1. Аккаунт и ключ: https://console.anthropic.com → Settings → **API Keys** → Create Key.
+2. Баланс: Settings → **Billing** → пополнить (например, $10).
+3. **Лимит расходов**: Settings → **Limits** → monthly spend limit ≈ $10/мес — чтобы не было сюрпризов.
+4. В `config/.env`: `ANTHROPIC_API_KEY=sk-ant-…`
+5. В `config/llm.yaml`: `provider: anthropic_api` (модели — в `models.anthropic_api`, по умолчанию `claude-haiku-5-5`).
+6. Проверка: `.venv/bin/vacancy-retriever run --sources serbiawork --limit 3 --db data/dev.sqlite`, затем
+   вкладка Tokens (или `data/dev_token_log.jsonl`).
+Документация: https://docs.claude.com/en/api/getting-started , цены: https://www.anthropic.com/pricing .
+
+**(в) Платный API OpenAI.**
+1. https://platform.openai.com → **API keys** → Create new secret key.
+2. **Billing** → добавить способ оплаты и пополнить; **Limits** → monthly budget ≈ $10.
+3. В `config/.env`: `OPENAI_API_KEY=sk-…`
+4. В `config/llm.yaml`: `provider: openai_api` (модели — `models.openai_api`, по умолчанию `gpt-5.4-nano`).
+5. Проверка — как в (б). Документация: https://platform.openai.com/docs , цены: https://openai.com/api/pricing .
+
+⚠ Интерфейсы консолей меняются; ищите разделы «API keys», «Billing», «Limits/Usage».
+Цены в `llm.yaml → pricing` нужны только для оценки во вкладке Tokens — обновляйте по официальным страницам.
+
+## 10. Тесты
+
+```bash
+.venv/bin/python -m pytest          # все тесты (~200), без сети и без LLM
+.venv/bin/python -m pytest tests/test_pipeline.py -v
+```
+
+Тесты используют сохранённые снимки страниц (`samples/html/`), фейковую LLM и фейковый IMAP.
+Сравнение моделей на реальных данных (тратит лимит подписки): `.venv/bin/python scripts/eval_models.py`.
+
+## 11. Частые поломки
+
+| Симптом | Что делать |
+|---|---|
+| Health: `error` + «HTTP 403», «Cloudflare», «Captcha» у сайта | Сайт блокирует. Подождать день; если повторяется — `enabled: false`. Проверить: `check-sources --sources <id>` |
+| Health: «Source showed nothing» | Сайт сменил вёрстку или адрес. Открыть сайт в браузере; починить сборщик (Claude + снимок страницы в `samples/html/<id>/` + тест) |
+| Шапка: «N items waiting for evaluation (LLM limit or error)» | Кончился лимит подписки или нет сети. Ничего не потеряно — оценятся в следующем прогоне |
+| Красная плашка «LLM: … not logged in / authentication» | Claude Code разлогинился: в Терминале выполнить `claude`, войти. Проверка: `claude auth status` |
+| «Claude Code CLI not found» | `brew install --cask claude-code`, затем `claude` для входа. Или указать путь в `llm.yaml → claude_sdk.cli_path` |
+| Иконка в меню-баре с ⚠ | Сервер не запущен: `scripts/start.sh` |
+| «Порт 18765 занят» | `VR_PORT=8800 scripts/start.sh` |
+| Прогон «завис» | Cancel (двойной клик). Если сервер не отвечает — `scripts/stop.sh && scripts/start.sh`; незавершённый прогон откатится сам |
+| `Configuration error: …` | Опечатка в `config/*.yaml` — сообщение говорит файл и поле |
+| Нужны подробности | `logs/serve.log`, `logs/run.log`, `logs/server.out` |
+
+## 12. Резервная копия
+
+Вся ценная информация — `data/vacancy_retriever.sqlite` (статусы «Откликнулся» и т.п.) и `config/`.
+Копия без остановки приложения:
+```bash
+sqlite3 data/vacancy_retriever.sqlite ".backup 'data/backup-$(date +%Y%m%d).sqlite'"
+```
+Восстановление: `scripts/stop.sh`, заменить файл `data/vacancy_retriever.sqlite` копией, `scripts/start.sh`.
+
+## 13. Правила проекта (для ассистентов)
+
+- Только `telegram.me`, никогда `t.me`. linkedin.com никогда не открывать (заблокировано в HTTP-клиенте).
+- Всё живёт в папке проекта; ничего не писать вне неё. Зависимости — только `.venv` через `uv`.
+- Настройки — в `config/`, не в коде. Интерфейс — на английском; саммари вакансий — на русском;
+  документация и комментарии конфигов — на русском.
+- LLM только извлекает факты; группы/звёзды/отсев считает `scoring/engine.py` по `rules.yaml`.
+- Новый источник = сборщик + снимок + тест. Каждый упавший тест — блокер.

@@ -89,12 +89,6 @@ def dedup_key(employer: str, title: str) -> str | None:
     return f"{company}|{normalize_title(title)}"
 
 
-@dataclass(frozen=True)
-class DedupDecision:
-    kind: str  # exact | gray | none
-    other_id: int | None = None
-
-
 def compare_vacancies(employer_a: str, title_a: str, employer_b: str, title_b: str) -> str:
     """exact (same normalized company+title) | gray (similar, needs LLM) | none."""
     company_a, company_b = normalize_company(employer_a), normalize_company(employer_b)

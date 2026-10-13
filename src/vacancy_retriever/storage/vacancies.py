@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import json
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta
 from typing import Any
@@ -237,7 +236,3 @@ class VacancyRepository:
                 continue
             seen.add(key)
             by_id[row["vacancy_id"]].sources.append(VacancySource(row["source_id"], row["url"] or ""))
-
-
-def facts_json(facts: VacancyFacts) -> str:
-    return json.dumps(facts.model_dump(), ensure_ascii=False)

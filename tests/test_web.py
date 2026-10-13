@@ -15,7 +15,7 @@ from vacancy_retriever.storage.vacancies import NewVacancy
 from vacancy_retriever.timeutil import utcnow
 from vacancy_retriever.web.app import create_app
 
-PORT = 8765
+PORT = 18765
 ORIGIN = {"origin": f"http://127.0.0.1:{PORT}"}
 
 

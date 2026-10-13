@@ -14,7 +14,7 @@ from .config import AppConfig, ConfigError
 from .logging_setup import configure_logging
 from .paths import PATHS
 
-DEFAULT_PORT = 8765
+DEFAULT_PORT = 18765
 
 
 def _duration(value: str) -> timedelta:

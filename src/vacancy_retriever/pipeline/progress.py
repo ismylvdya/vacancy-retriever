@@ -89,6 +89,15 @@ class ProgressTracker:
             self._state.current = name
         self._flush(force=True)
 
+    def source_page(self, source_id: str, name: str, page: int, max_pages: int) -> None:
+        """Moves the bar inside a long source (e.g. 100 pages of a busy channel)."""
+        with self._lock:
+            total = sum(self._weights.values()) or 1.0
+            inside = self._weights.get(source_id, 1.0) * min(page / max(max_pages, 1), 0.95)
+            self._set_percent("collecting", (self._done_weight + inside) / total)
+            self._state.current = f"{name} · page {page}"
+        self._flush()
+
     def source_done(self, source_id: str, name: str) -> None:
         with self._lock:
             self._done_weight += self._weights.get(source_id, 1.0)

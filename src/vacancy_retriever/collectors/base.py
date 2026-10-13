@@ -19,6 +19,10 @@ class RunCancelled(Exception):
     """Raised inside collectors when the user pressed Cancel."""
 
 
+class SourceNotConfigured(Exception):
+    """Source needs credentials/settings the user hasn't filled in yet (not an error)."""
+
+
 class SourceError(Exception):
     """Collector failed. `alert` marks signs of blocking (captcha, 403, login redirect...)."""
 
@@ -95,6 +99,11 @@ class Collector(ABC):
     def icon_url(self) -> str | None:
         """Where to download this source's icon from (favicon / channel avatar)."""
         return None
+
+    def after_commit(self, processed_meta: list[dict[str, Any]]) -> list[str]:
+        """Called only after the run is committed, with `meta` of items whose vacancies were all
+        evaluated. Returns error messages (e.g. mail flags could not be set)."""
+        return []
 
 
 _WS = re.compile(r"\s+")

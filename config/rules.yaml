@@ -112,8 +112,10 @@ prefilter:
     - официант
     - курьер
   title_deny_reason: "Title keyword"
-  # Посты каналов RVC (revacancy, revacancy_global): первая строка начинается с эмодзи грейда.
-  # 🟩 Junior, ⬜️ не указан — оставляем; 🟨 Middle, 🟥 Senior, 🟪 Middle/Senior — отсев "RVC grade".
-  rvc_allowed_grade_emoji: ["🟩", "⬜"]
+  # Посты каналов RVC (revacancy, revacancy_global): первая строка
+  # "🟩 Junior Data Analyst | 1 year(s) | Junior | IC". Грейд берётся из текста первой строки
+  # (эмодзи 🟪 означает высокую зарплату, а не грейд: встречается и с Junior, и с Senior).
+  # Если текстового грейда нет — по эмодзи: 🟨 Middle, 🟥 Senior. Эти грейды — отсев "RVC grade".
+  rvc_dropped_grades: [middle, senior, lead, head, director, c-level]
   # Признаки рекламных постов RVC (не вакансия, не показывать).
   rvc_ad_markers: ["walllet", "реклама", "#реклама", "erid"]

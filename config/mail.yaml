@@ -1,0 +1,43 @@
+# Почта: вакансии из писем-рассылок (LinkedIn job alerts, hh.ru, SuperJob, Хабр Карьера, infostud …).
+# Логины и пароли приложений — в config/.env (см. config/.env.example), здесь только имена переменных.
+# Если в .env нет логина/пароля — источник показывает "not configured", это не ошибка.
+
+# Ярлык (Gmail) / папка (Яндекс), куда уходят разобранные письма после успешного прогона.
+# Эмодзи и пробел допустимы: имя кодируется в IMAP modified UTF-7 автоматически.
+processed_label: "🦆 retrievered"
+
+# Письма старше стольких дней не читаются.
+max_age_days: 30
+
+# Почтовые ящики. id ящика = id источника в config/sources.yaml (type: email).
+mailboxes:
+  - id: gmail
+    name: Gmail
+    kind: gmail            # gmail = ярлык через X-GM-LABELS; yandex = перенос в папку
+    host: imap.gmail.com
+    login_env: GMAIL_LOGIN
+    password_env: GMAIL_APP_PASSWORD
+    folder: INBOX
+  - id: yandex
+    name: Yandex Mail
+    kind: yandex
+    host: imap.yandex.com
+    login_env: YANDEX_LOGIN
+    password_env: YANDEX_APP_PASSWORD
+    folder: INBOX
+
+# Известные отправители. Читаются только письма от них.
+#   match  — подстрока адреса отправителя (без учёта регистра)
+#   name   — подпись в интерфейсе
+#   parser — generic (универсальный: текст+ссылки письма уходят в LLM, она сама делит на вакансии)
+#            или имя точного парсера из src/vacancy_retriever/collectors/email/parsers/
+#            (как написать точный парсер — docs/HANDBOOK.md, раздел "Точный парсер письма").
+senders:
+  - {match: "jobalerts-noreply@linkedin.com", name: "LinkedIn job alerts", parser: generic}
+  - {match: "jobs-listings@linkedin.com",     name: "LinkedIn jobs",       parser: generic}
+  - {match: "infostud.com",                   name: "Infostud",            parser: generic}
+  - {match: "hh.ru",                          name: "hh.ru",               parser: generic}
+  - {match: "headhunter.ge",                  name: "headhunter.ge",       parser: generic}
+  - {match: "headhunter.kg",                  name: "headhunter.kg",       parser: generic}
+  - {match: "superjob.ru",                    name: "SuperJob",            parser: generic}
+  - {match: "habr.com",                       name: "Habr Career",         parser: generic}

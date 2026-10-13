@@ -1,0 +1,55 @@
+# Настройки LLM.
+#
+# provider — через что идут запросы:
+#   claude_sdk     — по подписке Claude (Pro/Max) через залогиненный Claude Code CLI. Без API-ключа. По умолчанию.
+#   anthropic_api  — платный API Anthropic. Нужен ANTHROPIC_API_KEY в config/.env.
+#   openai_api     — платный API OpenAI. Нужен OPENAI_API_KEY в config/.env.
+# Смена провайдера = поменять эту строку (+ ключ в .env). Подробно — docs/HANDBOOK.md, раздел "Как сменить LLM".
+provider: claude_sdk
+
+# Модели по этапам для каждого провайдера.
+#   scoring — извлечение фактов из вакансий (основной расход токенов)
+#   dedup   — "это одна и та же вакансия?" для похожих пар
+# Для claude_sdk можно писать алиасы: haiku, sonnet, opus.
+# Рекомендация по модели — в EVAL.md.
+models:
+  claude_sdk:    {scoring: haiku, dedup: haiku}
+  anthropic_api: {scoring: claude-haiku-5-5, dedup: claude-haiku-5-5}
+  openai_api:    {scoring: gpt-5.4-nano, dedup: gpt-5.4-nano}
+
+# Сколько вакансий (постов/писем) в одном запросе на оценку.
+batch_size: 10
+# Не больше стольких запросов одновременно (каждый запрос claude_sdk — отдельный процесс CLI, у Air 8 ГБ RAM).
+max_concurrency: 2
+# Обрезка сверхдлинных текстов (символов): обычная вакансия / пост-дайджест или письмо.
+max_input_chars: 4000
+max_input_chars_multi: 9000
+# Сколько раз повторять упавший запрос (с паузой), потом элементы ждут следующего прогона.
+retries: 2
+
+claude_sdk:
+  # Путь к claude CLI. Пусто = искать в PATH, затем /opt/homebrew/bin/claude, /usr/local/bin/claude, ~/.local/bin/claude.
+  cli_path:
+  # true = structured output CLI (строже, но ~2x накладных токенов и 2 хода). false = JSON в тексте + валидация.
+  structured_output: false
+  timeout_seconds: 300
+
+anthropic_api:
+  base_url: https://api.anthropic.com
+  timeout_seconds: 120
+
+openai_api:
+  base_url: https://api.openai.com
+  timeout_seconds: 120
+
+# Цены API, $ за 1 млн токенов — для колонки "would cost via API" во вкладке Tokens.
+# Подписка Claude не тарифицируется по токенам; это только оценка "сколько стоило бы по API".
+# Сверено 2026-10-13: Anthropic — справочник моделей Claude API; OpenAI — сторонние трекеры цен
+# (официальная страница цен OpenAI недоступна без браузера). Проверьте перед использованием.
+pricing:
+  claude-haiku-5-5:  {input: 0.10, output: 0.50, cache_read: 0.01, cache_write: 0.125}
+  claude-sonnet-5-5: {input: 2.00, output: 10.00, cache_read: 0.20, cache_write: 2.50}
+  gpt-5.4-nano:      {input: 0.20, output: 1.25, cache_read: 0.02, cache_write: 0.20}
+
+# Модели, для которых во вкладке Tokens считается "стоило бы по API".
+comparison_models: [claude-haiku-5-5, gpt-5.4-nano]

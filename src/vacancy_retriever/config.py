@@ -78,7 +78,7 @@ class GroupInfo(_Strict):
 class PrefilterRules(_Strict):
     title_deny_keywords: list[str] = Field(default_factory=list)
     title_deny_reason: str = "Excluded by title keyword"
-    rvc_allowed_grade_emoji: list[str] = Field(default_factory=list)
+    rvc_dropped_grades: list[str] = Field(default_factory=list)
     rvc_ad_markers: list[str] = Field(default_factory=list)
 
 

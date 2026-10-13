@@ -48,6 +48,16 @@ sources:
   - {id: juniors_rabota_jobs,    type: telegram, name: "Juniors Rabota",         url: "https://telegram.me/juniors_rabota_jobs",    posts_per_day: 2,   max_pages: 5}
   - {id: choicy_work,            type: telegram, name: "Choicy Work",            url: "https://telegram.me/choicy_work",            posts_per_day: 1,   max_pages: 3}
 
+  # ---------- Сайты ----------
+  # ovdejobs: категории не фильтруются по умолчанию (часть подходящих вакансий без категории);
+  # при желании params.categories: [it, construction, warehousing, ...].
+  - {id: ovdejobs, type: ovdejobs, name: "Ovde Jobs", url: "https://ovdejobs.com/vacancies/?_job_city=belgrade", max_pages: 3, posts_per_day: 3, params: {cities: [belgrade, remote]}}
+  # Отключены: защита Cloudflare (403 + JS-челлендж / WAF-блок) даже на robots.txt. Сборщики не написаны.
+  - {id: infostud, type: infostud, name: "Infostud", enabled: false, disabled_reason: "Cloudflare JS challenge (403 cf-mitigated), checked 2026-10-13", url: "https://poslovi.infostud.com/oglasi-za-posao/beograd"}
+  - {id: startuj, type: startuj, name: "Startuj", enabled: false, disabled_reason: "Cloudflare JS challenge (403 cf-mitigated), checked 2026-10-13", url: "https://startuj.infostud.com/poslovi-za-mlade/it/beograd"}
+  - {id: helloworld, type: helloworld, name: "HelloWorld", enabled: false, disabled_reason: "Cloudflare WAF block (403), checked 2026-10-13", url: "https://helloworld.rs/oglasi-za-posao/"}
+
 # Домены, с которых разрешено докачивать полное описание вакансии (этап "докачка").
 # Ссылки из Telegram-постов не открываются никогда; linkedin.com — никогда.
-detail_domains: []
+detail_domains:
+  - ovdejobs.com

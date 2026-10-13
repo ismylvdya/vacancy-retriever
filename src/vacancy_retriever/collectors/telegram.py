@@ -97,6 +97,7 @@ class TelegramCollector(Collector):
         before: str | None = None
         icon: str | None = None
         reached_end = False
+        seen = 0
         for page in range(ctx.max_pages):
             ctx.check_cancel()
             ctx.on_page(page + 1)
@@ -108,6 +109,7 @@ class TelegramCollector(Collector):
             if not posts:
                 reached_end = True
                 break
+            seen += len(posts)
             for post in posts:
                 post_id = int(post.external_id)
                 too_old = post.published_at is not None and post.published_at < ctx.since
@@ -129,4 +131,5 @@ class TelegramCollector(Collector):
             status="ok" if reached_end else "truncated",
             new_cursor=SourceCursor(last_id=newest),
             icon_url=icon,
+            seen=seen,
         )

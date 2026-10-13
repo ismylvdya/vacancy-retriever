@@ -28,6 +28,7 @@ CREATE TABLE IF NOT EXISTS source_runs (
     source_id TEXT NOT NULL,
     status TEXT NOT NULL,              -- ok | error | truncated | not_configured | disabled
     collected INTEGER DEFAULT 0,
+    seen INTEGER,
     passed INTEGER DEFAULT 0,
     to_feed INTEGER DEFAULT 0,
     duration_s REAL DEFAULT 0,
@@ -160,9 +161,19 @@ class Database:
         self._local = threading.local()
         with self.connect() as conn:
             conn.executescript(SCHEMA)
+            self._migrate(conn)
             conn.execute(
                 "INSERT OR IGNORE INTO meta(key, value) VALUES ('schema_version', ?)", (str(SCHEMA_VERSION),)
             )
+
+    @staticmethod
+    def _migrate(conn: sqlite3.Connection) -> None:
+        """Columns added after v0 databases were created. Add new ones here, never drop."""
+        added = {("source_runs", "seen", "INTEGER")}
+        for table, column, kind in added:
+            columns = {row[1] for row in conn.execute(f"PRAGMA table_info({table})")}
+            if column not in columns:
+                conn.execute(f"ALTER TABLE {table} ADD COLUMN {column} {kind}")
 
     def _connection(self) -> sqlite3.Connection:
         conn = getattr(self._local, "conn", None)

@@ -78,6 +78,9 @@ class CollectResult:
     new_cursor: SourceCursor | None = None
     icon_url: str | None = None
     note: str | None = None
+    seen: int | None = None
+    """Items the source actually showed (new + already known). None = len(items).
+    0 here while the source usually shows something is a sign of blocking or a changed layout."""
 
 
 class Collector(ABC):

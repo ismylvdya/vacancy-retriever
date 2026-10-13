@@ -33,7 +33,7 @@ STAGE_LABELS = {"scoring": "Evaluation", "scoring_email": "Evaluation · e-mail 
 ALERT_LABELS = {
     "http_403": "HTTP 403 — blocked?", "http_429": "HTTP 429 — rate limited", "captcha": "Captcha",
     "cloudflare": "Cloudflare challenge", "login_redirect": "Redirect to login", "not_json": "Unexpected response",
-    "zero_items": "0 items (usually more)", "mail_flags": "Could not label / move processed e-mails",
+    "zero_items": "Source showed nothing (usually it does) — blocked or layout changed?", "mail_flags": "Could not label / move processed e-mails",
 }
 
 
@@ -208,11 +208,12 @@ def health(config: AppConfig, storage: Storage, limit: int = 60) -> list[HealthR
             source_id = row["source_id"]
             usual = history[source_id][-5:]
             alert = row["alert"] or ""
-            if row["status"] in ("ok", "truncated") and row["collected"] == 0 and usual and max(usual) > 0:
+            seen = row["seen"] if row["seen"] is not None else row["collected"]
+            if row["status"] in ("ok", "truncated") and seen == 0 and usual and max(usual) > 0:
                 alert = alert or "zero_items"
             warn = row["status"] == "error" or bool(alert)
             if row["status"] in ("ok", "truncated", "error"):
-                history[source_id].append(row["collected"])
+                history[source_id].append(seen)
             health_run.rows.append(HealthRow(
                 source_id, names.get(source_id, source_id), row["status"], row["collected"], row["passed"],
                 row["to_feed"], f"{row['duration_s']:.0f}s", row["error"] or row["note"] or "",

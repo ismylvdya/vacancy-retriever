@@ -18,6 +18,7 @@ class SourceRunRecord:
     source_id: str
     status: str
     collected: int = 0
+    seen: int | None = None
     passed: int = 0
     to_feed: int = 0
     duration_s: float = 0.0
@@ -57,9 +58,9 @@ class RunRepository:
 
     def record_source(self, run_id: int, record: SourceRunRecord) -> None:
         self.db.execute(
-            "INSERT INTO source_runs(run_id, source_id, status, collected, passed, to_feed, duration_s, error, alert,"
-            " note) VALUES (?,?,?,?,?,?,?,?,?,?)",
-            (run_id, record.source_id, record.status, record.collected, record.passed, record.to_feed,
+            "INSERT INTO source_runs(run_id, source_id, status, collected, seen, passed, to_feed, duration_s, error,"
+            " alert, note) VALUES (?,?,?,?,?,?,?,?,?,?,?)",
+            (run_id, record.source_id, record.status, record.collected, record.seen, record.passed, record.to_feed,
              round(record.duration_s, 1), record.error, record.alert, record.note),
         )
 

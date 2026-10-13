@@ -228,7 +228,8 @@ class Pipeline:
         new_cursor = result.new_cursor or SourceCursor(last_published_at=run_start - TIME_CURSOR_MARGIN)
         self.storage.runs.stage_cursor(run_id, source.id, new_cursor)
         self.icons.refresh(source, result.icon_url or collector.icon_url(), http)
-        return SourceRunRecord(source.id, result.status, collected=stored, note=result.note,
+        seen = result.seen if result.seen is not None else len(result.items)
+        return SourceRunRecord(source.id, result.status, collected=stored, seen=seen, note=result.note,
                                duration_s=time.monotonic() - started)
 
     def _store_items(self, run_id: int, source: SourceConfig, result: CollectResult,

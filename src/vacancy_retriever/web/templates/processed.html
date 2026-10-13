@@ -1,0 +1,11 @@
+{% extends "base.html" %}
+{% from "_card.html" import card %}
+{% block content %}
+<div class="filters">
+  {% for key, label in filters %}
+    <a href="/processed{% if key != 'all' %}?filter={{ key }}{% endif %}" class="chip {{ 'active' if current == key }}">{{ label }}
+      {% if key != 'all' %}<span class="count">{{ counts.get(key, 0) }}</span>{% endif %}</a>
+  {% endfor %}
+</div>
+{% for c in cards %}{{ card(c, processed=True) }}{% else %}<p class="empty">Nothing here yet.</p>{% endfor %}
+{% endblock %}

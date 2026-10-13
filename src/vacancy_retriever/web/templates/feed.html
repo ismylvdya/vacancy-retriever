@@ -1,0 +1,17 @@
+{% extends "base.html" %}
+{% from "_card.html" import card %}
+{% block content %}
+{% for g in groups %}
+<section class="group" data-group="{{ g.number }}">
+  <details {% if not g.collapsed %}open{% endif %}>
+    <summary class="group-title"><span class="group-no">{{ g.number }}</span> {{ g.title }} <span class="count">{{ g.cards | length }}</span>{% if g.note %} <span class="dim">· {{ g.note }}</span>{% endif %}</summary>
+    {% if g.cards %}
+      {% for c in g.cards %}{{ card(c) }}{% endfor %}
+    {% else %}
+      <p class="empty">Nothing here.</p>
+    {% endif %}
+  </details>
+</section>
+{% endfor %}
+<p class="footer-note">Changed <code>config/rules.yaml</code>? <button class="link" id="recalc-btn">Recalculate groups and stars</button> (no LLM calls).</p>
+{% endblock %}

@@ -1,0 +1,65 @@
+{% macro stars(n) -%}
+{%- if n %}<span class="stars" title="{{ n }} of 5">{{ '★' * n }}<span class="dim">{{ '★' * (5 - n) }}</span></span>{% endif -%}
+{%- endmacro %}
+
+{% macro card(c, processed=False) %}
+<article class="card" id="card-{{ c.id }}" data-id="{{ c.id }}">
+  <div class="card-head">
+    <h3 class="title">{{ c.title }}{% if c.grade %} <span class="grade">· {{ c.grade }}</span>{% endif %}</h3>
+    {{ stars(c.stars) }}
+  </div>
+  {% if processed %}
+  <div class="status-line"><span class="pill status-{{ c.user_status }}">{{ c.status_label }}</span>
+    {% if c.user_status == 'auto_skipped' and c.skip_reason %}<span class="reason">{{ c.skip_reason }}</span>{% endif %}
+  </div>
+  {% endif %}
+  {% if c.employer or c.employer_type or c.place %}
+  <div class="line employer">
+    {%- if c.employer %}<strong>{{ c.employer }}</strong>{% endif %}
+    {%- if c.employer_type %} — {{ c.employer_type }}{% endif %}
+    {%- if c.place %} · {{ c.place }}{% endif %}
+  </div>
+  {% endif %}
+  <div class="line meta">
+    {% if c.permit %}<span class="permit permit-{{ c.permit }}">Residence permit: {{ c.permit }}{% if c.permit_reason %} <span class="dim">({{ c.permit_reason }})</span>{% endif %}</span>{% endif %}
+    {% if c.salary %}<span class="salary">{{ c.salary }}</span>{% endif %}
+  </div>
+  {% if c.ad_language or c.required_languages %}
+  <div class="line langs">
+    {% if c.ad_language %}Ad: {{ c.ad_language }}{% endif %}
+    {% if c.required_languages %}&nbsp;&nbsp; Required: {{ c.required_languages | join(' ') }}{% endif %}
+  </div>
+  {% endif %}
+  {% if c.english_flag or c.informal %}
+  <div class="line flags">
+    {% if c.english_flag %}<span class="flag warn">⚠ English required</span>{% endif %}
+    {% if c.informal %}<span class="flag">Informal, no residence permit</span>{% endif %}
+  </div>
+  {% endif %}
+  {% if c.summary %}<p class="summary">«{{ c.summary }}»</p>{% endif %}
+  <div class="sources">
+    {% if c.sites %}<div class="source-row">
+      {% for s in c.sites %}<a class="src" href="{{ s.url }}" target="_blank" rel="noopener noreferrer" title="{{ s.name }}"><img src="/icons/{{ s.source_id }}" alt="">{{ s.name }}</a>{% endfor %}
+    </div>{% endif %}
+    {% if c.channels %}<div class="source-row">
+      {% for s in c.channels %}<a class="src tg" href="{{ s.url }}" target="_blank" rel="noopener noreferrer" title="{{ s.name }}"><span class="avatar"><img src="/icons/{{ s.source_id }}" alt=""><img class="badge" src="/static/icons/telegram.svg" alt=""></span>{{ s.name }}</a>{% endfor %}
+    </div>{% endif %}
+    {% if c.published %}<span class="date">{{ c.published }}</span>{% endif %}
+  </div>
+  <details class="full">
+    <summary>Full description</summary>
+    <pre>{{ c.description }}</pre>
+  </details>
+  <div class="actions">
+    <button class="btn ghost copy" data-action="copy">Copy full text</button>
+    <span class="spacer"></span>
+    {% if processed %}
+    <button class="btn" data-action="status" data-status="new">Return to feed</button>
+    {% else %}
+    <button class="btn good" data-action="status" data-status="applied">Applied</button>
+    <button class="btn" data-action="status" data-status="skipped">Skip</button>
+    <button class="btn" data-action="status" data-status="not_now">Not now</button>
+    {% endif %}
+  </div>
+</article>
+{% endmacro %}

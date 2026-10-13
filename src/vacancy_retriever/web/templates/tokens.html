@@ -1,0 +1,44 @@
+{% extends "base.html" %}
+{% block content %}
+{% set t = data.totals %}
+<section class="token-summary">
+  <div class="stat"><div class="stat-value">{{ "{:,}".format(t.input + t.output + t.cache_read + t.cache_write) }}</div><div class="stat-label">tokens, all time</div></div>
+  <div class="stat"><div class="stat-value">{{ t.calls }}</div><div class="stat-label">LLM calls</div></div>
+  {% for m in data.comparison %}
+  <div class="stat"><div class="stat-value">${{ "%.2f" | format(data.total_costs[m]) }}</div><div class="stat-label">would cost via API · {{ m }}</div></div>
+  {% endfor %}
+</section>
+<p class="dim">Provider: <code>{{ data.provider }}</code>.
+  {% if data.provider == 'claude_sdk' %}
+    Calls go through your Claude subscription; the share of your subscription limit is not available programmatically.
+    {% if data.auth_source and data.auth_source != 'none' %}<strong class="alert">⚠ Claude CLI reported auth source "{{ data.auth_source }}" — it may be using a paid API key instead of the subscription.</strong>{% endif %}
+  {% endif %}
+  Token log: <code>data/token_log.jsonl</code>.</p>
+
+{% for run in data.runs %}
+<details class="run" {% if loop.first %}open{% endif %}>
+  <summary>
+    <span class="run-time">{{ run.started }}</span>
+    <span class="pill st-{{ run.status }}">{{ run.status }}</span>
+    {% if run.cancelled %}<span class="alert">cancelled</span>{% endif %}
+    <span>{{ "{:,}".format(run.total) }} tokens</span>
+    {% for m, v in run.costs.items() %}<span class="dim">· {{ m }} ${{ "%.3f" | format(v) }}</span>{% endfor %}
+  </summary>
+  <table class="table compact">
+    <thead><tr><th>Stage</th><th class="num">Calls</th><th class="num">Input</th><th class="num">Output</th><th class="num">Cache read</th><th class="num">Cache write</th><th class="num">% of run</th><th class="num">In / out</th><th>Model</th>
+      {% for m in data.comparison %}<th class="num">≈ {{ m }}</th>{% endfor %}</tr></thead>
+    <tbody>
+    {% for s in run.stages %}
+      <tr>
+        <td>{{ s.label }}{% if s.failed %} <span class="alert">({{ s.failed }} failed{% if s.unknown %}, tokens unknown{% endif %})</span>{% endif %}</td>
+        <td class="num">{{ s.calls }}</td><td class="num">{{ "{:,}".format(s.input) }}</td><td class="num">{{ "{:,}".format(s.output) }}</td>
+        <td class="num">{{ "{:,}".format(s.cache_read) }}</td><td class="num">{{ "{:,}".format(s.cache_write) }}</td>
+        <td class="num">{{ s.share }}%</td><td class="num">{{ s.input_share }}% / {{ s.output_share }}%</td><td>{{ s.models }}</td>
+        {% for m in data.comparison %}<td class="num">{% if s.costs[m] is not none %}${{ "%.4f" | format(s.costs[m]) }}{% else %}—{% endif %}</td>{% endfor %}
+      </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+</details>
+{% else %}<p class="empty">No LLM calls yet.</p>{% endfor %}
+{% endblock %}

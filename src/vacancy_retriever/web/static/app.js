@@ -208,6 +208,7 @@ document.addEventListener("keydown", (event) => {
   if (key === "j" || key === "arrowdown") { event.preventDefault(); move(1); return; }
   if (key === "k" || key === "arrowup") { event.preventDefault(); move(-1); return; }
   if (!current) return;
+  if (event.repeat) return;
   if (key === "escape") { current.classList.remove("open"); return; }
   if (key === "enter") { event.preventDefault(); current.classList.add("open"); toggleFullText(current); return; }
   if (key === "c") { copyText(current); return; }

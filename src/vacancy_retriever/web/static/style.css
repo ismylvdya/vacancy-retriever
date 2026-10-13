@@ -80,7 +80,7 @@ kbd { display: inline-block; min-width: 16px; padding: 0 3px; margin-left: 6px; 
 
 /* ---------- vacancy rows ---------- */
 .cells { display: grid; grid-template-columns: 48px minmax(0, 1fr) 64px 80px 136px 48px; gap: 12px; align-items: center; padding: 9px 16px; font-size: 13px; }
-.cells-processed { grid-template-columns: 52px minmax(0, 1fr) 240px 52px; }
+.cells-processed { grid-template-columns: minmax(0, 1fr) 220px 48px; }
 .cells.head { padding-top: 0; padding-bottom: 6px; font-size: 12px; color: var(--faint); }
 .vac { border-top: 1px solid var(--line); outline: none; cursor: default; }
 .vac:hover { background: var(--hover); }
@@ -119,8 +119,8 @@ kbd { display: inline-block; min-width: 16px; padding: 0 3px; margin-left: 6px; 
 .actions .link { margin-left: 12px; }
 .sources { display: flex; flex-wrap: wrap; gap: 4px 14px; margin-top: 8px; }
 .sources .src { margin-left: 0; }
-.fulltext { white-space: pre-wrap; font: 13px/1.55 -apple-system, sans-serif; background: var(--bg); border-radius: var(--radius);
-  padding: 12px 14px; margin: 12px 0 0; max-height: 420px; overflow: auto; }
+.fulltext { white-space: pre-wrap; font: 13px/1.6 -apple-system, sans-serif; color: var(--text); border-left: 2px solid var(--line-strong);
+  padding: 2px 0 2px 14px; margin: 14px 0 0; max-width: 640px; }
 
 .keys { display: flex; flex-wrap: wrap; gap: 14px; align-items: center; padding: 4px 4px; color: var(--faint); font-size: 11px; }
 .keys kbd { margin: 0 4px 0 0; }
@@ -136,12 +136,16 @@ kbd { display: inline-block; min-width: 16px; padding: 0 3px; margin-left: 6px; 
 
 /* ---------- tables (health, tokens) ---------- */
 .table { width: 100%; border-collapse: collapse; font-size: 13px; }
-.table th { text-align: left; font-weight: 400; color: var(--faint); font-size: 12px; padding: 0 16px 6px; }
+.table th { text-align: left; font-weight: 400; color: var(--faint); font-size: 12px; padding: 0 16px 6px; white-space: nowrap; }
 .table td { padding: 9px 16px; border-top: 1px solid var(--line); vertical-align: top; }
+.table td.nw, .table td.r { white-space: nowrap; }
 .table th.r, .table td.r { text-align: right; font-variant-numeric: tabular-nums; }
 .table tr.warn td { background: color-mix(in srgb, var(--danger) 6%, transparent); }
-.table.inner { background: var(--bg); }
-.table.inner th { padding-top: 8px; }
+.table.inner { font-size: 12px; }
+.table.inner th, .table.inner td { padding-left: 10px; padding-right: 10px; }
+.table.inner th { padding-top: 10px; }
+.table.inner td:first-child, .table.inner th:first-child { padding-left: 32px; }
+.table.inner td:last-child, .table.inner th:last-child { padding-right: 16px; }
 .src-name { display: inline-flex; align-items: center; gap: 8px; }
 .src-name img { width: 16px; height: 16px; border-radius: 4px; object-fit: cover; }
 .status { display: inline-flex; align-items: center; gap: 6px; }
@@ -149,7 +153,7 @@ kbd { display: inline-block; min-width: 16px; padding: 0 3px; margin-left: 6px; 
 .s-ok::before, .s-committed::before { background: var(--ok); }
 .s-error::before, .s-failed::before { background: var(--danger); }
 .s-truncated::before, .s-not_configured::before, .s-cancelled::before, .s-running::before { background: var(--likely); }
-.problem { max-width: 320px; }
+.problem { width: 100%; min-width: 180px; }
 .problem > span { display: block; }
 .alert { color: var(--danger); }
 .runs { border-top: 1px solid var(--line); }
@@ -157,14 +161,14 @@ kbd { display: inline-block; min-width: 16px; padding: 0 3px; margin-left: 6px; 
 .run > summary { list-style: none; cursor: pointer; }
 .run > summary::-webkit-details-marker { display: none; }
 .run > summary:hover { background: var(--hover); }
-.run-row { grid-template-columns: 120px 110px 70px 80px minmax(0, 1fr); font-size: 13px; }
+.run-row { grid-template-columns: 110px 110px 70px 70px minmax(0, 1fr); font-size: 13px; }
 .tokens-row { grid-template-columns: 120px minmax(0, 1fr) 110px 110px 110px; }
 .runs-head { font-size: 12px; color: var(--faint); padding-top: 0; padding-bottom: 6px; }
 .run-time { font-weight: 500; }
 .stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 12px; margin: 0 0 12px; }
 .stat { background: var(--panel); box-shadow: 0 0 0 1px var(--line); border-radius: 12px; padding: 12px 16px; }
 .stat-value { font-size: 20px; font-weight: 600; font-variant-numeric: tabular-nums; }
-.stat-label { font-size: 12px; color: var(--muted); }
+.stat-label { font-size: 12px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .note { color: var(--muted); font-size: 13px; margin: 0 0 16px; }
 
 /* ---------- toast ---------- */
@@ -174,8 +178,22 @@ kbd { display: inline-block; min-width: 16px; padding: 0 3px; margin-left: 6px; 
 
 /* ---------- narrow screens ---------- */
 @media (max-width: 720px) {
-  .cells { grid-template-columns: 44px minmax(0, 1fr) 64px 44px; }
-  .cells > :nth-child(4), .cells > :nth-child(5) { display: none; }
+  .nav { padding: 12px 12px 8px; flex-wrap: wrap; }
+  .main { padding: 0 12px 40px; }
+  .cells:not(.cells-processed):not(.run-row) { grid-template-columns: minmax(0, 1fr) 64px 48px; gap: 10px; }
+  .cells:not(.cells-processed):not(.run-row) > .fit, .cells:not(.cells-processed):not(.run-row) > .col-format,
+  .cells:not(.cells-processed):not(.run-row) > .col-salary,
+  .cells.head:not(.cells-processed):not(.run-row) > :first-child,
+  .cells.head:not(.cells-processed):not(.run-row) > :nth-child(4),
+  .cells.head:not(.cells-processed):not(.run-row) > :nth-child(5) { display: none; }
+  .segmented { display: flex; overflow-x: auto; max-width: 100%; }
+  .seg { white-space: nowrap; }
+  .cells-processed { grid-template-columns: minmax(0, 1fr) 120px 44px; }
   .detail { padding-left: 16px; }
-  .group-note, .updated { display: none; }
+  .group-note, .updated, .keys { display: none; }
+  .group { overflow-x: auto; }
+  .table { min-width: 560px; }
+  .run-row { grid-template-columns: 96px 100px 60px 40px minmax(0, 1fr); }
+  .tokens-row { grid-template-columns: 96px minmax(0, 1fr) 80px; }
+  .tokens-row > :nth-child(n+4) { display: none; }
 }

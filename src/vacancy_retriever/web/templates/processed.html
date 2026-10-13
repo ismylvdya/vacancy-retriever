@@ -9,7 +9,7 @@
 {% if cards %}
 <section class="group">
   <div class="group-body">
-    <div class="cells cells-processed head"><span>Fit</span><span>Role</span><span>Status</span><span class="r">Posted</span></div>
+    <div class="cells cells-processed head"><span>Role</span><span>Status</span><span class="r">Posted</span></div>
     {% for c in cards %}{{ row(c, processed=True) }}{% endfor %}
   </div>
 </section>

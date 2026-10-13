@@ -6,7 +6,7 @@
 {% macro role(c) -%}
 <div class="role">
   <div class="title">{% if c.is_new %}<span class="new" title="New in the last run"></span>{% endif %}{{ c.title }}{% for f in c.flags %}<span class="flag">{{ f }}</span>{% endfor %}</div>
-  <div class="sub">{{ c.employer or '—' }}</div>
+  {% if c.employer %}<div class="sub">{{ c.employer }}</div>{% endif %}
 </div>
 {%- endmacro %}
 
@@ -14,7 +14,6 @@
 <article class="vac{{ ' low' if c.low_fit and not processed }}" id="vac-{{ c.id }}" data-id="{{ c.id }}" tabindex="0">
   {% if processed %}
   <div class="cells cells-processed">
-    {{ fit_dots(c.fit) }}
     {{ role(c) }}
     <div><div class="st st-{{ c.user_status }}">{{ c.status_label }}</div>{% if c.user_status == 'auto_skipped' and c.skip_reason %}<div class="sub">{{ c.skip_reason }}</div>{% endif %}</div>
     <div class="col-date">{{ c.published }}</div>

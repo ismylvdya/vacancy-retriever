@@ -306,7 +306,7 @@ class Pipeline:
         pending = self.storage.items.pending_from_previous_runs() + self.storage.items.by_run(run_id, "pending_llm")
         if not pending:
             return
-        self.progress.phase("scoring", f"Evaluating {len(pending)} items with LLM")
+        self.progress.phase("scoring", f"Evaluating {_plural(len(pending), 'item')} with LLM")
         try:
             provider = self.provider_factory()
         except LlmError as exc:
@@ -320,7 +320,7 @@ class Pipeline:
         results = run_jobs(
             jobs, self.config.llm.max_concurrency, self.cancel_event,
             on_done=lambda done: self.progress.phase(
-                "scoring", f"Evaluated {done}/{len(batches)} batches", done / len(batches)),
+                "scoring", f"Evaluated {done} of {_plural(len(batches), 'batch')}", done / len(batches)),
         )
         by_id = {item.id: item for item in pending}
         now = self.now()
@@ -510,6 +510,11 @@ class Pipeline:
         if summary.pending_llm:
             text += f" · {summary.pending_llm} waiting for LLM"
         return text
+
+
+def _plural(count: int, word: str) -> str:
+    suffix = "es" if word.endswith("ch") else "s"
+    return f"{count} {word}{'' if count == 1 else suffix}"
 
 
 def _as_raw(item: StoredRawItem):

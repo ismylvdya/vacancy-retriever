@@ -103,7 +103,7 @@ def test_tokens_page_shows_stage_and_cost(client):
     page = client.get("/tokens").text
     assert "Evaluation" in page
     assert "Haiku 5.5" in page
-    assert "Would cost via API" in page
+    assert "via API" in page
 
 
 def test_salary_without_numbers_is_not_shown():

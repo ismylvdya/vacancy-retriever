@@ -7,8 +7,8 @@
     <tbody>
     {% for r in latest %}
       <tr class="{{ 'warn' if r.warn }}">
-        <td><span class="src-name"><img src="/icons/{{ r.source_id }}" alt="" loading="lazy">{{ r.name }}</span></td>
-        <td><span class="status s-{{ r.status }}">{{ r.status | replace('_', ' ') }}</span></td>
+        <td class="nw"><span class="src-name"><img src="/icons/{{ r.source_id }}" alt="" loading="lazy">{{ r.name }}</span></td>
+        <td class="nw"><span class="status s-{{ r.status }}">{{ r.status | replace('_', ' ') }}</span></td>
         <td class="r">{{ r.collected }}</td><td class="r">{{ r.seen if r.seen is not none else '' }}</td><td class="r">{{ r.to_feed }}</td>
         <td class="r muted">{{ r.duration }}</td>
         <td class="problem">{% if r.alert %}<span class="alert">{{ r.alert }}</span>{% endif %}{% if r.error %}<span class="muted">{{ r.error }}</span>{% endif %}</td>
@@ -20,6 +20,7 @@
 
 <section class="group">
   <div class="section-head"><h2>Runs</h2></div>
+  <div class="cells run-row runs-head"><span>Started</span><span>Status</span><span class="r">Duration</span><span class="r">New</span><span>Problems</span></div>
   <div class="runs">
   {% for run in runs %}
     <details class="run">
@@ -27,7 +28,7 @@
         <span class="run-time">{{ run.started }}</span>
         <span class="status s-{{ run.status }}">{{ run.status }}</span>
         <span class="r muted">{{ run.duration_min }} min</span>
-        <span class="r">{% if run.summary.new_total is defined %}{{ run.summary.new_total }} new{% endif %}</span>
+        <span class="r">{% if run.summary.new_total is defined %}{{ run.summary.new_total }}{% endif %}</span>
         <span class="problem">{% if run.problems %}<span class="alert">{{ run.problems }} source problems</span>{% endif %}{% if run.summary.llm_error %}<span class="alert">LLM: {{ run.summary.llm_error[:90] }}</span>{% endif %}</span>
       </summary>
       <table class="table inner">
@@ -35,7 +36,7 @@
         <tbody>
         {% for r in run.rows %}
           <tr class="{{ 'warn' if r.warn }}">
-            <td>{{ r.name }}</td><td><span class="status s-{{ r.status }}">{{ r.status | replace('_', ' ') }}</span></td>
+            <td class="nw">{{ r.name }}</td><td class="nw"><span class="status s-{{ r.status }}">{{ r.status | replace('_', ' ') }}</span></td>
             <td class="r">{{ r.collected }}</td><td class="r">{{ r.seen if r.seen is not none else '' }}</td><td class="r">{{ r.to_feed }}</td>
             <td class="r muted">{{ r.duration }}</td>
             <td class="problem">{% if r.alert %}<span class="alert">{{ r.alert }}</span>{% endif %}{% if r.error %}<span class="muted">{{ r.error }}</span>{% endif %}</td>

@@ -1,0 +1,53 @@
+# Источники вакансий.
+# Поля:
+#   id            — уникальный идентификатор (латиница, цифры, _ и -)
+#   type          — тип сборщика: telegram | getmatch | habr | ... | email
+#   name          — подпись в интерфейсе
+#   url           — ссылка на источник (для Telegram — telegram.me, НЕ t.me: t.me не открывается в Сербии)
+#   enabled       — false = источник отключён (не собирается, в "Health" — disabled)
+#   disabled_reason — почему отключён (для себя)
+#   max_pages     — сколько страниц максимум листать за прогон (предохранитель)
+#   posts_per_day — примерно постов в день; стартовый вес в прогресс-баре
+#   icon          — своя иконка: путь относительно config/icons/ (необязательно;
+#                   файл config/icons/<id>.png|svg|ico подхватывается и без этого поля)
+#   params        — параметры конкретного сборщика
+#
+# Добавить Telegram-канал = одна строка по образцу ниже
+# (id = имя канала из ссылки telegram.me/<канал>).
+
+sources:
+  # ---------- Telegram (публичное веб-превью telegram.me/s/<канал>) ----------
+  - {id: serbiawork,             type: telegram, name: "Serbia Work",            url: "https://telegram.me/serbiawork",             posts_per_day: 2,   max_pages: 5}
+  - {id: rabotavserbii,          type: telegram, name: "Работа в Сербии",        url: "https://telegram.me/rabotavserbii",          posts_per_day: 5,   max_pages: 5}
+  - {id: serbiarabotavacancies,  type: telegram, name: "Сербия вакансии",        url: "https://telegram.me/serbiarabotavacancies",  posts_per_day: 0.5, max_pages: 3}
+  - {id: youritjob,              type: telegram, name: "Your IT Job (LENKEP)",   url: "https://telegram.me/youritjob",              posts_per_day: 2,   max_pages: 5}
+  - {id: revacancy,              type: telegram, name: "RVC СНГ",                url: "https://telegram.me/revacancy",              posts_per_day: 35,  max_pages: 20}
+  - {id: revacancy_global,       type: telegram, name: "RVC Global",             url: "https://telegram.me/revacancy_global",       posts_per_day: 300, max_pages: 110}
+  - {id: jobifys,                type: telegram, name: "Jobifys",                url: "https://telegram.me/jobifys",                posts_per_day: 3,   max_pages: 5}
+  - {id: evacuatejobs,           type: telegram, name: "Remocate",               url: "https://telegram.me/evacuatejobs",           posts_per_day: 5,   max_pages: 5}
+  - {id: myitjob,                type: telegram, name: "My IT Job",              url: "https://telegram.me/myitjob",                posts_per_day: 5,   max_pages: 5}
+  - {id: juno_jobs,              type: telegram, name: "Juno Jobs",              url: "https://telegram.me/juno_jobs",              posts_per_day: 4,   max_pages: 5}
+  - {id: jobs_juniors_remote,    type: telegram, name: "Jobs Juniors Remote",    url: "https://telegram.me/jobs_juniors_remote",    posts_per_day: 1,   max_pages: 3}
+  - {id: yuniorapp,              type: telegram, name: "Yunior",                 url: "https://telegram.me/yuniorapp",              posts_per_day: 4,   max_pages: 5}
+  - {id: agilefluent,            type: telegram, name: "Agile Fluent",           url: "https://telegram.me/agilefluent",            posts_per_day: 1,   max_pages: 3}
+  - {id: dev_connectablejobs,    type: telegram, name: "Connectable Jobs",       url: "https://telegram.me/dev_connectablejobs",    posts_per_day: 2,   max_pages: 5}
+  - {id: zarubezhom_jobs,        type: telegram, name: "Работа за рубежом",      url: "https://telegram.me/zarubezhom_jobs",        posts_per_day: 3,   max_pages: 5}
+  - {id: IT_iGaming,             type: telegram, name: "IT iGaming (LENKEP)",    url: "https://telegram.me/IT_iGaming",             posts_per_day: 1,   max_pages: 3}
+  - {id: datasciencejobs,        type: telegram, name: "Data Science Jobs",      url: "https://telegram.me/datasciencejobs",        posts_per_day: 1,   max_pages: 3}
+  - {id: young_relocate,         type: telegram, name: "Young Relocate",         url: "https://telegram.me/young_relocate",         posts_per_day: 2,   max_pages: 5}
+  - {id: rusukrjobs,             type: telegram, name: "RusUkr Jobs",            url: "https://telegram.me/rusukrjobs",             posts_per_day: 0.5, max_pages: 3}
+  - {id: job_for_relocation,     type: telegram, name: "Job for Relocation",     url: "https://telegram.me/job_for_relocation",     posts_per_day: 1,   max_pages: 3}
+  - {id: opento_cyprus,          type: telegram, name: "Open to Cyprus",         url: "https://telegram.me/opento_cyprus",          posts_per_day: 1,   max_pages: 3}
+  - {id: futru_it,               type: telegram, name: "Futru IT",               url: "https://telegram.me/futru_it",               posts_per_day: 1,   max_pages: 3}
+  - {id: jobforjunior,           type: telegram, name: "Job for Junior",         url: "https://telegram.me/jobforjunior",           posts_per_day: 3,   max_pages: 5}
+  - {id: JobOfferInside,         type: telegram, name: "Job Offer Inside",       url: "https://telegram.me/JobOfferInside",         posts_per_day: 4,   max_pages: 5}
+  - {id: talentmove_channel,     type: telegram, name: "TalentMove",             url: "https://telegram.me/talentmove_channel",     posts_per_day: 1,   max_pages: 3}
+  - {id: young_june,             type: telegram, name: "Young June",             url: "https://telegram.me/young_june",             posts_per_day: 4,   max_pages: 5}
+  - {id: young_intern,           type: telegram, name: "Young Intern",           url: "https://telegram.me/young_intern",           posts_per_day: 3,   max_pages: 5}
+  - {id: job_analyst_datascience, type: telegram, name: "Analyst & DS Jobs",     url: "https://telegram.me/job_analyst_datascience", posts_per_day: 1,  max_pages: 3}
+  - {id: juniors_rabota_jobs,    type: telegram, name: "Juniors Rabota",         url: "https://telegram.me/juniors_rabota_jobs",    posts_per_day: 2,   max_pages: 5}
+  - {id: choicy_work,            type: telegram, name: "Choicy Work",            url: "https://telegram.me/choicy_work",            posts_per_day: 1,   max_pages: 3}
+
+# Домены, с которых разрешено докачивать полное описание вакансии (этап "докачка").
+# Ссылки из Telegram-постов не открываются никогда; linkedin.com — никогда.
+detail_domains: []

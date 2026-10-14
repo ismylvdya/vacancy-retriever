@@ -147,3 +147,17 @@ def test_unknown_enum_values_fall_back_to_defaults():
     assert facts.employment == "unknown"
     assert facts.confidence == "high"
     assert facts.required_languages == ["en", "ru"]
+
+
+@pytest.mark.parametrize(("facts", "skipped"), [
+    ({"country": "Russia", "city": "Moscow", "work_format": "office"}, True),
+    ({"country": "France", "work_format": "hybrid"}, True),
+    ({"country": "Russia", "work_format": "remote"}, False),
+    ({"country": "unknown", "work_format": "office"}, False),
+    ({"country": "Serbia", "work_format": "office"}, False),
+])
+def test_office_outside_serbia_is_dropped(engine, facts, skipped):
+    verdict = engine.evaluate(
+        VacancyFacts.model_validate({**CONFIDENT, "role_category": "data_analyst", "employer_type": "russian",
+                                     **facts}), NOW, NOW)
+    assert (verdict.skip_reason == "Office outside Serbia") is skipped

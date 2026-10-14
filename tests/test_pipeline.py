@@ -272,6 +272,14 @@ def test_gray_zone_duplicates_are_merged_by_llm(env):
     assert {s.source_id for s in feed[0].sources} == {"chan_a", "chan_b"}
 
 
+def test_gray_zone_pairs_of_skipped_vacancies_never_reach_llm(env):
+    config, storage, paths = env
+    FEED["chan_a"] = [post("chan_a", 1, "FACTS:" + json.dumps([facts("Senior Go Developer at Acme", "Acme", "other_dev")]))]
+    FEED["chan_b"] = [post("chan_b", 2, "FACTS:" + json.dumps([facts("Senior Go Developer at Acme Labs", "Acme Labs", "other_dev")]))]
+    summary = run(config, storage, paths, FakeProvider(same_pairs=True))
+    assert [c for c in storage.llm_calls.by_run(summary.run_id) if c["stage"] == "dedup"] == []
+
+
 def test_expired_new_vacancies_leave_feed_on_commit(env):
     config, storage, paths = env
     FEED["chan_a"] = [post("chan_a", 1, "FACTS:" + json.dumps([facts("Junior Data Scientist", "Acme")]))]

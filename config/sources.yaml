@@ -22,7 +22,7 @@ sources:
   - {id: serbiarabotavacancies,  type: telegram, name: "Сербия вакансии",        url: "https://telegram.me/serbiarabotavacancies",  posts_per_day: 0.5, max_pages: 3}
   - {id: youritjob,              type: telegram, name: "Your IT Job (LENKEP)",   url: "https://telegram.me/youritjob",              posts_per_day: 2,   max_pages: 5}
   - {id: revacancy,              type: telegram, name: "RVC СНГ",                url: "https://telegram.me/revacancy",              posts_per_day: 35,  max_pages: 20}
-  - {id: revacancy_global,       type: telegram, name: "RVC Global",             url: "https://telegram.me/revacancy_global",       posts_per_day: 300, max_pages: 110}
+  - {id: revacancy_global,       type: telegram, name: "RVC Global",             url: "https://telegram.me/revacancy_global",       posts_per_day: 1000, max_pages: 110}
   - {id: jobifys,                type: telegram, name: "Jobifys",                url: "https://telegram.me/jobifys",                posts_per_day: 3,   max_pages: 5}
   - {id: evacuatejobs,           type: telegram, name: "Remocate",               url: "https://telegram.me/evacuatejobs",           posts_per_day: 5,   max_pages: 5}
   - {id: myitjob,                type: telegram, name: "My IT Job",              url: "https://telegram.me/myitjob",                posts_per_day: 5,   max_pages: 5}
@@ -49,8 +49,8 @@ sources:
   - {id: choicy_work,            type: telegram, name: "Choicy Work",            url: "https://telegram.me/choicy_work",            posts_per_day: 1,   max_pages: 3}
 
   # ---------- Почта (ящики и отправители — config/mail.yaml, пароли — config/.env) ----------
-  - {id: gmail,  type: email, name: "Gmail",  params: {mailbox: gmail}}
-  - {id: yandex, type: email, name: "Yandex Mail", params: {mailbox: yandex}}
+  - {id: gmail,  type: email, name: "Gmail", enabled: false, disabled_reason: "Почта пока не используется (решение пользователя 2026-10-14)", params: {mailbox: gmail}}
+  - {id: yandex, type: email, name: "Yandex Mail", enabled: false, disabled_reason: "Почта пока не используется (решение пользователя 2026-10-14)", params: {mailbox: yandex}}
 
   # ---------- Сайты с открытым JSON API ----------
   - {id: getmatch, type: getmatch, name: "getmatch", url: "https://getmatch.ru/api/offers", max_pages: 3, posts_per_day: 0.2, params: {period: "30d", seniority: [junior], specializations: [data_engineering, data_science, python, data_analyst_bi], locations: [remote, relocate], page_size: 50}}
@@ -71,15 +71,20 @@ sources:
   - {id: hirify, type: hirify, name: "Hirify", url: "https://hirify.me/?countries=serbia&grade=junior,trainee", max_pages: 3, posts_per_day: 3, params: {listings: ["https://hirify.me/?countries=serbia&grade=junior,trainee", "https://hirify.me/?specializations=data_science,machine_learning,data_analytics,ai_engineering,product_analyst&grade=junior,trainee&work_format=remote&vacancy_language=ru"]}}
   # talentmove: RSS-лента вакансий; filters — параметры фильтра сайта.
   - {id: talentmove, type: talentmove, name: "TalentMove", url: "https://talent-move.ru/seniority/junior/", max_pages: 5, posts_per_day: 4, params: {filters: {seniority: junior, job_category: "data,analytics,ai"}}}
-  - {id: hirehi, type: hirehi, name: "HireHi", enabled: false, disabled_reason: "Host unreachable (TCP connect timeout on 80/443, 4 tries, 2026-10-13); collector not written", url: "https://hirehi.ru/?level=intern&level=junior&industry=it_tech&industry=igaming&industry=gamedev&industry=fintech&industry=ai&industry=ecommerce&industry=other&country=Serbia"}
+  - {id: hirehi, type: hirehi, name: "HireHi", enabled: false, disabled_reason: "Открывается (2026-10-14), но по фильтру «Сербия» выдаёт ~26 вакансий, почти все — продажи / PM / сисадмин; сборщик не написан (низкая ценность)", url: "https://hirehi.ru/?level=intern&level=junior&industry=it_tech&industry=igaming&industry=gamedev&industry=fintech&industry=ai&industry=ecommerce&industry=other&country=Serbia"}
   # Отключены: защита Cloudflare (403 + JS-челлендж / WAF-блок) даже на robots.txt. Сборщики не написаны.
-  - {id: infostud, type: infostud, name: "Infostud", enabled: false, disabled_reason: "Cloudflare JS challenge (403 cf-mitigated), checked 2026-10-13", url: "https://poslovi.infostud.com/oglasi-za-posao/beograd"}
-  - {id: startuj, type: startuj, name: "Startuj", enabled: false, disabled_reason: "Cloudflare JS challenge (403 cf-mitigated), checked 2026-10-13", url: "https://startuj.infostud.com/poslovi-za-mlade/it/beograd"}
-  - {id: helloworld, type: helloworld, name: "HelloWorld", enabled: false, disabled_reason: "Cloudflare WAF block (403), checked 2026-10-13", url: "https://helloworld.rs/oglasi-za-posao/"}
+  # infostud: Next.js-данные страницы, фильтр по дате на стороне сайта. Категории — из ссылки пользователя
+  # (IT, bankarstvo, održavanje, mašinstvo, magacin, fizika/matematika) + proizvodnja i montaža (69), građevina (11).
+  # serbian_needs_russian: объявления на сербском без упоминания русского отсеиваются ДО LLM (бесплатно).
+  - {id: infostud, type: infostud, name: "Infostud", url: "https://poslovi.infostud.com/oglasi-za-posao/beograd", max_pages: 6, posts_per_day: 20, params: {city: beograd, dist: 50, categories: [5, 58, 68, 7, 61, 37, 69, 11], serbian_needs_russian: true}}
+  # startuj.infostud.com — это раздел «Poslovi za mlade» того же infostud (те же id вакансий).
+  - {id: startuj, type: infostud, name: "Startuj", url: "https://startuj.infostud.com/poslovi-za-mlade/it/beograd", max_pages: 6, posts_per_day: 15, params: {city: beograd, youth: true, categories: [5, 14, 30, 69, 11, 37], serbian_needs_russian: true}}
+  - {id: helloworld, type: helloworld, name: "HelloWorld", enabled: false, disabled_reason: "Те же вакансии, что infostud (общая платформа, совпадают id) — собираются источником infostud (IT, категория 5)", url: "https://helloworld.rs/oglasi-za-posao/"}
 
 # Домены, с которых разрешено докачивать полное описание вакансии (этап "докачка").
 # Ссылки из Telegram-постов не открываются никогда; linkedin.com — никогда.
 detail_domains:
+  - poslovi.infostud.com
   - ovdejobs.com
   - getmatch.ru
   - career.habr.com

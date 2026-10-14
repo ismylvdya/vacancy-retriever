@@ -61,3 +61,37 @@ def test_rvc_real_posts(prefilter):
     senior = [r for pid, r in results.items()
               if "| Senior |" in next(p.text for p in posts if p.external_id == pid)]
     assert senior and all(r.action == "skip" and r.reason.startswith("RVC grade") for r in senior)
+
+
+@pytest.mark.parametrize(("text", "languages", "action"), [
+    ("🟩 Junior Data Analyst | Junior ▫️ Acme ▫️ Germany | Berlin", ["en"], "skip"),
+    ("🟩 Junior Data Analyst | Junior ▫️ Acme ▫️ Serbia | Belgrade", ["en"], "keep"),
+    ("🟩 Junior Data Analyst | Junior ▫️ Acme ▫️ Germany | Berlin", ["en", "ru"], "keep"),
+    ("🟩 Junior Data Analyst | Junior ▫️ Acme ▫️ Germany | Berlin", None, "keep"),
+])
+def test_rvc_foreign_rule(prefilter, text, languages, action):
+    meta = {"rvc": True, "grade_emoji": "🟩", "grade": "junior"}
+    if languages is not None:
+        meta["required_languages"] = languages
+    result = prefilter.check(item("Junior Data Analyst", text, **meta), NOW)
+    assert result.action == action
+    if action == "skip":
+        assert result.reason == "RVC: no Russian, not Serbia"
+
+
+def test_language_filter_on_real_serbian_ad(prefilter):
+    from vacancy_retriever.collectors.sites.infostud import parse_detail
+    text = parse_detail((SAMPLES / "html" / "infostud" / "detail.html").read_text(encoding="utf-8"))
+    assert prefilter.check_language(item("AI Developer"), text).reason == "Ad in Serbian, Russian not required"
+    assert prefilter.check_language(item("AI Developer"), text + "\nPoznavanje ruskog jezika").action == "keep"
+
+
+@pytest.mark.parametrize(("text", "serbian"), [
+    ("We are looking for a Junior Data Analyst to join our team in Belgrade. Experience with SQL is a plus.", False),
+    ("Tražimo kandidata za rad u magacinu. Potrebno je iskustvo i poznavanje rada na računaru, nudimo uslove.", True),
+    ("Ищем аналитика данных в команду, удалённо, опыт работы с SQL и Python.", False),
+    ("Тражимо кандидата за рад у магацину, потребно је искуство.", True),
+])
+def test_looks_serbian(text, serbian):
+    from vacancy_retriever.pipeline.prefilter import looks_serbian
+    assert looks_serbian(text) is serbian

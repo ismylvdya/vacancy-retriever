@@ -149,7 +149,7 @@ class VacancyRepository:
     def dedup_candidates(self, days: int) -> list[dict[str, Any]]:
         since = to_iso(utcnow() - timedelta(days=days))
         rows = self.db.query(
-            "SELECT id, run_id, staged, primary_raw_id, title, employer, dedup_key, facts_json FROM vacancies"
+            "SELECT id, run_id, staged, primary_raw_id, title, employer, dedup_key, facts_json, decision FROM vacancies"
             " WHERE decision != 'hidden' AND created_at >= ?",
             (since,),
         )

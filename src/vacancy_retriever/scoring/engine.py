@@ -87,9 +87,16 @@ class ScoringEngine:
             and not in_serbia
         ):
             return "English-speaking company outside Serbia"
+        if self._rules.drop_office_outside_serbia and self._office_abroad(facts, in_serbia):
+            return "Office outside Serbia"
         if published_at and now - published_at > timedelta(days=self._rules.max_age_days):
             return "Expired"
         return None
+
+    def _office_abroad(self, facts: VacancyFacts, in_serbia: bool) -> bool:
+        country = facts.country.strip().lower()
+        known_country = country not in {"", "unknown", "n/a", "remote"}
+        return facts.work_format in {"office", "hybrid"} and known_country and not in_serbia
 
     def _group(self, facts: VacancyFacts, category: CategoryRule, in_serbia: bool) -> int:
         if facts.confidence == "low":

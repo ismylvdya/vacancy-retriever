@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import os
 import shutil
 from pathlib import Path
 from typing import Any
@@ -14,6 +15,24 @@ log = logging.getLogger(__name__)
 CLI_FALLBACKS = ("/opt/homebrew/bin/claude", "/usr/local/bin/claude", "~/.local/bin/claude", "~/.claude/local/claude")
 _LIMIT_MARKERS = ("usage limit", "rate limit", "limit reached", "credit balance", "overloaded", "quota")
 _AUTH_MARKERS = ("not logged in", "/login", "authentication", "invalid api key", "oauth")
+
+
+# Variables that would switch the CLI away from the user's own subscription login (API key, another
+# base URL) or make it think it runs inside another Claude Code session. Removed from this process's
+# environment before the CLI subprocess is started; CLAUDE_CONFIG_DIR (where the login lives) is kept.
+_KEEP_ENV = {"CLAUDE_CONFIG_DIR"}
+
+
+def scrub_environment(environ: dict[str, str] | None = None) -> list[str]:
+    """Drop ANTHROPIC_* / CLAUDE_* / CLAUDECODE so `claude` uses the subscription login. Returns names removed."""
+    env = os.environ if environ is None else environ
+    removed = [
+        name for name in list(env)
+        if name not in _KEEP_ENV and (name.startswith(("ANTHROPIC_", "CLAUDE_")) or name == "CLAUDECODE")
+    ]
+    for name in removed:
+        env.pop(name, None)
+    return removed
 
 
 def resolve_cli_path(configured: str | None) -> str | None:
@@ -58,6 +77,9 @@ class ClaudeSdkProvider(LlmProvider):
         from claude_agent_sdk import ClaudeAgentOptions
 
         self._cwd.mkdir(parents=True, exist_ok=True)
+        removed = scrub_environment()
+        if removed:
+            log.info("Removed from environment before calling claude CLI: %s", ", ".join(sorted(removed)))
         return ClaudeAgentOptions(
             model=model,
             system_prompt=system,

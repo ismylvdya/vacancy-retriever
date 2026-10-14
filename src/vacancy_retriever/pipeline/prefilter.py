@@ -7,6 +7,34 @@ from datetime import datetime, timedelta
 from ..config import Rules
 from ..storage.items import StoredRawItem
 
+_LATIN_WORD = re.compile(r"[a-zčćšžđ]+")
+_SERBIAN_WORDS = frozenset(
+    "je i u za na sa da se od ili kao koji koja koje rad rada radno radnog mesto mesta posao posla "
+    "iskustvo iskustva poznavanje znanje kandidat kandidata kandidati nudimo uslovi potrebno potrebna "
+    "zahtevi obaveze odgovornosti prijava prijave jezika ćete će smo naš naša vaš vaša".split()
+)
+_ENGLISH_WORDS = frozenset(
+    "the and of to with for you we our your experience will are is in a team skills knowledge "
+    "working work role responsibilities requirements".split()
+)
+_SERBIAN_CYRILLIC = re.compile(r"[ђјљњћџЂЈЉЊЋЏ]")
+_RUSSIAN_MENTION = re.compile(r"rusk|русск|руск|russian", re.I)
+
+
+def looks_serbian(text: str) -> bool:
+    """Serbian Latin (word statistics) or Serbian Cyrillic (letters Russian does not have)."""
+    if _SERBIAN_CYRILLIC.search(text):
+        return True
+    words = _LATIN_WORD.findall(text.lower())
+    serbian = sum(word in _SERBIAN_WORDS for word in words)
+    english = sum(word in _ENGLISH_WORDS for word in words)
+    return serbian >= 5 and serbian > english * 1.2
+
+
+def mentions_russian(text: str) -> bool:
+    return bool(_RUSSIAN_MENTION.search(text))
+
+
 RVC_GRADE_EMOJI = {"🟩": "junior", "🟨": "middle", "🟥": "senior"}
 RVC_VACANCY_EMOJI = set("🟩🟨🟥🟪⬜")
 
@@ -47,7 +75,25 @@ class Prefilter:
         grade = item.meta.get("grade") or RVC_GRADE_EMOJI.get(emoji, "")
         if grade in self._rules.prefilter.rvc_dropped_grades:
             return PrefilterResult("skip", f"RVC grade: {grade}")
+        if self._rvc_foreign(item):
+            return PrefilterResult("skip", "RVC: no Russian, not Serbia")
         return self._check_title(item.title)
+
+    def check_language(self, item: StoredRawItem, text: str) -> PrefilterResult:
+        """After details are fetched, for sources with `serbian_needs_russian: true`: an ad in Serbian
+        that never mentions Russian is dropped by the same rule the LLM stage would apply — for free."""
+        if looks_serbian(text) and not mentions_russian(text):
+            return PrefilterResult("skip", "Ad in Serbian, Russian not required")
+        return KEEP
+
+    def _rvc_foreign(self, item: StoredRawItem) -> bool:
+        """Only when the post lists required languages: no Russian there and no Serbia mention."""
+        prefilter = self._rules.prefilter
+        languages = item.meta.get("required_languages")
+        if not prefilter.rvc_require_russian_or_serbia or not languages or "ru" in languages:
+            return False
+        lowered = item.text.lower()
+        return not any(marker.lower() in lowered for marker in prefilter.rvc_serbia_markers)
 
     def _check_title(self, title: str) -> PrefilterResult:
         if not title:

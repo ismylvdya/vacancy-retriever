@@ -134,6 +134,7 @@ class Pipeline:
             self._check_cancel()
             self._prefilter(run_id)
             self._fetch_details(run_id)
+            self._language_filter(run_id)
             self._score(run_id)
             self._dedup(run_id)
             self._check_cancel()
@@ -265,14 +266,17 @@ class Pipeline:
             if result.action == "hide":
                 self.storage.items.set_status(item.id, "hidden", result.reason)
                 continue
-            self.storage.items.set_status(item.id, "prefiltered", result.reason)
-            vacancy_id = self.storage.vacancies.insert(run_id, NewVacancy(
-                primary_raw_id=item.id, origin="prefilter",
-                title=item.title or item.text.split("\n", 1)[0][:140],
-                employer=item.meta.get("company", ""), category="", seniority=item.meta.get("grade", "unknown"),
-                decision="skip", skip_reason=result.reason, published_at=item.published_at,
-            ))
-            self._attach_with_duplicates(run_id, vacancy_id, item)
+            self._skip_before_llm(run_id, item, result.reason)
+
+    def _skip_before_llm(self, run_id: int, item: StoredRawItem, reason: str | None) -> None:
+        self.storage.items.set_status(item.id, "prefiltered", reason)
+        vacancy_id = self.storage.vacancies.insert(run_id, NewVacancy(
+            primary_raw_id=item.id, origin="prefilter",
+            title=item.title or item.text.split("\n", 1)[0][:140],
+            employer=item.meta.get("company", ""), category="", seniority=item.meta.get("grade", "unknown"),
+            decision="skip", skip_reason=reason, published_at=item.published_at,
+        ))
+        self._attach_with_duplicates(run_id, vacancy_id, item)
 
     def _attach_with_duplicates(self, run_id: int, vacancy_id: int, item: StoredRawItem) -> None:
         self.storage.vacancies.attach_source(run_id, vacancy_id, item.id, item.source_id, item.url)
@@ -300,6 +304,18 @@ class Pipeline:
                 continue
             if text:
                 self.storage.items.set_detail(item.id, text)
+
+    def _language_filter(self, run_id: int) -> None:
+        """Sources marked `serbian_needs_russian`: Serbian ads without Russian never reach the LLM."""
+        marked = {s.id for s in self.config.sources.sources if s.params.get("serbian_needs_russian")}
+        if not marked:
+            return
+        for item in self.storage.items.by_run(run_id, "pending_llm"):
+            if item.source_id not in marked:
+                continue
+            result = self.prefilter.check_language(item, f"{item.text}\n{item.detail_text or ''}")
+            if result.action == "skip":
+                self._skip_before_llm(run_id, item, result.reason)
 
     # ------------------------------------------------------------------ 4. LLM facts
     def _score(self, run_id: int) -> None:
@@ -379,7 +395,9 @@ class Pipeline:
                 if verdict == "exact":
                     merged[vacancy.id] = candidate["id"]
                     break
-                if verdict == "gray":
+                # The LLM judges gray pairs only when both sides are visible vacancies: merging two
+                # auto-skipped posts (hundreds of similar RVC titles) changes nothing the user sees.
+                if verdict == "gray" and vacancy.decision == "show" and candidate.get("decision") == "show":
                     gray.append((vacancy.id, candidate["id"]))
         gray = [(a, b) for a, b in gray if a not in merged]
         if gray:

@@ -82,6 +82,9 @@ class PrefilterRules(_Strict):
     title_deny_reason: str = "Excluded by title keyword"
     rvc_dropped_grades: list[str] = Field(default_factory=list)
     rvc_ad_markers: list[str] = Field(default_factory=list)
+    # RVC: skip posts whose "required languages" line has no Russian and that don't mention Serbia.
+    rvc_require_russian_or_serbia: bool = False
+    rvc_serbia_markers: list[str] = Field(default_factory=list)
 
 
 class Rules(_Strict):
@@ -93,6 +96,7 @@ class Rules(_Strict):
     groups: dict[int, GroupInfo]
     prefilter: PrefilterRules = Field(default_factory=PrefilterRules)
     serbia_country_names: list[str] = Field(default_factory=lambda: ["serbia", "сербия", "srbija"])
+    drop_office_outside_serbia: bool = False
 
     @field_validator("categories")
     @classmethod

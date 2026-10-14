@@ -78,7 +78,8 @@ class ScoringEngine:
         russian_required = "ru" in facts.required_languages
         if facts.ad_language == "sr" and not russian_required:
             return "Ad in Serbian, Russian not required"
-        if facts.serbian_required and not russian_required:
+        # An ad written in Russian means Russian is fine there, even if the LLM listed only Serbian.
+        if facts.serbian_required and not russian_required and facts.ad_language != "ru":
             return "Serbian required, Russian not required"
         if (
             facts.employer_type == "intl_english"

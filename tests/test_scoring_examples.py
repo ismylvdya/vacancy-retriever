@@ -161,3 +161,13 @@ def test_office_outside_serbia_is_dropped(engine, facts, skipped):
         VacancyFacts.model_validate({**CONFIDENT, "role_category": "data_analyst", "employer_type": "russian",
                                      **facts}), NOW, NOW)
     assert (verdict.skip_reason == "Office outside Serbia") is skipped
+
+
+def test_russian_ad_is_not_dropped_for_serbian_requirement(engine):
+    """TRUSTONE, run 1: the LLM listed only Serbian for an ad written in Russian."""
+    facts = VacancyFacts.model_validate({**BELGRADE, "role_category": "manual_trades", "ad_language": "ru",
+                                         "required_languages": ["sr"], "serbian_required": True,
+                                         "employment": "official"})
+    assert engine.evaluate(facts, NOW, NOW).decision == "show"
+    facts = facts.model_copy(update={"ad_language": "en"})
+    assert engine.evaluate(facts, NOW, NOW).skip_reason == "Serbian required, Russian not required"

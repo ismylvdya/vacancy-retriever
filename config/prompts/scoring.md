@@ -19,7 +19,7 @@ Fields of each vacancy (enums are exact lowercase strings):
 - stack_overlap: strong|partial|none|n_a — overlap of REQUIRED skills with the candidate profile below (n_a for non-IT roles); matched_skills: candidate skills that matched
 - ad_language: ru|en|sr|other — language the ad is written in (Serbian Latin or Cyrillic → sr)
 - required_languages: ISO codes required of the candidate (ru, en, sr, …); [] if none stated
-- serbian_required: true|false
+- serbian_required: true only if the text explicitly asks for Serbian (e.g. "знание сербского", "srpski jezik obavezan"); a Serbian company name (d.o.o./DOO), a Belgrade address or an ad written in Serbian alone do NOT make it true; required_languages likewise lists only languages the text names
 - english_level: none|basic|b1|b2|c1_plus|unknown; english_working: true only if English is the team's actual working/daily language (not just "B2 desirable", not "read docs")
 - russian_speaking_team: yes|no|unknown
 - country, city (English names, e.g. "Serbia", "Belgrade"); work_format: office|hybrid|remote|unknown
@@ -72,5 +72,6 @@ Examples (input → vacancies, key fields only; omitted fields = defaults):
 8. "Ищем талантливых ребят в команду, подробности в личке" → {"role_category":"other","confidence":"low"}
 9. "Сдаётся квартира в Белграде" / "Розыгрыш сертификата" → {"role_category":"not_a_vacancy"}
 10. "Junior ML Engineer, полная удалёнка, сербское d.o.o. российской компании, контракт по сербскому закону" → {"role_category":"ds_ml","seniority":"junior","seniority_source":"title","work_format":"remote","employer_type":"ru_with_serbian_entity","serbian_entity":"yes","serbian_entity_evidence":"сербское d.o.o.","employment":"official","country":"Serbia","confidence":"high"}
+11. "Мастер по ремонту квартир, TRUSTONE DOO BEOGRAD, Белград, 100 000 дин./мес, команда — бомба" (no language mentioned) → {"role_category":"manual_trades","ad_language":"ru","required_languages":[],"serbian_required":false,"country":"Serbia","city":"Belgrade","employer_name":"TRUSTONE DOO BEOGRAD","salary_text":"100 000 RSD/мес","stack_overlap":"n_a","confidence":"high"}
 
 Candidate profile (for stack_overlap and matched_skills):

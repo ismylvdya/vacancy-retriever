@@ -6,6 +6,7 @@
     {% set params = ([('filter=' ~ key)] if key != 'all' else []) + ([query] if query else []) %}
     <a href="/processed{% if params %}?{{ params | join('&') }}{% endif %}" class="seg {{ 'on' if current == key }}">{{ label }}{% if key != 'all' %}<span class="count">{{ counts.get(key, 0) }}</span>{% endif %}</a>
   {% endfor %}
+  <a href="/processed?filter=hidden" class="seg debug-only {{ 'on' if current == 'hidden' }}" title="Debug mode: ads and posts the LLM called “not a vacancy”">Hidden{% if hidden is defined %}<span class="count">{{ hidden | sum(attribute='rows', start=[]) | length }}</span>{% endif %}</a>
 </div>
 
 {% if facets %}
@@ -30,7 +31,23 @@
 </form>
 {% endif %}
 
-{% if runs %}
+{% if hidden is defined %}
+{% for run in hidden %}
+<section class="group">
+  <div class="section-head"><h2>Run {{ run.started }}</h2><span class="sub">{{ run.rows | length }}</span></div>
+  <div class="group-body">
+    {% for h in run.rows %}
+    <div class="hidden-item">
+      <div class="hidden-meta"><span class="vac-id">raw {{ h.id }}</span><span class="src-name"><img src="/icons/{{ h.source_id }}" alt="" loading="lazy">{% if h.url %}<a href="{{ h.url }}" target="_blank" rel="noopener noreferrer">{{ h.source }}</a>{% else %}{{ h.source }}{% endif %}</span><span class="muted">{{ h.reason }}</span><span class="spacer"></span><span class="muted">{{ h.published }}</span></div>
+      <div class="hidden-text">{{ h.text }}</div>
+    </div>
+    {% endfor %}
+  </div>
+</section>
+{% else %}
+<section class="empty-state"><h1>Nothing hidden</h1><p>Ads and non-vacancy posts land here.</p></section>
+{% endfor %}
+{% elif runs %}
 {% if active %}<p class="note">{{ total }} matching</p>{% endif %}
 {% for run in runs %}
 <section class="group">

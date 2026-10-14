@@ -79,6 +79,17 @@ class RawItemRepository:
         )
         return int(cursor.lastrowid) if cursor.rowcount else None
 
+    def hidden(self, limit: int = 2000) -> list[tuple[StoredRawItem, str]]:
+        """Debug mode: ads and other "not a vacancy" posts — hidden by the prefilter or by the LLM."""
+        rows = self.db.query(
+            "SELECT * FROM raw_items r WHERE staged = 0 AND (status = 'hidden' OR (status = 'scored'"
+            " AND NOT EXISTS (SELECT 1 FROM vacancy_sources s WHERE s.raw_item_id = r.id)"
+            " AND NOT EXISTS (SELECT 1 FROM vacancies v WHERE v.primary_raw_id = r.id)))"
+            " ORDER BY run_id DESC, id DESC LIMIT ?",
+            (limit,),
+        )
+        return [(StoredRawItem.from_row(r), r["skip_reason"] or "Not a vacancy (LLM)") for r in rows]
+
     def get(self, raw_id: int) -> StoredRawItem | None:
         row = self.db.query_one("SELECT * FROM raw_items WHERE id = ?", (raw_id,))
         return StoredRawItem.from_row(row) if row else None

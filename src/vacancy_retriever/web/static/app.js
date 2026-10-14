@@ -107,6 +107,7 @@ function focusRow(row, { scroll = true } = {}) {
   if (current && current !== row) current.classList.remove("focus", "open");
   current = row;
   row.classList.add("focus", "open");
+  loadDebug(row);
   row.focus({ preventScroll: true });
   if (scroll) row.scrollIntoView({ block: "nearest", behavior: "smooth" });
 }
@@ -157,18 +158,62 @@ async function setStatus(row, status) {
   } : null);
 }
 
+async function writeClipboard(text) {
+  if (navigator.clipboard && window.isSecureContext) { await navigator.clipboard.writeText(text); return; }
+  const area = document.createElement("textarea");
+  area.value = text;
+  document.body.appendChild(area);
+  area.select();
+  document.execCommand("copy");
+  area.remove();
+}
+
+/* ---------- debug mode ---------- */
+const debugToggle = $("debug-toggle");
+function debugOn() { return document.body.classList.contains("debug"); }
+function setDebug(on) {
+  document.body.classList.toggle("debug", on);
+  debugToggle.checked = on;
+  try { localStorage.setItem("vr-debug", on ? "1" : ""); } catch (e) { /* private mode */ }
+  if (on && current && current.classList.contains("open")) loadDebug(current);
+}
+try { setDebug(localStorage.getItem("vr-debug") === "1"); } catch (e) { setDebug(false); }
+debugToggle.addEventListener("change", () => setDebug(debugToggle.checked));
+
+const debugCache = {};
+async function debugInfo(row) {
+  const id = row.dataset.id;
+  if (!debugCache[id]) debugCache[id] = await api("GET", `/api/vacancies/${id}/debug`);
+  return debugCache[id];
+}
+async function loadDebug(row) {
+  const box = row && row.querySelector(".debug-box");
+  if (!box || !debugOn() || box.dataset.loaded) return;
+  box.dataset.loaded = "1";
+  try {
+    const info = await debugInfo(row);
+    const list = (items) => `<ul>${items.map((line) => `<li>${escapeHtml(line)}</li>`).join("")}</ul>`;
+    box.innerHTML = `<h4>id ${info.id} · ${escapeHtml(info.verdict)}</h4>${list(info.explain)}`
+      + `<h4>Raw items</h4>${list(info.raw)}`
+      + (info.facts ? `<details><summary>Facts JSON</summary><pre>${escapeHtml(info.facts)}</pre></details>` : "");
+  } catch (e) { box.dataset.loaded = ""; toast(e.message); }
+}
+function escapeHtml(text) {
+  return String(text).replace(/[&<>"']/g, (ch) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[ch]));
+}
+async function copyDebug(row, what) {
+  try {
+    if (what === "id") { await writeClipboard(`vacancy id ${row.dataset.id}`); toast(`Copied id ${row.dataset.id}`); return; }
+    const info = await debugInfo(row);
+    await writeClipboard(info.report);
+    toast("Debug report copied");
+  } catch (e) { toast(e.message); }
+}
+
 async function copyText(row) {
   try {
     const data = await api("GET", `/api/vacancies/${row.dataset.id}/fulltext`);
-    if (navigator.clipboard && window.isSecureContext) await navigator.clipboard.writeText(data.text);
-    else {
-      const area = document.createElement("textarea");
-      area.value = data.text;
-      document.body.appendChild(area);
-      area.select();
-      document.execCommand("copy");
-      area.remove();
-    }
+    await writeClipboard(data.text);
     toast("Full text copied");
   } catch (e) { toast(`Couldn't copy: ${e.message}`); }
 }
@@ -193,6 +238,8 @@ document.addEventListener("click", (event) => {
     const action = button.dataset.action;
     if (action === "status") setStatus(row, button.dataset.status);
     if (action === "copy") copyText(row);
+    if (action === "copy-id") copyDebug(row, "id");
+    if (action === "copy-debug") copyDebug(row, "report");
     if (action === "fulltext") toggleFullText(row);
     return;
   }

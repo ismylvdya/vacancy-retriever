@@ -5,7 +5,7 @@
 
 {% macro role(c) -%}
 <div class="role">
-  <div class="title">{% if c.is_new %}<span class="new" title="New in the last run"></span>{% endif %}{{ c.title }}{% for f in c.flags %}<span class="flag">{{ f }}</span>{% endfor %}</div>
+  <div class="title"><span class="debug-only vac-id">#{{ c.id }}</span>{% if c.is_new %}<span class="new" title="New in the last run"></span>{% endif %}{{ c.title }}{% for f in c.flags %}<span class="flag">{{ f }}</span>{% endfor %}</div>
   {% if c.employer %}<div class="sub">{{ c.employer }}</div>{% endif %}
 </div>
 {%- endmacro %}
@@ -50,9 +50,12 @@
         <button class="btn" data-action="status" data-status="skipped">Skip<kbd>S</kbd></button>
       {% endif %}
       <span class="spacer"></span>
+      <button class="link quiet debug-only" data-action="copy-id">Copy id</button>
+      <button class="link quiet debug-only" data-action="copy-debug">Copy debug report</button>
       <button class="link quiet" data-action="copy">Copy text</button>
       <button class="link quiet" data-action="fulltext">Full text</button>
     </div>
+    <div class="debug-only debug-box" data-loaded=""></div>
     <pre class="fulltext" hidden>{{ c.description }}</pre>
   </div>
 </article>

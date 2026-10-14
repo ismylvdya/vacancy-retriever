@@ -400,3 +400,52 @@ def tokens(config: AppConfig, storage: Storage) -> dict[str, Any]:
                              "limit_share": round(100 * n / limit, 1) if limit else None}
                     for run_id, n in per_run.items()},
     }
+
+
+# ---------------------------------------------------------------- debug mode
+
+def debug_info(config: AppConfig, storage: Storage, vacancy_id: int) -> dict[str, Any] | None:
+    """Everything needed to discuss one vacancy: verdict, the rule trace, LLM facts and raw items."""
+    from ..scoring.engine import ScoringEngine
+    from ..timeutil import utcnow
+
+    record = storage.vacancies.get(vacancy_id)
+    if record is None:
+        return None
+    if record.facts is not None:
+        explain = ScoringEngine(config.rules).explain(record.facts, record.published_at, utcnow())
+        facts = record.facts.model_dump()
+    else:
+        explain = [f"Skipped before the LLM (no facts): {record.skip_reason or '—'}"]
+        facts = None
+    raw = storage.vacancies.raw_links(vacancy_id)
+    names = {s.id: s.name for s in config.sources.sources}
+    raw_lines = [f"raw {r['id']} · {names.get(r['source_id'], r['source_id'])} #{r['external_id']} · {r['status']}"
+                 + (f" (duplicate of raw {r['duplicate_of']})" if r["duplicate_of"] else "")
+                 + (f" · {r['url']}" if r["url"] else "") for r in raw]
+    verdict = (f"group {record.group_no or '—'} · fit {record.stars or '—'} · permit {record.residence_permit or '—'}"
+               f" · decision {record.decision}" + (f" ({record.skip_reason})" if record.skip_reason else "")
+               + f" · status {record.user_status}")
+    report = "\n".join([
+        f"Vacancy id {record.id}: {record.title}" + (f" — {record.employer}" if record.employer else ""),
+        f"Run {record.run_id} · {verdict}",
+        "", "Why:", *[f"- {line}" for line in explain],
+        "", "Raw items:", *[f"- {line}" for line in raw_lines],
+        "", "Facts:", json.dumps(facts, ensure_ascii=False, indent=2) if facts else "none (not analysed)",
+    ])
+    return {"id": record.id, "verdict": verdict, "explain": explain, "raw": raw_lines,
+            "facts": json.dumps(facts, ensure_ascii=False, indent=2) if facts else "", "report": report}
+
+
+def hidden_items(config: AppConfig, storage: Storage) -> list[dict[str, Any]]:
+    names = {s.id: s.name for s in config.sources.sources}
+    runs = {r["id"]: r for r in storage.runs.history(1000)}
+    by_run: dict[int, list[dict[str, Any]]] = defaultdict(list)
+    for item, reason in storage.items.hidden():
+        text = " ".join(item.full_text.split())
+        by_run[item.run_id].append({"id": item.id, "source": names.get(item.source_id, item.source_id),
+                                    "source_id": item.source_id, "url": item.url, "reason": reason,
+                                    "text": text[:220] + ("…" if len(text) > 220 else ""),
+                                    "published": format_local(item.published_at, "%-d %b") if item.published_at else ""})
+    return [{"run_id": run_id, "started": format_local(runs[run_id]["started_at"]) if run_id in runs else "—",
+             "rows": rows} for run_id, rows in sorted(by_run.items(), reverse=True)]

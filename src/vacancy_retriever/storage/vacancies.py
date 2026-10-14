@@ -216,6 +216,18 @@ class VacancyRepository:
             params.append({"show": "new", "skip": "auto_skipped", "hidden": "hidden"}[decision])
         self.db.execute(f"UPDATE vacancies SET {sets} WHERE id = ?", (*params, vacancy_id))
 
+    def raw_links(self, vacancy_id: int) -> list[dict[str, Any]]:
+        """Debug mode: raw items behind a vacancy — its own sources and the duplicates merged into them."""
+        rows = self.db.query(
+            "SELECT r.id, r.source_id, r.external_id, r.url, r.status, r.duplicate_of, r.skip_reason FROM raw_items r"
+            " WHERE r.id IN (SELECT raw_item_id FROM vacancy_sources WHERE vacancy_id = ?)"
+            " OR r.id = (SELECT primary_raw_id FROM vacancies WHERE id = ?)"
+            " OR r.duplicate_of IN (SELECT raw_item_id FROM vacancy_sources WHERE vacancy_id = ?)"
+            " ORDER BY r.id",
+            (vacancy_id, vacancy_id, vacancy_id),
+        )
+        return [dict(r) for r in rows]
+
     def user_set(self, vacancy_id: int) -> bool:
         row = self.db.query_one("SELECT user_set FROM vacancies WHERE id = ?", (vacancy_id,))
         return bool(row and row["user_set"])

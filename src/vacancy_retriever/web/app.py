@@ -112,6 +112,11 @@ def create_app(config: AppConfig, storage: Storage, port: int, manager: RunManag
 
     @app.get("/processed", response_class=HTMLResponse)
     def processed(request: Request, filter: str | None = None) -> HTMLResponse:
+        if filter == "hidden":
+            hidden = views.hidden_items(config, storage)
+            return page(request, "processed.html", "processed", runs=[], hidden=hidden, total=0, current="hidden",
+                        counts=storage.vacancies.processed_counts(), filters=processed_tabs, facets=[],
+                        active=False, query="")
         chosen: dict[str, set[str]] = {}
         for key, value in request.query_params.multi_items():
             if key != "filter" and value:
@@ -123,6 +128,13 @@ def create_app(config: AppConfig, storage: Storage, port: int, manager: RunManag
         return page(request, "processed.html", "processed", runs=views.group_by_run(built, storage),
                     total=len(built), current=filter or "all", counts=storage.vacancies.processed_counts(),
                     filters=processed_tabs, facets=filters, active=bool(chosen), query=query)
+
+    @app.get("/api/vacancies/{vacancy_id}/debug")
+    def vacancy_debug(vacancy_id: int) -> dict[str, Any]:
+        info = views.debug_info(config, storage, vacancy_id)
+        if info is None:
+            raise HTTPException(404, "Vacancy not found")
+        return info
 
     @app.get("/statistics", response_class=HTMLResponse)
     def statistics(request: Request, view: str = "sources") -> HTMLResponse:

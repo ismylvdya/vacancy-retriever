@@ -135,6 +135,29 @@ kbd { display: inline-block; min-width: 16px; padding: 0 3px; margin-left: 6px; 
 .seg:hover { color: var(--text); text-decoration: none; }
 .seg.on { background: var(--panel); color: var(--text); box-shadow: 0 0 0 1px var(--line); }
 
+/* ---------- debug mode ---------- */
+body:not(.debug) .debug-only { display: none !important; }
+.debug-toggle { position: fixed; top: 14px; right: 16px; z-index: 40; display: inline-flex; align-items: center; gap: 8px;
+  font-size: 12px; color: var(--faint); cursor: pointer; user-select: none; }
+.debug-toggle input { position: absolute; opacity: 0; width: 0; height: 0; }
+.switch { position: relative; width: 28px; height: 16px; border-radius: 999px; background: var(--line-strong); transition: background .15s; }
+.switch::after { content: ""; position: absolute; top: 2px; left: 2px; width: 12px; height: 12px; border-radius: 50%;
+  background: var(--panel); box-shadow: 0 1px 2px rgba(0, 0, 0, .2); transition: transform .15s; }
+.debug-toggle input:checked + .switch { background: var(--accent); }
+.debug-toggle input:checked + .switch::after { transform: translateX(12px); }
+.debug-toggle input:focus-visible + .switch { outline: 2px solid var(--accent); outline-offset: 2px; }
+body.debug .debug-toggle { color: var(--accent); }
+.vac-id { font: 11px ui-monospace, SFMono-Regular, Menlo, monospace; color: var(--faint); margin-right: 8px; font-weight: 400; }
+.debug-box { margin: 12px 0 0; padding: 10px 12px; border-radius: 8px; background: var(--hover); font-size: 12px; max-width: 640px; }
+.debug-box:empty { display: none !important; }
+.debug-box ul { margin: 4px 0 8px; padding-left: 18px; }
+.debug-box h4 { margin: 0; font-size: 12px; font-weight: 600; color: var(--muted); }
+.debug-box pre { margin: 4px 0 0; white-space: pre-wrap; font: 11px/1.5 ui-monospace, SFMono-Regular, Menlo, monospace; }
+.debug-box details summary { cursor: pointer; color: var(--muted); font-weight: 600; }
+.hidden-item { border-top: 1px solid var(--line); padding: 10px 16px; font-size: 13px; }
+.hidden-meta { display: flex; gap: 12px; align-items: center; margin-bottom: 4px; }
+.hidden-text { color: var(--muted); }
+
 /* ---------- processed filters ---------- */
 .filters { display: flex; align-items: center; gap: 10px; margin: 0 0 14px; }
 .filters-label { color: var(--muted); font-size: 13px; flex: none; }

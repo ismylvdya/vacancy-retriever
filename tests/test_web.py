@@ -45,6 +45,7 @@ def client(tmp_paths):
     app = create_app(config, storage, port=PORT)
     with TestClient(app, base_url=f"http://127.0.0.1:{PORT}") as test_client:
         test_client.vacancy_id = vacancy_id
+        test_client.storage = storage
         yield test_client
     storage.db.close()
 
@@ -155,3 +156,23 @@ def test_processed_filters_and_run_groups(client):
     assert "Junior Data Scientist" not in page and "Nothing matches" in page
     page = client.get("/processed?filter=skipped&country=Serbia").text
     assert 'href="/processed?filter=applied&amp;country=Serbia"' in page, "sub-tabs keep the filters"
+
+
+def test_debug_report_explains_the_verdict(client):
+    info = client.get(f"/api/vacancies/{client.vacancy_id}/debug").json()
+    assert info["id"] == client.vacancy_id
+    assert any(line.startswith("Group 1: IT in Serbia") for line in info["explain"])
+    assert f"Vacancy id {client.vacancy_id}" in info["report"] and '"country": "Serbia"' in info["report"]
+    assert any("Serbia Work" in line or "serbiawork" in line for line in info["raw"])
+    assert client.get("/api/vacancies/999999/debug").status_code == 404
+
+
+def test_debug_controls_are_rendered_and_hidden_tab_works(client):
+    feed = client.get("/").text
+    assert 'id="debug-toggle"' in feed and 'data-action="copy-debug"' in feed
+    run_id = client.storage.runs.start({})
+    ad = RawItem("serbiawork", "2", "https://telegram.me/serbiawork/2", "Крипто-карта walllet.com", utcnow())
+    raw_id = client.storage.items.insert(run_id, ad, "hidden", skip_reason="Advertisement")
+    client.storage.runs.commit(run_id, {}, 1)
+    page = client.get("/processed?filter=hidden").text
+    assert f"raw {raw_id}" in page and "Advertisement" in page and "walllet.com" in page

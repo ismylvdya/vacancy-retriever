@@ -2,11 +2,12 @@ from __future__ import annotations
 
 import hashlib
 import logging
+from urllib.parse import urlencode
 from pathlib import Path
 from typing import Any
 
 from fastapi import FastAPI, HTTPException, Request
-from fastapi.responses import FileResponse, HTMLResponse, JSONResponse, Response
+from fastapi.responses import FileResponse, HTMLResponse, JSONResponse, RedirectResponse, Response
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from pydantic import BaseModel
@@ -106,22 +107,37 @@ def create_app(config: AppConfig, storage: Storage, port: int, manager: RunManag
         built = [cards.build(record) for record in storage.vacancies.feed()]
         return page(request, "feed.html", "feed", groups=views.group_feed(built, config))
 
+    processed_tabs = [("all", "All"), ("applied", "Applied"), ("not_now", "Not now"),
+                      ("skipped", "Skipped"), ("auto_skipped", "Auto-skipped")]
+
     @app.get("/processed", response_class=HTMLResponse)
     def processed(request: Request, filter: str | None = None) -> HTMLResponse:
-        built = [cards.build(record) for record in storage.vacancies.processed(filter)]
-        counts = storage.vacancies.processed_counts()
-        return page(request, "processed.html", "processed", cards=built, current=filter or "all",
-                    counts=counts, filters=[("all", "All"), ("applied", "Applied"), ("not_now", "Not now"),
-                                            ("skipped", "Skipped"), ("auto_skipped", "Auto-skipped")])
+        chosen: dict[str, set[str]] = {}
+        for key, value in request.query_params.multi_items():
+            if key != "filter" and value:
+                chosen.setdefault(key, set()).add(value)
+        records = storage.vacancies.processed(filter, limit=10000)
+        kept, filters = views.apply_filters(config, records, chosen)
+        built = [cards.build(record) for record in kept]
+        query = urlencode([(k, v) for k, values in sorted(chosen.items()) for v in sorted(values)])
+        return page(request, "processed.html", "processed", runs=views.group_by_run(built, storage),
+                    total=len(built), current=filter or "all", counts=storage.vacancies.processed_counts(),
+                    filters=processed_tabs, facets=filters, active=bool(chosen), query=query)
 
-    @app.get("/health", response_class=HTMLResponse)
-    def health(request: Request) -> HTMLResponse:
+    @app.get("/statistics", response_class=HTMLResponse)
+    def statistics(request: Request, view: str = "sources") -> HTMLResponse:
         runs = views.health(config, storage)
-        return page(request, "health.html", "health", runs=runs, latest=views.latest_source_states(runs))
+        view = view if view in ("sources", "runs") else "sources"
+        return page(request, "statistics.html", "statistics", view=view, runs=runs,
+                    latest=views.latest_source_states(runs), data=views.tokens(config, storage))
 
-    @app.get("/tokens", response_class=HTMLResponse)
-    def tokens(request: Request) -> HTMLResponse:
-        return page(request, "tokens.html", "tokens", data=views.tokens(config, storage))
+    @app.get("/health")
+    def health() -> RedirectResponse:
+        return RedirectResponse("/statistics", status_code=301)
+
+    @app.get("/tokens")
+    def tokens() -> RedirectResponse:
+        return RedirectResponse("/statistics?view=runs", status_code=301)
 
     @app.get("/api/status")
     def status() -> dict[str, Any]:

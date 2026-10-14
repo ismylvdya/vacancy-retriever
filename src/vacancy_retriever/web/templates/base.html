@@ -8,12 +8,12 @@
   <link rel="stylesheet" href="/static/style.css?v={{ version }}">
 </head>
 <body data-tab="{{ tab }}">
+<h1 class="app-title">🦆 Vacancy Retriever</h1>
 <header class="top">
   <nav class="nav">
     <a href="/" class="tab {{ 'on' if tab == 'feed' }}">Feed<span class="count" id="feed-count">{{ feed_count }}</span></a>
     <a href="/processed" class="tab {{ 'on' if tab == 'processed' }}">Processed</a>
-    <a href="/health" class="tab {{ 'on' if tab == 'health' }}">Health{% if health_problems %}<span class="dot-alert" title="Some sources have problems"></span>{% endif %}</a>
-    <a href="/tokens" class="tab {{ 'on' if tab == 'tokens' }}">Tokens</a>
+    <a href="/statistics" class="tab {{ 'on' if tab == 'statistics' }}">Statistics{% if health_problems %}<span class="dot-alert" title="Some sources have problems"></span>{% endif %}</a>
     <span class="spacer"></span>
     <span class="updated" id="last-run" title="{{ status.summary_line }}">{{ status.last_run_short }}</span>
     <button class="btn" id="run-btn" {% if status.running %}hidden{% endif %}>Run</button>

@@ -32,7 +32,7 @@ Vacancy Retriever — локальное приложение для macOS. По
 config/                 ← ВСЕ настройки (меняются без правки кода)
   sources.yaml          источники: Telegram-каналы, сайты, почтовые ящики
   rules.yaml            категории ролей, базы/потолки звёзд, минусы, группы, предфильтр
-  llm.yaml              провайдер LLM, модели, пачки, цены для вкладки Tokens
+  llm.yaml              провайдер LLM, модели, пачки, цены (для оценки «сколько стоило бы по API», в интерфейсе не показываются)
   mail.yaml             почтовые ящики, отправители, имя ярлыка "🦆 retrievered"
   profile.md            резюме — контекст для LLM
   prompts/scoring.md    инструкция LLM для извлечения фактов (+ few-shot примеры)
@@ -118,7 +118,7 @@ scripts/stop.sh           # остановить
   звёздам, грейды-отсев, названия групп, предфильтр (стоп-слова заголовка, правила RVC).
   После правки — `recalculate` (без LLM).
 - **`llm.yaml`** — провайдер (`claude_sdk` / `anthropic_api` / `openai_api`), модели по этапам,
-  `batch_size`, `max_concurrency`, обрезка длинных текстов, `effort`/`thinking`, цены для вкладки Tokens.
+  `batch_size`, `max_concurrency`, обрезка длинных текстов, `effort`/`thinking`, цены (для оценки «сколько стоило бы по API», в интерфейсе не показываются).
 - **`mail.yaml`** — ящики (Gmail, Яндекс), отправители и их парсеры, имя ярлыка.
 - **`profile.md`** — резюме. Обновили резюме → следующий прогон оценивает по новому профилю.
 - **`prompts/scoring.md`** — что LLM извлекает и как. Меняется без кода; категории должны совпадать с ключами
@@ -162,7 +162,7 @@ scripts/stop.sh           # остановить
 ### Точный парсер письма (пошагово)
 
 По умолчанию письмо целиком отдаётся LLM (универсальный парсер — работает, но тратит больше токенов: видно
-строкой «Evaluation · e-mail» во вкладке Tokens). Точный парсер делит письмо на вакансии сам.
+этап `scoring_email` в `data/token_log.jsonl`). Точный парсер делит письмо на вакансии сам.
 
 1. Сохраните образцы: `.venv/bin/vacancy-retriever export-email-samples --limit 3` → появятся
    `samples/emails/<отправитель>/*.eml`. Замените в них личные данные на `hidden@example.com`.
@@ -189,19 +189,26 @@ _template.py, см. docs/HANDBOOK.md раздел 7».
 Клавиатура: `J`/`K` (или стрелки) — по строкам, `A` / `N` / `S` — решение, `C` — копировать, `Enter` — полный текст,
 `Esc` — свернуть. Группу можно свернуть кликом по заголовку. Внизу — *Recalculate* (пересчёт по `rules.yaml` без LLM).
 
-**Processed** — фильтры Applied / Not now / Skipped / Auto-skipped (статус и причина отсева в своей колонке).
+**Processed** — подвкладки All / Applied / Not now / Skipped / Auto-skipped (статус и причина отсева в своей колонке).
+Под ними строка **Filters:** — выпадающие списки с множественным выбором по всему, что известно о вакансии:
+причина отсева, источник, группа, Fit, ВНЖ и все факты, которые извлекает LLM (язык объявления, требуемые языки,
+страна, город, формат, грейд, тип работодателя, сербское юрлицо, оформление и т.д.). Внутри одного списка — «или»,
+между списками — «и». Рядом с вариантом — сколько таких вакансий в подвкладке. Фильтр применяется, когда список
+закрывается; *Reset* — сбросить. Фильтры сохраняются при переключении подвкладок. Вакансии сгруппированы по прогонам.
+У отсеянных до LLM (правилами, бесплатно) фактов нет — у них значение «not analysed»; для них фильтруйте по
+*Skip reason* (например «Ad in Serbian, Russian not required»).
 *Return to feed* (клавиша `R`) — вернуть карточку (так исправляются ошибки отсева). «Not now» сам в ленту не возвращается.
 
-**Source health** — сверху последнее состояние каждого источника, ниже история прогонов.
-Колонки: Collected (новых элементов), Passed filters (дошло до LLM), To feed (попало в ленту), Time.
-Статусы: `ok`, `truncated` (упёрлись в `max_pages` — нормально для первого прогона RVC Global),
-`error`, `not_configured` (нет пароля почты — это не ошибка), `disabled`.
-**Тревожные признаки (подсвечены):** HTTP 403 / 429, Captcha, Cloudflare challenge, Redirect to login,
-«Source showed nothing (usually it does)». Это значит, что сайт начал блокировать или сменил вёрстку.
-
-**Tokens** — по каждому прогону и этапу (Evaluation, Evaluation · e-mail, LLM dedup): вызовы, input / output /
-cache, доля от прогона, модель, «≈ сколько стоило бы по API» для Haiku и дешёвой модели OpenAI.
-Процент лимита подписки программно недоступен. Те же данные — в `data/token_log.jsonl`.
+**Statistics** — сверху: токены за всё время, число вызовов LLM, число прогонов.
+- *Sources* — последнее состояние каждого источника. Колонки: New (собрано свежих), Seen (просмотрено, включая
+  старые), To feed (попало в ленту), Time. Статусы: `ok`, `truncated` (упёрлись в `max_pages` — нормально для
+  первого прогона RVC Global), `error`, `not_configured` (нет пароля почты — это не ошибка), `disabled`.
+  **Тревожные признаки (подсвечены):** HTTP 403 / 429, Captcha, Cloudflare challenge, Redirect to login,
+  «Source showed nothing (usually it does)». Это значит, что сайт начал блокировать или сменил вёрстку.
+- *Runs* — история прогонов: Started, Status, Duration, New, Tokens (sdk-python), ±% of 5h Pro Limit, Problems.
+  Строка раскрывается в таблицу по источникам. Процент лимита подписки программно недоступен — колонка считает
+  токены прогона / `claude_sdk.pro_5h_limit_tokens` из `llm.yaml` (откалибровано по claude.ai → Settings → Usage).
+  Подробности по каждому вызову — в `data/token_log.jsonl`.
 Если появилось «⚠ Claude CLI reported auth source …» — CLI пошёл не через подписку, а через платный ключ
 (в окружении есть `ANTHROPIC_API_KEY`); уберите его из `~/.zshrc` или переключитесь осознанно.
 
@@ -219,7 +226,7 @@ cache, доля от прогона, модель, «≈ сколько стои
 4. В `config/.env`: `ANTHROPIC_API_KEY=sk-ant-…`
 5. В `config/llm.yaml`: `provider: anthropic_api` (модели — в `models.anthropic_api`, по умолчанию `claude-haiku-5-5`).
 6. Проверка: `.venv/bin/vacancy-retriever run --sources serbiawork --limit 3 --db data/dev.sqlite`, затем
-   вкладка Tokens (или `data/dev_token_log.jsonl`).
+   Statistics → Runs (или `data/dev_token_log.jsonl`).
 Документация: https://docs.claude.com/en/api/getting-started , цены: https://www.anthropic.com/pricing .
 
 **(в) Платный API OpenAI.**
@@ -230,7 +237,7 @@ cache, доля от прогона, модель, «≈ сколько стои
 5. Проверка — как в (б). Документация: https://platform.openai.com/docs , цены: https://openai.com/api/pricing .
 
 ⚠ Интерфейсы консолей меняются; ищите разделы «API keys», «Billing», «Limits/Usage».
-Цены в `llm.yaml → pricing` нужны только для оценки во вкладке Tokens — обновляйте по официальным страницам.
+Цены в `llm.yaml → pricing` нужны только для оценки «сколько стоило бы по API» (в интерфейсе сейчас не показываются) — обновляйте по официальным страницам.
 
 ## 10. Тесты
 
@@ -246,8 +253,8 @@ cache, доля от прогона, модель, «≈ сколько стои
 
 | Симптом | Что делать |
 |---|---|
-| Health: `error` + «HTTP 403», «Cloudflare», «Captcha» у сайта | Сайт блокирует. Подождать день; если повторяется — `enabled: false`. Проверить: `check-sources --sources <id>` |
-| Health: «Source showed nothing» | Сайт сменил вёрстку или адрес. Открыть сайт в браузере; починить сборщик (Claude + снимок страницы в `samples/html/<id>/` + тест) |
+| Statistics → Sources: `error` + «HTTP 403», «Cloudflare», «Captcha» у сайта | Сайт блокирует. Подождать день; если повторяется — `enabled: false`. Проверить: `check-sources --sources <id>` |
+| Statistics → Sources: «Source showed nothing» | Сайт сменил вёрстку или адрес. Открыть сайт в браузере; починить сборщик (Claude + снимок страницы в `samples/html/<id>/` + тест) |
 | Шапка: «N items waiting for evaluation (LLM limit or error)» | Кончился лимит подписки или нет сети. Ничего не потеряно — оценятся в следующем прогоне |
 | Красная плашка «LLM: … not logged in / authentication» | Claude Code разлогинился: в Терминале выполнить `claude`, войти. Проверка: `claude auth status` |
 | «Claude Code CLI not found» | `brew install --cask claude-code`, затем `claude` для входа. Или указать путь в `llm.yaml → claude_sdk.cli_path` |

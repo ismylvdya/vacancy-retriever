@@ -125,6 +125,7 @@ class ClaudeSdkSettings(_Strict):
     timeout_seconds: int = 300
     effort: Literal["low", "medium", "high", "xhigh", "max"] | None = "low"
     thinking: Literal["adaptive", "disabled"] | None = None
+    pro_5h_limit_tokens: int | None = None
 
 
 class ApiSettings(_Strict):

@@ -50,7 +50,8 @@ def client(tmp_paths):
 
 
 def test_pages_render(client):
-    for path in ("/", "/processed", "/processed?filter=auto_skipped", "/health", "/tokens"):
+    for path in ("/", "/processed", "/processed?filter=auto_skipped", "/statistics", "/statistics?view=runs",
+                 "/health", "/tokens"):
         response = client.get(path)
         assert response.status_code == 200, path
     feed = client.get("/").text
@@ -99,11 +100,22 @@ def test_foreign_host_header_is_rejected(client):
     assert client.get("/", headers={"host": "evil.example"}).status_code == 403
 
 
-def test_tokens_page_shows_stage_and_cost(client):
-    page = client.get("/tokens").text
-    assert "Evaluation" in page
-    assert "Haiku 5.5" in page
-    assert "via API" in page
+def test_old_tabs_redirect_to_statistics(client):
+    assert client.get("/health", follow_redirects=False).headers["location"] == "/statistics"
+    assert client.get("/tokens", follow_redirects=False).headers["location"] == "/statistics?view=runs"
+
+
+def test_statistics_runs_show_tokens_without_api_costs(client):
+    page = client.get("/statistics?view=runs").text
+    assert "Tokens (sdk-python)" in page
+    assert "9,810" in page, "tokens of the run: 10 + 500 + 9000 + 300"
+    assert "via API" not in page and "Evaluation" not in page
+
+
+def test_statistics_sources_have_no_runs_table(client):
+    page = client.get("/statistics").text
+    assert "State after the latest run" in page
+    assert "Tokens (sdk-python)" not in page
 
 
 def test_salary_without_numbers_is_not_shown():
@@ -124,3 +136,22 @@ def test_model_labels_are_human_readable():
 def test_icon_fallback_for_telegram(client):
     response = client.get("/icons/serbiawork")
     assert response.status_code == 200
+
+
+def test_statistics_runs_show_share_of_pro_limit(client):
+    page = client.get("/statistics?view=runs").text
+    assert "±% of 5h Pro Limit" in page
+    assert "0.2%" in page, "9 810 / 4 500 000"
+
+
+def test_processed_filters_and_run_groups(client):
+    client.post(f"/api/vacancies/{client.vacancy_id}/status", json={"status": "skipped"}, headers=ORIGIN)
+    page = client.get("/processed").text
+    assert "Filters:" in page and 'name="country" value="Serbia"' in page
+    assert "Run " in page and "Junior Data Scientist" in page
+    page = client.get("/processed?country=Serbia&required_languages=en").text
+    assert "Junior Data Scientist" in page and "1 matching" in page
+    page = client.get("/processed?country=Serbia&country=Cyprus&ad_language=sr").text
+    assert "Junior Data Scientist" not in page and "Nothing matches" in page
+    page = client.get("/processed?filter=skipped&country=Serbia").text
+    assert 'href="/processed?filter=applied&amp;country=Serbia"' in page, "sub-tabs keep the filters"

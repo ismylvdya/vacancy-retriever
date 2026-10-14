@@ -3,16 +3,46 @@
 {% block content %}
 <div class="segmented" role="tablist">
   {% for key, label in filters %}
-    <a href="/processed{% if key != 'all' %}?filter={{ key }}{% endif %}" class="seg {{ 'on' if current == key }}">{{ label }}{% if key != 'all' %}<span class="count">{{ counts.get(key, 0) }}</span>{% endif %}</a>
+    {% set params = ([('filter=' ~ key)] if key != 'all' else []) + ([query] if query else []) %}
+    <a href="/processed{% if params %}?{{ params | join('&') }}{% endif %}" class="seg {{ 'on' if current == key }}">{{ label }}{% if key != 'all' %}<span class="count">{{ counts.get(key, 0) }}</span>{% endif %}</a>
   {% endfor %}
 </div>
-{% if cards %}
+
+{% if facets %}
+<form class="filters" id="filters" method="get" action="/processed">
+  {% if current != 'all' %}<input type="hidden" name="filter" value="{{ current }}">{% endif %}
+  <span class="filters-label">Filters:</span>
+  <div class="filters-scroll" id="filters-scroll">
+    <div class="filters-row">
+    {% for f in facets %}
+      <details class="fsel{{ ' on' if f.selected }}" data-key="{{ f.key }}">
+        <summary>{{ f.label }}{% if f.selected %}: <b>{{ f.selected[0].label }}</b>{% if f.selected | length > 1 %} +{{ f.selected | length - 1 }}{% endif %}{% endif %}<i class="caret"></i></summary>
+        <div class="fsel-menu">
+          {% for o in f.options %}
+          <label class="fsel-opt"><input type="checkbox" name="{{ f.key }}" value="{{ o.value }}" {% if o.selected %}checked{% endif %}><span>{{ o.label }}</span><span class="count">{{ o.count }}</span></label>
+          {% endfor %}
+        </div>
+      </details>
+    {% endfor %}
+    </div>
+  </div>
+  <a class="btn reset{{ ' off' if not active }}" href="/processed{% if current != 'all' %}?filter={{ current }}{% endif %}">Reset</a>
+</form>
+{% endif %}
+
+{% if runs %}
+{% if active %}<p class="note">{{ total }} matching</p>{% endif %}
+{% for run in runs %}
 <section class="group">
+  <div class="section-head"><h2>Run {{ run.started }}</h2><span class="sub">{{ run.cards | length }}</span></div>
   <div class="group-body">
     <div class="cells cells-processed head"><span>Role</span><span>Status</span><span class="r">Posted</span></div>
-    {% for c in cards %}{{ row(c, processed=True) }}{% endfor %}
+    {% for c in run.cards %}{{ row(c, processed=True) }}{% endfor %}
   </div>
 </section>
+{% endfor %}
+{% elif active %}
+<section class="empty-state"><h1>Nothing matches</h1><p>Change or reset the filters.</p></section>
 {% else %}
 <section class="empty-state"><h1>Nothing here yet</h1><p>Vacancies you mark in the feed land here.</p></section>
 {% endif %}

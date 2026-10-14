@@ -6,7 +6,6 @@ from dataclasses import dataclass, field
 from typing import Any
 
 from ..config import AppConfig, SourceConfig
-from ..llm.pricing import cost_usd
 from ..storage import Storage
 from ..storage.vacancies import VacancyRecord
 from ..timeutil import format_local, from_iso
@@ -22,8 +21,6 @@ STATUS_LABELS = {
     "applied": "Applied", "skipped": "Skipped", "not_now": "Not now", "auto_skipped": "Auto-skipped", "new": "New",
 }
 PERMIT_GROUPS = {1, 2}
-STAGE_ORDER = ["scoring", "scoring_email", "dedup"]
-STAGE_LABELS = {"scoring": "Evaluation", "scoring_email": "Evaluation of e-mails (generic parser)", "dedup": "Duplicate check"}
 ALERT_LABELS = {
     "http_403": "Blocked (HTTP 403)", "http_429": "Rate limited (HTTP 429)", "captcha": "Captcha",
     "cloudflare": "Cloudflare challenge", "login_redirect": "Redirect to login", "not_json": "Unexpected response",
@@ -75,6 +72,7 @@ class Card:
     status_label: str
     skip_reason: str | None
     group: int | None
+    run_id: int | None = None
 
     @property
     def low_fit(self) -> bool:
@@ -119,6 +117,7 @@ class CardBuilder:
             status_label=STATUS_LABELS.get(record.user_status, record.user_status),
             skip_reason=record.skip_reason,
             group=record.group_no,
+            run_id=record.run_id,
         )
 
     @staticmethod
@@ -246,7 +245,129 @@ def latest_source_states(runs: list[HealthRun]) -> list[HealthRow]:
     return sorted(latest.values(), key=lambda r: (not r.warn, r.status == "disabled", r.name.lower()))
 
 
-# ---------------------------------------------------------------- tokens
+# ---------------------------------------------------------------- processed: filters and runs
+
+NOT_ANALYSED = "not analysed"
+NONE_VALUE = "none"
+
+
+def _humanize(value: str) -> str:
+    return value.replace("_", " ")
+
+
+def _fact(name: str, labels: dict[str, str] | None = None) -> Any:
+    def get(record: VacancyRecord) -> list[tuple[str, str]]:
+        if record.facts is None:
+            return [(NOT_ANALYSED, NOT_ANALYSED)]
+        value = getattr(record.facts, name)
+        values = value if isinstance(value, list) else [value]
+        if isinstance(value, bool):
+            values = ["yes" if value else "no"]
+        out = [(str(v), (labels or {}).get(str(v), _humanize(str(v)))) for v in values if str(v).strip()]
+        return out or [(NONE_VALUE, NONE_VALUE)]
+    return get
+
+
+def _sources(names: dict[str, str]) -> Any:
+    def get(record: VacancyRecord) -> list[tuple[str, str]]:
+        ids = sorted({s.source_id for s in record.sources})
+        return [(i, names.get(i, i)) for i in ids] or [(NONE_VALUE, NONE_VALUE)]
+    return get
+
+
+def _plain(getter: Any) -> Any:
+    def get(record: VacancyRecord) -> list[tuple[str, str]]:
+        value = getter(record)
+        return [(str(value), str(value))] if value not in (None, "") else [(NONE_VALUE, NONE_VALUE)]
+    return get
+
+
+def filter_fields(config: AppConfig) -> list[tuple[str, str, Any]]:
+    """(query key, label, record → [(value, label)]). Everything the LLM extracts plus the code's verdict."""
+    names = {s.id: s.name for s in config.sources.sources}
+    return [
+        ("reason", "Skip reason", _plain(lambda r: r.skip_reason)),
+        ("source", "Source", _sources(names)),
+        ("group", "Group", _plain(lambda r: r.group_no)),
+        ("fit", "Fit", _plain(lambda r: r.stars)),
+        ("permit", "Permit", _plain(lambda r: r.residence_permit)),
+        ("ad_language", "Ad language", _fact("ad_language", LANGUAGES)),
+        ("required_languages", "Required languages", _fact("required_languages", LANGUAGES)),
+        ("serbian_required", "Serbian required", _fact("serbian_required")),
+        ("english_level", "English level", _fact("english_level")),
+        ("russian_speaking_team", "Russian-speaking team", _fact("russian_speaking_team")),
+        ("country", "Country", _fact("country")),
+        ("city", "City", _fact("city")),
+        ("work_format", "Format", _fact("work_format")),
+        ("remote_scope", "Remote scope", _fact("remote_scope")),
+        ("role_category", "Role", _fact("role_category")),
+        ("seniority", "Seniority", _fact("seniority")),
+        ("stack_overlap", "Stack overlap", _fact("stack_overlap")),
+        ("employer_type", "Employer type", _fact("employer_type")),
+        ("serbian_entity", "Serbian entity", _fact("serbian_entity")),
+        ("employment", "Employment", _fact("employment")),
+        ("visa_support", "Visa support", _fact("visa_support")),
+        ("confidence", "Confidence", _fact("confidence")),
+    ]
+
+
+@dataclass
+class FilterOption:
+    value: str
+    label: str
+    count: int
+    selected: bool
+
+
+@dataclass
+class Filter:
+    key: str
+    label: str
+    options: list[FilterOption]
+
+    @property
+    def selected(self) -> list[FilterOption]:
+        return [o for o in self.options if o.selected]
+
+
+def apply_filters(config: AppConfig, records: list[VacancyRecord],
+                  chosen: dict[str, set[str]]) -> tuple[list[VacancyRecord], list[Filter]]:
+    """OR inside one filter, AND between filters. Options are counted over the whole sub-tab."""
+    fields = filter_fields(config)
+    values = {id(r): {key: get(r) for key, _, get in fields} for r in records}
+    filters = []
+    for key, label, _ in fields:
+        counts: dict[str, int] = defaultdict(int)
+        labels: dict[str, str] = {}
+        for record in records:
+            for value, value_label in values[id(record)][key]:
+                counts[value] += 1
+                labels[value] = value_label
+        for value in chosen.get(key, set()) - counts.keys():
+            counts[value], labels[value] = 0, value
+        options = [FilterOption(v, labels[v], n, v in chosen.get(key, set()))
+                   for v, n in sorted(counts.items(), key=lambda kv: (-kv[1], labels[kv[0]].lower()))]
+        if options:
+            filters.append(Filter(key, label, options))
+    kept = [r for r in records
+            if all(not wanted or wanted & {v for v, _ in values[id(r)][key]} for key, wanted in chosen.items())]
+    return kept, filters
+
+
+def group_by_run(cards: list[Card], storage: Storage) -> list[dict[str, Any]]:
+    runs = {r["id"]: r for r in storage.runs.history(1000)}
+    by_run: dict[int | None, list[Card]] = defaultdict(list)
+    for card in cards:
+        by_run[card.run_id].append(card)
+    result = []
+    for run_id in sorted(by_run, key=lambda r: r or 0, reverse=True):
+        run = runs.get(run_id) if run_id else None
+        result.append({"run_id": run_id, "started": format_local(run["started_at"]) if run else "—",
+                       "cards": by_run[run_id]})
+    return result
+
+
+# ---------------------------------------------------------------- statistics: tokens per run
 
 def model_label(model: str) -> str:
     """claude-haiku-5-5 → Haiku 5.5, gpt-5.4-nano → GPT-5.4 nano."""
@@ -258,62 +379,24 @@ def model_label(model: str) -> str:
     return model
 
 
-def _cost(config: AppConfig, model: str, inp: int, out: int, cr: int, cw: int) -> float | None:
-    price = config.llm.pricing.get(model)
-    return cost_usd(price, inp, out, cr, cw) if price else None
+def _call_tokens(call: dict[str, Any]) -> int:
+    return sum(call[k] or 0 for k in ("input_tokens", "output_tokens", "cache_read_tokens", "cache_creation_tokens"))
 
 
 def tokens(config: AppConfig, storage: Storage) -> dict[str, Any]:
+    """Totals for the Statistics header and tokens per run for the Runs table."""
+    limit = config.llm.claude_sdk.pro_5h_limit_tokens if config.llm.provider == "claude_sdk" else None
+    per_run: dict[int | None, int] = defaultdict(int)
+    failed: dict[int | None, int] = defaultdict(int)
     calls = storage.llm_calls.all()
-    runs = {r["id"]: r for r in storage.runs.history(1000)}
-    by_run: dict[int | None, list[dict[str, Any]]] = defaultdict(list)
     for call in calls:
-        by_run[call["run_id"]].append(call)
-    comparison = config.llm.comparison_models
-    run_views = []
-    totals = {"calls": 0, "input": 0, "output": 0, "cache_read": 0, "cache_write": 0, "unknown": 0}
-    total_costs = {m: 0.0 for m in comparison}
-    for run_id in sorted(by_run, key=lambda r: r or 0, reverse=True):
-        run_calls = by_run[run_id]
-        stages: dict[str, dict[str, Any]] = {}
-        for call in run_calls:
-            stage = stages.setdefault(call["stage"], {
-                "stage": call["stage"], "label": STAGE_LABELS.get(call["stage"], call["stage"]), "calls": 0,
-                "failed": 0, "input": 0, "output": 0, "cache_read": 0, "cache_write": 0, "unknown": 0, "models": set()})
-            stage["calls"] += 1
-            stage["failed"] += 0 if call["ok"] else 1
-            stage["unknown"] += call["tokens_unknown"]
-            stage["input"] += call["input_tokens"] or 0
-            stage["output"] += call["output_tokens"] or 0
-            stage["cache_read"] += call["cache_read_tokens"] or 0
-            stage["cache_write"] += call["cache_creation_tokens"] or 0
-            if call["model"]:
-                stage["models"].add(call["model"])
-        run_total = sum(s["input"] + s["output"] + s["cache_read"] + s["cache_write"] for s in stages.values()) or 1
-        ordered = sorted(stages.values(), key=lambda s: STAGE_ORDER.index(s["stage"]) if s["stage"] in STAGE_ORDER else 99)
-        for stage in ordered:
-            stage_total = stage["input"] + stage["output"] + stage["cache_read"] + stage["cache_write"]
-            stage["total"] = stage_total
-            stage["share"] = round(100 * stage_total / run_total, 1)
-            stage["input_share"] = round(100 * (stage_total - stage["output"]) / (stage_total or 1))
-            stage["output_share"] = 100 - stage["input_share"] if stage_total else 0
-            stage["models"] = ", ".join(model_label(m) for m in sorted(stage["models"]))
-            stage["costs"] = {m: _cost(config, m, stage["input"], stage["output"], stage["cache_read"], stage["cache_write"])
-                              for m in comparison}
-            for key in ("calls", "input", "output", "cache_read", "cache_write", "unknown"):
-                totals[key] += stage[key]
-            for model, value in stage["costs"].items():
-                total_costs[model] += value or 0.0
-        run = runs.get(run_id) if run_id else None
-        run_views.append({
-            "run_id": run_id,
-            "started": format_local(run["started_at"]) if run else "—",
-            "status": run["status"] if run else "manual",
-            "cancelled": bool(run and run["status"] == "cancelled") or any(c["cancelled"] for c in run_calls),
-            "stages": ordered,
-            "total": run_total if run_calls else 0,
-            "costs": {m: sum((s["costs"][m] or 0.0) for s in ordered) for m in comparison},
-        })
-    return {"runs": run_views, "totals": totals, "total_costs": total_costs, "comparison": comparison,
-            "labels": {m: model_label(m) for m in comparison},
-            "provider": config.llm.provider, "auth_source": storage.llm_calls.last_auth_source()}
+        per_run[call["run_id"]] += _call_tokens(call)
+        failed[call["run_id"]] += 0 if call["ok"] else 1
+    total = sum(per_run.values())
+    return {
+        "total": total, "calls": len(calls), "pro_limit": limit, "provider": config.llm.provider,
+        "auth_source": storage.llm_calls.last_auth_source(),
+        "per_run": {run_id: {"tokens": n, "failed": failed[run_id],
+                             "limit_share": round(100 * n / limit, 1) if limit else None}
+                    for run_id, n in per_run.items()},
+    }

@@ -231,5 +231,41 @@ if (recalc) {
   });
 }
 
+/* ---------- processed: multi-select filters ---------- */
+const filterForm = $("filters");
+if (filterForm) {
+  const scroller = filterForm.querySelector(".filters-row");
+  const fade = () => $("filters-scroll").classList.toggle("more",
+    scroller.scrollLeft + scroller.clientWidth < scroller.scrollWidth - 2);
+  const selects = [...filterForm.querySelectorAll(".fsel")];
+  const snapshot = () => new URLSearchParams(new FormData(filterForm)).toString();
+  const initial = snapshot();
+  const place = (select) => {
+    const box = select.querySelector("summary").getBoundingClientRect();
+    const menu = select.querySelector(".fsel-menu");
+    menu.style.top = `${box.bottom + 4}px`;
+    menu.style.left = `${Math.max(8, Math.min(box.left, window.innerWidth - menu.offsetWidth - 8))}px`;
+  };
+  const applyIfChanged = () => { if (snapshot() !== initial) filterForm.submit(); };
+  selects.forEach((select) => select.addEventListener("toggle", () => {
+    if (select.open) {
+      selects.forEach((other) => { if (other !== select) other.open = false; });
+      place(select);
+    } else {
+      applyIfChanged();
+    }
+  }));
+  const closeAll = () => selects.forEach((select) => { select.open = false; });
+  document.addEventListener("click", (event) => { if (!event.target.closest(".fsel")) closeAll(); });
+  document.addEventListener("keydown", (event) => { if (event.key === "Escape") closeAll(); });
+  scroller.addEventListener("scroll", () => { closeAll(); fade(); });
+  window.addEventListener("scroll", closeAll, { passive: true });
+  window.addEventListener("resize", fade);
+  scroller.addEventListener("wheel", (event) => {
+    if (Math.abs(event.deltaY) > Math.abs(event.deltaX)) { scroller.scrollLeft += event.deltaY; event.preventDefault(); }
+  }, { passive: false });
+  fade();
+}
+
 if (tab === "feed") focusRow(visibleRows()[0], { scroll: false });
 schedule(wasRunning ? 500 : 15000);

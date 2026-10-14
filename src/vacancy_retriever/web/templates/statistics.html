@@ -1,0 +1,73 @@
+{% extends "base.html" %}
+{% block content %}
+<section class="stats">
+  <div class="stat"><div class="stat-value">{{ "{:,}".format(data.total) }}</div><div class="stat-label">Tokens, all time</div></div>
+  <div class="stat"><div class="stat-value">{{ data.calls }}</div><div class="stat-label">LLM calls</div></div>
+  <div class="stat"><div class="stat-value">{{ runs | length }}</div><div class="stat-label">Runs</div></div>
+</section>
+<p class="note">
+  {% if data.provider == 'claude_sdk' %}Runs use your Claude subscription. The share of the subscription limit isn't available to apps{% if data.pro_limit %}, so "±% of 5h Pro Limit" is an estimate: run tokens / {{ "{:,}".format(data.pro_limit) }} tokens set in <code>config/llm.yaml</code>{% endif %}.{% else %}Provider: <code>{{ data.provider }}</code>.{% endif %}
+  Per-call numbers are written to <code>data/token_log.jsonl</code>.
+</p>
+{% if data.provider == 'claude_sdk' and data.auth_source and data.auth_source != 'none' %}
+<p class="note alert">Claude CLI reported auth source "{{ data.auth_source }}" — it may be using a paid API key instead of the subscription.</p>
+{% endif %}
+
+<div class="segmented" role="tablist">
+  <a href="/statistics" class="seg {{ 'on' if view == 'sources' }}">Sources</a>
+  <a href="/statistics?view=runs" class="seg {{ 'on' if view == 'runs' }}">Runs<span class="count">{{ runs | length }}</span></a>
+</div>
+
+{% if view == 'sources' %}
+<section class="group">
+  <div class="section-head"><h2>Sources</h2><span class="sub">State after the latest run</span></div>
+  <table class="table">
+    <thead><tr><th>Source</th><th>Status</th><th class="r" title="Fresh posts collected">New</th><th class="r" title="Posts looked through, including old ones">Seen</th><th class="r">To feed</th><th class="r">Time</th><th>Problem</th></tr></thead>
+    <tbody>
+    {% for r in latest %}
+      <tr class="{{ 'warn' if r.warn }}">
+        <td class="nw"><span class="src-name"><img src="/icons/{{ r.source_id }}" alt="" loading="lazy">{{ r.name }}</span></td>
+        <td class="nw"><span class="status s-{{ r.status }}">{{ r.status | replace('_', ' ') }}</span></td>
+        <td class="r">{{ r.collected }}</td><td class="r">{{ r.seen if r.seen is not none else '' }}</td><td class="r">{{ r.to_feed }}</td>
+        <td class="r muted">{{ r.duration }}</td>
+        <td class="problem">{% if r.alert %}<span class="alert">{{ r.alert }}</span>{% endif %}{% if r.error %}<span class="muted">{{ r.error }}</span>{% endif %}</td>
+      </tr>
+    {% else %}<tr><td colspan="7" class="muted">No runs yet.</td></tr>{% endfor %}
+    </tbody>
+  </table>
+</section>
+{% else %}
+<section class="group">
+  <div class="cells run-row stats-row runs-head"><span>Started</span><span>Status</span><span class="r">Duration</span><span class="r">New</span><span class="r">Tokens (sdk-python)</span><span class="r">±% of 5h Pro Limit</span><span>Problems</span></div>
+  <div class="runs">
+  {% for run in runs %}
+    {% set t = data.per_run.get(run.id) %}
+    <details class="run">
+      <summary class="cells run-row stats-row">
+        <span class="run-time">{{ run.started }}</span>
+        <span class="status s-{{ run.status }}">{{ run.status }}</span>
+        <span class="r muted">{{ run.duration_min }} min</span>
+        <span class="r">{% if run.summary.new_total is defined %}{{ run.summary.new_total }}{% endif %}</span>
+        <span class="r">{{ "{:,}".format(t.tokens) if t else '0' }}</span>
+        <span class="r">{% if t and t.limit_share is not none %}{{ t.limit_share }}%{% else %}—{% endif %}</span>
+        <span class="problem">{% if run.problems %}<span class="alert">{{ run.problems }} source problems</span>{% endif %}{% if t and t.failed %}<span class="alert">{{ t.failed }} LLM calls failed</span>{% endif %}{% if run.summary.llm_error %}<span class="alert">LLM: {{ run.summary.llm_error[:90] }}</span>{% endif %}</span>
+      </summary>
+      <table class="table inner">
+        <thead><tr><th>Source</th><th>Status</th><th class="r">New</th><th class="r">Seen</th><th class="r">To feed</th><th class="r">Time</th><th>Problem</th></tr></thead>
+        <tbody>
+        {% for r in run.rows %}
+          <tr class="{{ 'warn' if r.warn }}">
+            <td class="nw">{{ r.name }}</td><td class="nw"><span class="status s-{{ r.status }}">{{ r.status | replace('_', ' ') }}</span></td>
+            <td class="r">{{ r.collected }}</td><td class="r">{{ r.seen if r.seen is not none else '' }}</td><td class="r">{{ r.to_feed }}</td>
+            <td class="r muted">{{ r.duration }}</td>
+            <td class="problem">{% if r.alert %}<span class="alert">{{ r.alert }}</span>{% endif %}{% if r.error %}<span class="muted">{{ r.error }}</span>{% endif %}</td>
+          </tr>
+        {% endfor %}
+        </tbody>
+      </table>
+    </details>
+  {% else %}<p class="muted pad">No runs yet.</p>{% endfor %}
+  </div>
+</section>
+{% endif %}
+{% endblock %}

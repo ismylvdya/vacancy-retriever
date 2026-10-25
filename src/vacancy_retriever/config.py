@@ -226,6 +226,26 @@ def _parse[T: BaseModel](model: type[T], path: Path) -> T:
         raise ConfigError(f"{path.name}: {problems}") from exc
 
 
+class BrowserSettings(_Strict):
+    app: str | None = None
+    shortcut_before_open: str | None = None
+
+    @field_validator("shortcut_before_open")
+    @classmethod
+    def _shortcut(cls, value: str | None) -> str | None:
+        if not value:
+            return None
+        *mods, key = [part.strip().lower() for part in value.split("+")]
+        unknown = [m for m in mods if m not in {"ctrl", "cmd", "alt", "shift"}]
+        if unknown or len(key) != 1:
+            raise ValueError("use modifiers ctrl/cmd/alt/shift and one key, e.g. \"ctrl+2\"")
+        return "+".join([*mods, key])
+
+
+class UiConfig(_Strict):
+    browser: BrowserSettings = Field(default_factory=BrowserSettings)
+
+
 class AppConfig:
     """Lazy access to every file in config/. Each file is validated on first use."""
 
@@ -249,6 +269,11 @@ class AppConfig:
         return _parse(MailConfig, self.paths.config / "mail.yaml")
 
     @cached_property
+    def ui(self) -> UiConfig:
+        path = self.paths.config / "app.yaml"
+        return _parse(UiConfig, path) if path.exists() else UiConfig()
+
+    @cached_property
     def secrets(self) -> Secrets:
         return Secrets.load(self.paths.config / ".env")
 
@@ -266,4 +291,4 @@ class AppConfig:
         raise ConfigError(f"Unknown source id '{source_id}'")
 
     def validate_all(self) -> None:
-        _ = self.sources, self.rules, self.llm, self.mail, self.profile
+        _ = self.sources, self.rules, self.llm, self.mail, self.ui, self.profile

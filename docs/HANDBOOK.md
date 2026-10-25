@@ -104,8 +104,14 @@ scripts/stop.sh           # остановить
 | `… export-email-samples --limit 3` | сохранить образцы писем в `samples/emails/` (только чтение ящика) |
 | `… recalculate` | пересчитать группы/звёзды по `rules.yaml` без LLM (или ссылка внизу ленты) |
 
-**Автозапуск при входе в систему** (по желанию): Системные настройки → Основные → Объекты входа →
-«+» → выбрать файл `scripts/start.sh` из папки проекта. (Приложение само ничего вне своей папки не создаёт.)
+**Приложение для Launchpad:** `scripts/build-app.sh` собирает `build/Vacancy Retriever.app` (иконка —
+`packaging/macos/icon.png`) и копирует его в `~/Applications` — это единственное, что проект кладёт вне своей папки.
+Запуск приложения = `scripts/start.sh --no-open` (сервер + 🦆 в меню-баре, без значка в Dock); если всё уже запущено —
+открывает ленту. Выключить всё — 🦆 → *Quit Vacancy Retriever* (останавливает и сервер). Путь к проекту зашит в
+приложение: после переноса папки проекта — пересобрать. Лог запуска — `logs/launcher.log`.
+
+**Автозапуск при входе в систему** (по желанию): Системные настройки → Основные → Объекты входа → «+» →
+`~/Applications/Vacancy Retriever.app`.
 
 ## 5. Настройки (`config/`)
 
@@ -263,7 +269,7 @@ LLM — удобно отправить Claude с описанием пробл�
 | Шапка: «N items waiting for evaluation (LLM limit or error)» | Кончился лимит подписки или нет сети. Ничего не потеряно — оценятся в следующем прогоне |
 | Красная плашка «LLM: … not logged in / authentication» | Claude Code разлогинился: в Терминале выполнить `claude`, войти. Проверка: `claude auth status` |
 | «Claude Code CLI not found» | `brew install --cask claude-code`, затем `claude` для входа. Или указать путь в `llm.yaml → claude_sdk.cli_path` |
-| Иконка в меню-баре с ⚠ | Сервер не запущен: `scripts/start.sh` |
+| Иконка в меню-баре с ⚠ | Сервер не запущен: открыть Vacancy Retriever из Launchpad (или `scripts/start.sh`) |
 | «Порт 18765 занят» | `VR_PORT=8800 scripts/start.sh` |
 | Прогон «завис» | Cancel (двойной клик). Если сервер не отвечает — `scripts/stop.sh && scripts/start.sh`; незавершённый прогон откатится сам |
 | `Configuration error: …` | Опечатка в `config/*.yaml` — сообщение говорит файл и поле |

@@ -101,6 +101,13 @@ def cmd_menubar(args: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_open_feed(args: argparse.Namespace) -> int:
+    from .menubar.browser import open_feed
+
+    open_feed(f"http://127.0.0.1:{args.port}/", AppConfig().ui.browser)
+    return 0
+
+
 def cmd_check_sources(args: argparse.Namespace) -> int:
     from .collectors.base import CollectContext, SourceCursor, SourceNotConfigured
     from .collectors.http import BlockedError, PoliteHttpClient
@@ -170,6 +177,10 @@ def build_parser() -> argparse.ArgumentParser:
     menubar = sub.add_parser("menubar", help="menu bar icon (macOS)")
     menubar.add_argument("--port", type=int, default=DEFAULT_PORT)
     menubar.set_defaults(func=cmd_menubar)
+
+    open_cmd = sub.add_parser("open-feed", help="open the feed in the browser from config/app.yaml")
+    open_cmd.add_argument("--port", type=int, default=DEFAULT_PORT)
+    open_cmd.set_defaults(func=cmd_open_feed)
 
     check = sub.add_parser("check-sources", help="quick availability check of every source")
     check.add_argument("--sources")

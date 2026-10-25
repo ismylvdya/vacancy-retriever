@@ -12,3 +12,4 @@ __pycache__/
 .claude/
 claude-context/
 CLAUDE.local.md
+build/

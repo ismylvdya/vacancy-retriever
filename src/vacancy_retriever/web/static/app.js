@@ -46,7 +46,7 @@ function hideToast() { $("toast").hidden = true; }
 function renderStatus(s) {
   const running = !!s.running;
   document.body.classList.toggle("running", running);
-  $("run-btn").hidden = running;
+  $("run-group").hidden = running;
   $("cancel-btn").hidden = !running || s.owned === false;
   $("progress").hidden = !running;
   $("last-run").textContent = s.last_run_short || "";
@@ -86,13 +86,35 @@ async function poll() {
 }
 function schedule(ms) { clearTimeout(pollTimer); pollTimer = setTimeout(poll, ms); }
 
-$("run-btn").addEventListener("click", async () => {
+async function startRun(options) {
   try {
-    await api("POST", "/api/run");
+    await api("POST", "/api/run", options);
+    $("run-panel").hidden = true;
     wasRunning = true;
     renderStatus({ running: true, owned: true, percent: 0, phase: "Starting", last_run_short: $("last-run").textContent });
     schedule(500);
   } catch (e) { toast(e.message); }
+}
+$("run-btn").addEventListener("click", () => startRun());
+
+/* Run options: period in days + source groups; the last choice is remembered in this browser. */
+const RUN_KEY = "vr-run-options";
+const groupBoxes = [...document.querySelectorAll(".run-groups input")];
+try {
+  const saved = JSON.parse(localStorage.getItem(RUN_KEY) || "null");
+  if (saved) {
+    $("run-days").value = saved.days || "";
+    groupBoxes.forEach((box) => { box.checked = saved.groups.includes(box.value); });
+  }
+} catch (e) { /* no storage */ }
+$("run-more").addEventListener("click", (event) => { event.stopPropagation(); $("run-panel").hidden = !$("run-panel").hidden; });
+document.addEventListener("click", (event) => { if (!event.target.closest("#run-group")) $("run-panel").hidden = true; });
+$("run-custom").addEventListener("click", () => {
+  const days = parseInt($("run-days").value, 10) || null;
+  const groups = groupBoxes.filter((box) => box.checked).map((box) => box.value);
+  if (!groups.length) { toast("Choose at least one group of sources"); return; }
+  try { localStorage.setItem(RUN_KEY, JSON.stringify({ days, groups })); } catch (e) { /* no storage */ }
+  startRun({ days, groups: groups.length === groupBoxes.length ? null : groups });
 });
 
 let cancelArmed = null;

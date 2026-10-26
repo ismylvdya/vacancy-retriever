@@ -58,7 +58,8 @@ def test_pages_render(client):
     feed = client.get("/").text
     assert "Junior Data Scientist" in feed
     assert 'class="permit permit-yes">Yes<' in feed
-    assert "Requires English" in feed, "non-Russian required languages are shown as a risk"
+    assert "<span>Junior</span>" in feed and "<span>Russian company with a Serbian d.o.o.</span>" in feed
+    assert "Ad 🇷🇺" in feed and "Requires 🇬🇧 🇷🇺" in feed, "grade, employer type and language flags on the card"
     assert "IT and data in Serbia" in feed
     assert "1500–2000 €" in feed
     assert "https://telegram.me/serbiawork/1" in feed
@@ -214,3 +215,22 @@ def test_feed_is_hidden_while_a_run_is_going(client):
     page = client.get("/").text
     assert 'class="empty-state run-placeholder"' in page and 'class="feed-content"' in page
     assert '<body data-tab="feed" class="">' in page
+
+
+def test_run_panel_passes_period_and_source_groups(client, monkeypatch):
+    from vacancy_retriever.pipeline.manager import RunManager
+
+    started = []
+    monkeypatch.setattr(RunManager, "start", lambda self, options: started.append(options))
+    assert client.post("/api/run", headers=ORIGIN).status_code == 200
+    assert started[-1].source_ids is None and started[-1].since is None
+    response = client.post("/api/run", json={"days": 3, "groups": ["telegram", "email"]}, headers=ORIGIN)
+    assert response.status_code == 200
+    options = started[-1]
+    assert options.since == timedelta(days=3)
+    config = AppConfig()
+    types = {s.type for s in config.sources.sources if s.id in options.source_ids}
+    assert types == {"telegram", "email"}
+    assert client.post("/api/run", json={"days": 99}, headers=ORIGIN).status_code == 400
+    assert client.post("/api/run", json={"groups": []}, headers=ORIGIN).status_code == 400
+    assert 'id="run-more"' in client.get("/").text

@@ -21,7 +21,19 @@
     <a href="/statistics" class="tab {{ 'on' if tab == 'statistics' }}">Statistics{% if health_problems %}<span class="dot-alert" title="Some sources have problems"></span>{% endif %}</a>
     <span class="spacer"></span>
     <span class="updated" id="last-run" title="{{ status.summary_line }}">{{ status.last_run_short }}</span>
-    <button class="btn" id="run-btn" {% if status.running %}hidden{% endif %}>Run</button>
+    <span class="run-group" id="run-group" {% if status.running %}hidden{% endif %}>
+      <button class="btn run-main" id="run-btn" title="Everything new since the last run">Run</button><button class="btn run-more" id="run-more" aria-label="Run options" title="Period and sources">▾</button>
+      <div class="run-panel" id="run-panel" hidden>
+        <label class="run-days">Period <input type="number" id="run-days" min="1" max="{{ max_days }}" placeholder="since last run"> days</label>
+        <div class="run-groups">
+          <label><input type="checkbox" value="telegram" checked> Telegram</label>
+          <label><input type="checkbox" value="sites" checked> Sites</label>
+          <label><input type="checkbox" value="email" checked> E-mail</label>
+        </div>
+        <p class="muted small">Each source still starts where the previous run stopped; the period only limits how far back.</p>
+        <button class="btn" id="run-custom">Run</button>
+      </div>
+    </span>
     <button class="btn" id="cancel-btn" {% if not status.running %}hidden{% endif %}>Cancel</button>
   </nav>
   <div class="progress" id="progress" {% if not status.running %}hidden{% endif %}>

@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import hashlib
 import logging
+from datetime import timedelta
 from urllib.parse import urlencode
 from pathlib import Path
 from typing import Any
@@ -30,6 +31,17 @@ STATIC_ICONS = WEB_DIR / "static" / "icons"
 
 class StatusChange(BaseModel):
     status: str
+
+
+class RunRequest(BaseModel):
+    """Run panel: days = how far back (None = since the last run); groups = telegram / sites / email (None = all)."""
+
+    days: int | None = None
+    groups: list[str] | None = None
+
+
+SOURCE_GROUPS = {"telegram": lambda s: s.type == "telegram", "email": lambda s: s.type == "email",
+                 "sites": lambda s: s.type not in ("telegram", "email")}
 
 
 def describe_status(state: dict[str, Any]) -> dict[str, Any]:
@@ -97,7 +109,8 @@ def create_app(config: AppConfig, storage: Storage, port: int, manager: RunManag
         counts = storage.vacancies.processed_counts()
         return templates.TemplateResponse(request, template, {
             "tab": tab, "feed_count": counts.get("new", 0), "status": full_status(),
-            "health_problems": health_problems(), "notices": notices.active(config.paths.notices), **context,
+            "health_problems": health_problems(), "notices": notices.active(config.paths.notices),
+            "max_days": config.rules.max_age_days, **context,
         })
 
     def health_problems() -> int:
@@ -159,9 +172,20 @@ def create_app(config: AppConfig, storage: Storage, port: int, manager: RunManag
         return state
 
     @app.post("/api/run")
-    def start_run() -> dict[str, Any]:
+    def start_run(request: RunRequest | None = None) -> dict[str, Any]:
+        request = request or RunRequest()
+        if request.days is not None and not 1 <= request.days <= config.rules.max_age_days:
+            raise HTTPException(400, f"Days must be 1–{config.rules.max_age_days}")
+        source_ids = None
+        if request.groups is not None:
+            unknown = set(request.groups) - SOURCE_GROUPS.keys()
+            if unknown or not request.groups:
+                raise HTTPException(400, "Choose at least one of: telegram, sites, email")
+            source_ids = [s.id for s in config.sources.sources if s.enabled
+                          and any(SOURCE_GROUPS[g](s) for g in request.groups)]
+        since = timedelta(days=request.days) if request.days else None
         try:
-            manager.start(RunOptions(trigger="ui"))
+            manager.start(RunOptions(source_ids=source_ids, since=since, trigger="ui"))
         except AlreadyRunning as exc:
             raise HTTPException(409, str(exc)) from exc
         return {"started": True}

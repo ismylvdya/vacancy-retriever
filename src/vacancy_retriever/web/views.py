@@ -16,6 +16,16 @@ LANGUAGES = {
     "pt": "Portuguese", "tr": "Turkish", "zh": "Chinese", "ja": "Japanese", "cs": "Czech",
 }
 WORK_FORMATS = {"office": "Office", "hybrid": "Hybrid", "remote": "Remote"}
+FLAGS = {
+    "ru": "🇷🇺", "en": "🇬🇧", "sr": "🇷🇸", "de": "🇩🇪", "fr": "🇫🇷", "es": "🇪🇸", "it": "🇮🇹", "pl": "🇵🇱", "uk": "🇺🇦",
+    "kk": "🇰🇿", "ky": "🇰🇬", "nl": "🇳🇱", "pt": "🇵🇹", "tr": "🇹🇷", "zh": "🇨🇳", "ja": "🇯🇵", "cs": "🇨🇿",
+}
+GRADES = {"intern": "Intern", "junior": "Junior", "middle": "Middle", "senior": "Senior", "lead": "Lead"}
+EMPLOYER_TYPES = {
+    "serbian": "Serbian company", "ru_with_serbian_entity": "Russian company with a Serbian d.o.o.",
+    "russian": "Russian company", "intl_russian_speaking": "International, Russian-speaking",
+    "intl_english": "International, English-speaking", "private_person": "Private person",
+}
 PERMIT_LABELS = {"yes": "Yes", "likely": "Likely", "no": "No"}
 STATUS_LABELS = {
     "applied": "Applied", "skipped": "Skipped", "not_now": "Not now", "auto_skipped": "Auto-skipped", "new": "New",
@@ -30,6 +40,10 @@ ALERT_LABELS = {
 
 def _known(value: str | None) -> str:
     return "" if not value or value.strip().lower() in {"unknown", "n/a", "none"} else value.strip()
+
+
+def _flag(code: str) -> str:
+    return FLAGS.get(code, code.upper())
 
 
 def _salary(value: str | None) -> str:
@@ -66,7 +80,6 @@ class Card:
     is_new: bool
     summary: str
     flags: list[str]
-    languages_note: str
     sources: list[SourceLink]
     description: str
     user_status: str
@@ -74,6 +87,10 @@ class Card:
     skip_reason: str | None
     group: int | None
     run_id: int | None = None
+    grade: str = ""
+    employer_type: str = ""
+    ad_language: str = ""          # flag (or code) of the language the ad is written in
+    required_languages: list[str] = field(default_factory=list)  # flags with the language name as tooltip
 
     @property
     def low_fit(self) -> bool:
@@ -112,7 +129,6 @@ class CardBuilder:
             is_new=record.run_id == self._latest_run and record.user_status == "new",
             summary=_known(facts.summary_ru) if facts else "",
             flags=flags,
-            languages_note=self._languages_note(record),
             sources=self._links(record),
             description=raw.full_text if raw else "",
             user_status=record.user_status,
@@ -120,16 +136,11 @@ class CardBuilder:
             skip_reason=record.skip_reason,
             group=record.group_no,
             run_id=record.run_id,
+            grade=GRADES.get(facts.seniority, "") if facts else "",
+            employer_type=EMPLOYER_TYPES.get(facts.employer_type, "") if facts else "",
+            ad_language=_flag(facts.ad_language) if facts and facts.ad_language != "other" else "",
+            required_languages=[_flag(code) for code in facts.required_languages] if facts else [],
         )
-
-    @staticmethod
-    def _languages_note(record: VacancyRecord) -> str:
-        """Only when languages are a risk: anything required besides Russian."""
-        facts = record.facts
-        if facts is None:
-            return ""
-        other = [LANGUAGES.get(code, code.upper()) for code in facts.required_languages if code != "ru"]
-        return ", ".join(other)
 
     def _links(self, record: VacancyRecord) -> list[SourceLink]:
         sites: list[SourceLink] = []

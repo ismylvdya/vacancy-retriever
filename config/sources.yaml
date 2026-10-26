@@ -49,8 +49,8 @@ sources:
   - {id: choicy_work,            type: telegram, name: "Choicy Work",            url: "https://telegram.me/choicy_work",            posts_per_day: 1,   max_pages: 3}
 
   # ---------- Почта (ящики и отправители — config/mail.yaml, пароли — config/.env) ----------
-  - {id: gmail,  type: email, name: "Gmail", enabled: false, disabled_reason: "Почта пока не используется (решение пользователя 2026-10-14)", params: {mailbox: gmail}}
-  - {id: yandex, type: email, name: "Yandex Mail", enabled: false, disabled_reason: "Почта пока не используется (решение пользователя 2026-10-14)", params: {mailbox: yandex}}
+  - {id: gmail,  type: email, name: "Gmail", params: {mailbox: gmail}}
+  - {id: yandex, type: email, name: "Yandex Mail", params: {mailbox: yandex}}
 
   # ---------- Сайты с открытым JSON API ----------
   - {id: getmatch, type: getmatch, name: "getmatch", url: "https://getmatch.ru/api/offers", max_pages: 3, posts_per_day: 0.2, params: {period: "30d", seniority: [junior], specializations: [data_engineering, data_science, python, data_analyst_bi], locations: [remote, relocate], page_size: 50}}
@@ -92,3 +92,5 @@ detail_domains:
   - changellenge.com
   - api.hirify.me
   - talent-move.ru
+  # страницы вакансий из писем (hh.ru не докачивается: сайт отвечает 406 клиентам-не-браузерам)
+  - internship.vk.company

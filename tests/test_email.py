@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import json
+import re
 import threading
 from datetime import UTC, datetime, timedelta
 from email import message_from_bytes
@@ -59,7 +61,7 @@ def test_generic_parser_keeps_text_and_clean_links():
 
 def test_items_from_generic_letter():
     rule = SenderRule(match="linkedin.com", name="LinkedIn", parser="generic")
-    items = items_from_message("gmail", "gmail", "7", make_letter(), rule)
+    items = items_from_message("gmail", "gmail", "7", make_letter(), rule).items
     assert len(items) == 1
     item = items[0]
     assert item.multi and item.url == ""
@@ -107,9 +109,11 @@ class FakeImap:
         if command == "SEARCH":
             return "OK", [" ".join(self.letters).encode()]
         if command == "FETCH":
-            uid = args[0]
-            header = f'{uid} (UID {uid} X-GM-LABELS ({self.labels.get(uid, "")}) BODY[] {{1}}'.encode()
-            return "OK", [(header, self.letters[uid]), b")"]
+            rows = []
+            for uid in args[0].split(","):
+                header = f'{uid} (UID {uid} X-GM-LABELS ({self.labels.get(uid, "")}) BODY[] {{1}}'.encode()
+                rows += [(header, self.letters[uid]), b")"]
+            return "OK", rows
         return "OK", [b"done"]
 
 
@@ -191,12 +195,31 @@ def test_unknown_mailbox_is_an_error(tmp_paths, monkeypatch):
 
 
 def test_sample_emails(config):
-    """Every .eml in samples/emails/<sender>/ must produce at least one item with its configured parser."""
+    """Every .eml in samples/emails/<sender>/ is recognised by its configured parser exactly as recorded in
+    samples/emails/expected.json: N vacancies, or a known non-vacancy letter ("ignore"). An unknown template
+    (letter left unread) is a failure — add the template to the parser or to expected.json."""
     load_parsers()
-    for path in sorted((SAMPLES / "emails").glob("*/*.eml")):
+    expected = json.loads((SAMPLES / "emails" / "expected.json").read_text(encoding="utf-8"))
+    paths = sorted((SAMPLES / "emails").glob("*/*.eml"))
+    assert {f"{p.parent.name}/{p.name}" for p in paths} == set(expected), "expected.json must list every sample"
+    for path in paths:
+        name = f"{path.parent.name}/{path.name}"
         message = message_from_bytes(path.read_bytes(), policy=default_policy)
-        rule = sender_rule(message, config.mail.senders) or SenderRule(match="", name=path.parent.name)
+        rule = sender_rule(message, config.mail.senders)
+        assert rule is not None, f"{name}: sender is not in config/mail.yaml"
         if rule.parser != "generic":
-            assert rule.parser in PARSERS, f"{path.name}: parser '{rule.parser}' is not registered"
-        items = items_from_message("sample", "sample", "1", message, rule)
-        assert items and all(item.text.strip() for item in items), path.name
+            assert rule.parser in PARSERS, f"{name}: parser '{rule.parser}' is not registered"
+        letter = items_from_message("sample", "sample", "1", message, rule)
+        assert letter.unknown is None, f"{name}: {letter.unknown}"
+        want = expected[name]
+        if want == "ignore":
+            assert len(letter.items) == 1 and letter.items[0].meta.get("ignore"), name
+            continue
+        vacancies = [item for item in letter.items if not item.meta.get("ignore")]
+        assert len(vacancies) == want["vacancies"], f"{name}: {[v.title for v in vacancies]}"
+        for item in vacancies:
+            assert item.title and item.text.strip() and item.url.startswith("https://"), name
+            assert not re.search(r"loginkey|otpToken|midToken|[?&]i=|email_hash", item.url + item.text), name
+        if "first" in want:
+            first = vacancies[0]
+            assert {k: getattr(first, k, None) or first.meta.get(k) for k in want["first"]} == want["first"], name

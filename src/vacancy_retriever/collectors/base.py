@@ -99,6 +99,11 @@ class Collector(ABC):
         """Full vacancy description for site cards. Default: nothing to fetch."""
         return None
 
+    def detail_skip_reason(self, item: RawItem, text: str) -> str | None:
+        """After the detail page is fetched: a reason to drop the vacancy before the LLM (recruitment closed,
+        office in another country…). Default: never."""
+        return None
+
     def icon_url(self) -> str | None:
         """Where to download this source's icon from (favicon / channel avatar)."""
         return None

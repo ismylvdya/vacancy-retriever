@@ -304,6 +304,9 @@ class Pipeline:
                 continue
             if text:
                 self.storage.items.set_detail(item.id, text)
+                reason = collector.detail_skip_reason(_as_raw(item), text)
+                if reason:
+                    self._skip_before_llm(run_id, item, reason)
 
     def _language_filter(self, run_id: int) -> None:
         """Sources marked `serbian_needs_russian`: Serbian ads without Russian never reach the LLM."""

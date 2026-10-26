@@ -59,6 +59,8 @@ class Prefilter:
         self._junior = _word_pattern(prefilter.title_junior_markers)
 
     def check(self, item: StoredRawItem, now: datetime) -> PrefilterResult:
+        if item.meta.get("ignore"):
+            return PrefilterResult("hide", item.meta["ignore"])
         if item.published_at and now - item.published_at > timedelta(days=self._rules.max_age_days):
             return PrefilterResult("skip", "Expired")
         if item.meta.get("rvc"):

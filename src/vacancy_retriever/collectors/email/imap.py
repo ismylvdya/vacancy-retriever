@@ -77,6 +77,22 @@ class Mailbox:
         data = self._check(self.imap.uid("SEARCH", None, criteria), "SEARCH")
         return [uid.decode() for uid in (data[0] or b"").split()]
 
+    def unseen_headers(self, since: datetime, batch: int = 200) -> list[tuple[str, Message]]:
+        """UNSEEN letters since the date with only their From / Subject / Date headers (BODY.PEEK)."""
+        data = self._check(self.imap.uid("SEARCH", None, f'(UNSEEN SINCE {since.strftime("%d-%b-%Y")})'), "SEARCH")
+        uids = [uid.decode() for uid in (data[0] or b"").split()]
+        result: list[tuple[str, Message]] = []
+        for start in range(0, len(uids), batch):
+            chunk = ",".join(uids[start:start + batch])
+            rows = self._check(self.imap.uid("FETCH", chunk, "(BODY.PEEK[HEADER.FIELDS (FROM SUBJECT DATE)])"),
+                               "FETCH headers")
+            for part in rows:
+                if isinstance(part, tuple):
+                    uid = _UID.search(part[0])
+                    if uid:
+                        result.append((uid.group(1).decode(), message_from_bytes(part[1], policy=default_policy)))
+        return result
+
     def fetch(self, uid: str) -> FetchedMessage:
         items = "(BODY.PEEK[] X-GM-LABELS)" if self.config.kind == "gmail" else "(BODY.PEEK[])"
         data = self._check(self.imap.uid("FETCH", uid, items), "FETCH")

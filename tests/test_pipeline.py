@@ -27,6 +27,7 @@ from .conftest import NOW
 
 FEED: dict[str, list[RawItem]] = {}
 FLAGGED: list[dict[str, Any]] = []
+DETAILS: dict[str, str] = {}
 
 
 @register
@@ -44,6 +45,12 @@ class FakeCollector(Collector):
     def after_commit(self, processed_meta):
         FLAGGED.extend(processed_meta)
         return []
+
+    def fetch_detail(self, item: RawItem) -> str | None:
+        return DETAILS.get(item.detail_url or "")
+
+    def detail_skip_reason(self, item: RawItem, text: str) -> str | None:
+        return "Recruitment closed" if "Набор закрыт" in text else None
 
 
 @register
@@ -120,6 +127,7 @@ def env(tmp_paths):
     storage = Storage.open(tmp_paths.default_db, tmp_paths.token_log)
     FEED.clear()
     FLAGGED.clear()
+    DETAILS.clear()
     FakeCollector.calls.clear()
     yield config, storage, tmp_paths
     storage.db.close()
@@ -298,6 +306,24 @@ def test_mail_flags_only_after_commit_for_evaluated_items(env):
     assert FLAGGED == []
     run(config, storage, paths, FakeProvider())
     assert [m["email"]["uid"] for m in FLAGGED] == ["42"]
+
+
+def test_detail_page_can_drop_a_vacancy_before_llm(env):
+    config, storage, paths = env
+    config.__dict__["sources"].detail_domains.append("jobs.example.com")
+    DETAILS["https://jobs.example.com/1"] = "Стажёр-аналитик. Набор закрыт"
+    DETAILS["https://jobs.example.com/2"] = "Стажёр-аналитик. Идёт набор"
+    for post_id in (1, 2):
+        item = RawItem("chan_a", str(post_id), f"https://jobs.example.com/{post_id}", "FACTS:" + json.dumps(
+            [facts("Junior Data Scientist", f"Acme {post_id}")]), NOW - timedelta(hours=1), title="Стажёр-аналитик",
+            detail_url=f"https://jobs.example.com/{post_id}")
+        FEED.setdefault("chan_a", []).append(item)
+    provider = FakeProvider()
+    run(config, storage, paths, provider)
+    rows = {r["external_id"]: (r["status"], r["skip_reason"]) for r in storage.db.query(
+        "SELECT external_id, status, skip_reason FROM raw_items WHERE source_id = 'chan_a'")}
+    assert rows["1"] == ("prefiltered", "Recruitment closed")
+    assert rows["2"][0] == "scored"
 
 
 def teardown_module(module):

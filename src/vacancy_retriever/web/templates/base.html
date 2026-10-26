@@ -26,6 +26,13 @@
   </div>
   <div class="notice" id="notice" hidden></div>
 </header>
+{% for n in notices %}
+<section class="dev-notice" data-notice="{{ n.id }}">
+  <div class="dev-notice-head"><b>{{ n.title }}</b><span class="muted small">Send this to Claude</span><span class="spacer"></span>
+    <button class="btn" data-notice-copy>Copy text</button><button class="link quiet" data-notice-dismiss>Dismiss</button></div>
+  <pre class="dev-notice-text">{{ n.text }}</pre>
+</section>
+{% endfor %}
 <main class="main">
 {% block content %}{% endblock %}
 </main>

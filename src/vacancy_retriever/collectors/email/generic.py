@@ -74,12 +74,17 @@ def message_date(message: Message) -> datetime | None:
 
 
 def decoded_header(message: Message, name: str) -> str:
+    """Messages parsed with the default policy already decode headers (and keep the spaces between folded
+    encoded words); make_header() is only for raw compat32 headers that still hold "=?…?=" words."""
     from email.header import decode_header, make_header
 
+    value = str(message.get(name, ""))
+    if "=?" not in value:
+        return value
     try:
-        return str(make_header(decode_header(message.get(name, ""))))
+        return str(make_header(decode_header(value)))
     except (UnicodeDecodeError, LookupError):
-        return message.get(name, "")
+        return value
 
 
 def parse_generic(message: Message) -> str:

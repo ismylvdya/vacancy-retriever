@@ -210,6 +210,17 @@ async function copyDebug(row, what) {
   } catch (e) { toast(e.message); }
 }
 
+document.querySelectorAll("[data-notice]").forEach((box) => {
+  box.querySelector("[data-notice-copy]").addEventListener("click", async () => {
+    try { await writeClipboard(box.querySelector(".dev-notice-text").textContent); toast("Copied — paste it to Claude"); }
+    catch (e) { toast(e.message); }
+  });
+  box.querySelector("[data-notice-dismiss]").addEventListener("click", async () => {
+    try { await api("POST", `/api/notices/${encodeURIComponent(box.dataset.notice)}/dismiss`); box.remove(); }
+    catch (e) { toast(e.message); }
+  });
+});
+
 async function copyText(row) {
   try {
     const data = await api("GET", `/api/vacancies/${row.dataset.id}/fulltext`);

@@ -61,6 +61,10 @@ class ProjectPaths:
         return self.data / "token_log.jsonl"
 
     @property
+    def notices(self) -> Path:
+        return self.data / "notices.json"
+
+    @property
     def run_lock(self) -> Path:
         return self.data / "run.lock"
 

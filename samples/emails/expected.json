@@ -1,0 +1,70 @@
+{
+  "linkedin/gmail_529.eml": {
+    "vacancies": 2,
+    "first": {
+      "title": "Group eRetail & FSA Business Analyst",
+      "company": "Coca-Cola HBC",
+      "location": "Belgrade (Hybrid)"
+    }
+  },
+  "linkedin/gmail_531.eml": {
+    "vacancies": 1,
+    "first": {
+      "title": "Data Scientist",
+      "company": "Gauss & Neumann",
+      "location": "Serbia (Remote)"
+    }
+  },
+  "linkedin/gmail_532.eml": {
+    "vacancies": 6,
+    "first": {
+      "title": "Data Scientist",
+      "company": "Gauss & Neumann",
+      "location": "Serbia (Remote)"
+    }
+  },
+  "linkedin/gmail_548.eml": {
+    "vacancies": 6,
+    "first": {
+      "title": "(Senior) Data Scientist (f/m/d)",
+      "company": "Deutsche Bahn",
+      "location": "Belgrade"
+    }
+  },
+  "linkedin/gmail_533.eml": "ignore",
+  "linkedin/gmail_544.eml": "ignore",
+  "hh_ru/yandex_496.eml": "ignore",
+  "hh_ru/yandex_479.eml": "ignore",
+  "vk_internship/yandex_444.eml": {
+    "vacancies": 2,
+    "first": {
+      "title": "ML Engineer",
+      "company": "VK"
+    }
+  },
+  "vk_internship/yandex_494.eml": {
+    "vacancies": 1,
+    "first": {
+      "title": "Продуктовый аналитик",
+      "company": "VK"
+    }
+  },
+  "changellenge/yandex_473.eml": {
+    "vacancies": 4,
+    "first": {
+      "title": "Стажер отдела продаж"
+    }
+  },
+  "changellenge/yandex_476.eml": "ignore",
+  "superjob/yandex_436.eml": "ignore",
+  "superjob/yandex_483.eml": "ignore",
+  "pulse/yandex_433.eml": {
+    "vacancies": 1,
+    "first": {
+      "title": "Эксперт Data Science",
+      "company": "ПАО «МТС-Банк»"
+    }
+  },
+  "infostud/gmail_518.eml": "ignore",
+  "newsletter/yandex_491.eml": "ignore"
+}

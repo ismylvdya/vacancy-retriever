@@ -14,6 +14,7 @@ from pydantic import BaseModel
 
 from ..app_info import APP_NAME, APP_VERSION
 from ..config import AppConfig
+from .. import notices
 from ..icons import IconStore
 from ..pipeline.manager import AlreadyRunning, RunManager
 from ..pipeline.recalculate import recalculate
@@ -96,7 +97,7 @@ def create_app(config: AppConfig, storage: Storage, port: int, manager: RunManag
         counts = storage.vacancies.processed_counts()
         return templates.TemplateResponse(request, template, {
             "tab": tab, "feed_count": counts.get("new", 0), "status": full_status(),
-            "health_problems": health_problems(), **context,
+            "health_problems": health_problems(), "notices": notices.active(config.paths.notices), **context,
         })
 
     def health_problems() -> int:
@@ -185,6 +186,12 @@ def create_app(config: AppConfig, storage: Storage, port: int, manager: RunManag
         if not text:
             raise HTTPException(404, "Vacancy not found")
         return {"text": text}
+
+    @app.post("/api/notices/{notice_id}/dismiss")
+    def dismiss_notice(notice_id: str) -> dict[str, Any]:
+        if not notices.dismiss(config.paths.notices, notice_id):
+            raise HTTPException(404, "Notice not found")
+        return {"ok": True}
 
     @app.post("/api/recalculate")
     def recalc() -> dict[str, Any]:

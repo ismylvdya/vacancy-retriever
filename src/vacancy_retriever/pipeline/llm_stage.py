@@ -35,6 +35,10 @@ RESULTS_SCHEMA: dict[str, Any] = {
 }
 
 
+# Structured facts collectors / e-mail parsers know for sure; passed to the LLM as reliable `hints`.
+HINT_KEYS = ("required_languages", "company", "location", "city", "country", "work_format", "salary")
+
+
 class LlmCaller:
     """One LLM call with retries, token accounting and cancellation."""
 
@@ -169,7 +173,7 @@ class VacancyScorer:
                 "published": (to_iso(item.published_at) or "")[:10],
                 "text": text[:limit],
             }
-            hints = {k: item.meta[k] for k in ("required_languages", "company", "location") if item.meta.get(k)}
+            hints = {k: item.meta[k] for k in HINT_KEYS if item.meta.get(k)}
             if hints:
                 entry["hints"] = hints
             payload.append(entry)

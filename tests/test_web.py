@@ -176,3 +176,13 @@ def test_debug_controls_are_rendered_and_hidden_tab_works(client):
     client.storage.runs.commit(run_id, {}, 1)
     page = client.get("/processed?filter=hidden").text
     assert f"raw {raw_id}" in page and "Advertisement" in page and "walllet.com" in page
+
+
+def test_developer_notice_banner_and_dismiss(client, tmp_paths):
+    from vacancy_retriever import notices
+
+    notices.add_once(tmp_paths.notices, "first:x", "First letter: x", "Тема: «Новые вакансии»")
+    page = client.get("/").text
+    assert 'data-notice="first:x"' in page and "Copy text" in page and "Тема: «Новые вакансии»" in page
+    assert client.post("/api/notices/first:x/dismiss", headers=ORIGIN).status_code == 200
+    assert 'data-notice="first:x"' not in client.get("/").text

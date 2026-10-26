@@ -144,7 +144,7 @@ def cmd_export_email_samples(args: argparse.Namespace) -> int:
     from .collectors.email.export import export_samples
 
     config = AppConfig()
-    return export_samples(config, args.mailbox, args.limit, PATHS.root / "samples" / "emails")
+    return export_samples(config, args.mailbox, args.limit, PATHS.root / "samples" / "emails", raw=args.raw)
 
 
 def cmd_recalculate(args: argparse.Namespace) -> int:
@@ -188,7 +188,8 @@ def build_parser() -> argparse.ArgumentParser:
 
     export = sub.add_parser("export-email-samples", help="save sample e-mails (read-only) to samples/emails/")
     export.add_argument("--mailbox", help="mailbox id from config/mail.yaml (default: all)")
-    export.add_argument("--limit", type=int, default=3, help="samples per sender")
+    export.add_argument("--limit", type=int, default=3, help="samples per sender (0 = all unread)")
+    export.add_argument("--raw", action="store_true", help="do not mask personal data (never commit those)")
     export.set_defaults(func=cmd_export_email_samples)
 
     recalc = sub.add_parser("recalculate", help="re-apply config/rules.yaml to stored facts (no LLM)")

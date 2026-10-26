@@ -160,27 +160,47 @@ scripts/stop.sh           # остановить
 2. Впишите в `config/.env`: `GMAIL_LOGIN`, `GMAIL_APP_PASSWORD`, `YANDEX_LOGIN`, `YANDEX_APP_PASSWORD`.
 3. Проверьте: `.venv/bin/vacancy-retriever check-sources --sources gmail,yandex`.
 
-Читаются только **непрочитанные** письма от отправителей из `mail.yaml` за 30 дней. Во время сбора ящик не
-меняется (BODY.PEEK). После успешного прогона письма помечаются прочитанными: в Gmail получают ярлык
-`🦆 retrievered`, в Яндексе переносятся в одноимённую папку (создаётся сама). Ссылки linkedin.com из писем
-**никогда не открываются** — только показываются.
+Читаются только **непрочитанные** письма за 30 дней и только от отправителей из `mail.yaml` (адрес сравнивается
+в приложении, а не поиском IMAP: Яндекс не находит `hh.ru` в `noreply@hh.ru`). Во время сбора ящик не меняется
+(BODY.PEEK). Ссылки linkedin.com из писем **никогда не открываются** — только показываются.
+
+**Что бывает с письмом** (решает точный парсер отправителя):
+
+| Ответ парсера | LLM | Что видно в приложении | Что с письмом после прогона |
+|---|---|---|---|
+| вакансии | только эти вакансии (короткий текст + подсказки) | карточки | прочитано + `🦆 retrievered` |
+| известный шаблон без вакансий (уведомления, промо, «доделайте профиль», рекомендации hh для резюме) | нет | Processed → Hidden (Debug) с причиной | прочитано + `🦆 retrievered` |
+| незнакомый шаблон | нет | Statistics → Sources: «N unrecognised letters left unread» | **не трогается** |
+
+Поэтому письмо, которое парсер не узнал (например, приглашение на собеседование), никогда не пометится прочитанным.
+Вакансия, уже собранная из другого письма (тот же id на сайте), второй раз не собирается.
+
+**Отправители и парсеры (октябрь 2026):** LinkedIn job alerts / jobs / notifications / Premium (`linkedin`),
+hh.ru (`hh_ru`: автопоиски — в названии удалённых автопоисков держать «vacancy-retriever», их вакансии считаются
+удалёнкой; «Подходящие вакансии для резюме» пропускаются — офис/удалёнка там неизвестны),
+VK Internship (`vk_internship`: страница стажировки докачивается, «Набор закрыт» и офис в Москве/СПб отсеиваются
+до LLM), Changellenge (`changellenge`: из дайджеста берутся только ссылки /vacancy/, офис вне Сербии — до LLM),
+SuperJob (`superjob`), HR-платформа «Пульс» (`pulse`), Infostud (`infostud`), Технополис Москва (`newsletter`).
+Без образцов — headhunter.ge/.kg и Хабр Карьера (`generic`, письмо целиком в LLM).
+**Безопасность ссылок:** в письмах hh (`loginkey=`) и SuperJob (`?i=`) ссылки входят в аккаунт без пароля —
+парсеры сохраняют только чистый адрес вакансии.
 
 ### Точный парсер письма (пошагово)
 
-По умолчанию письмо целиком отдаётся LLM (универсальный парсер — работает, но тратит больше токенов: видно
-этап `scoring_email` в `data/token_log.jsonl`). Точный парсер делит письмо на вакансии сам.
+1. Сохраните образцы: `.venv/bin/vacancy-retriever export-email-samples --limit 3` (`--limit 0` — все непрочитанные)
+   → `samples/emails/<отправитель>/*.eml`. Личные данные маскируются сами: адреса, телефоны, токены в ссылках, UUID
+   и слова из `SAMPLE_MASK_WORDS` в `config/.env` (имя, фамилия). Всё равно просмотрите файл перед коммитом.
+2. Скопируйте шаблон `parsers/_template.py` или похожий парсер (`hh_ru.py` — таблица, `vk_internship.py` — список +
+   страница вакансии). Парсер возвращает список `ParsedVacancy(title, url, company, location, text, key,
+   detail_url, extra)`, либо `raise IgnoreLetter("причина")` для известного шаблона без вакансий, либо
+   `raise UnknownLetter(...)`. `key` — id вакансии на сайте (`hh:123`), `extra` — точные факты для LLM
+   (`work_format`, `city`, `country`, `salary`). Страница вакансии — `@register_detail(имя)`, может вернуть
+   `skip_reason` (отсев до LLM); домен — в `detail_domains` в `sources.yaml`.
+3. В `config/mail.yaml` у отправителя: `parser: <имя>`.
+4. Допишите образец в `samples/emails/expected.json` (сколько вакансий, или `"ignore"`), запустите
+   `.venv/bin/python -m pytest tests/test_email.py tests/test_email_parsers.py`.
 
-1. Сохраните образцы: `.venv/bin/vacancy-retriever export-email-samples --limit 3` → появятся
-   `samples/emails/<отправитель>/*.eml`. Замените в них личные данные на `hidden@example.com`.
-2. Скопируйте шаблон: `cp src/vacancy_retriever/collectors/email/parsers/_template.py src/vacancy_retriever/collectors/email/parsers/hh_ru.py`
-3. В новом файле поменяйте имя в `@register_parser("hh_ru")` и напишите разбор: из HTML письма вернуть список
-   `ParsedVacancy(title=…, url=…, company=…, location=…, text=…)`. В шаблоне есть пример с BeautifulSoup.
-4. В `config/mail.yaml` у отправителя: `parser: hh_ru`.
-5. `.venv/bin/python -m pytest tests/test_email.py` — тест сам прогонит все образцы через парсеры.
-6. Если парсер вернул пустой список или упал — письмо автоматически уходит в универсальный парсер.
-
-Можно попросить Claude: «Вот образец письма samples/emails/hh_ru/…eml, напиши точный парсер по шаблону
-_template.py, см. docs/HANDBOOK.md раздел 7».
+Можно попросить Claude: «пришли письма от X — разбери и напиши парсер» (см. этот раздел).
 
 ## 8. Как читать вкладки
 

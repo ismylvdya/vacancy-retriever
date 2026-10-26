@@ -26,18 +26,35 @@ mailboxes:
     password_env: YANDEX_APP_PASSWORD
     folder: INBOX
 
-# Известные отправители. Читаются только письма от них.
-#   match  — подстрока адреса отправителя (без учёта регистра)
+# Известные отправители. Читаются только непрочитанные письма от них (остальная почта не трогается).
+#   match  — подстрока адреса отправителя (без учёта регистра; первое совпадение сверху вниз)
 #   name   — подпись в интерфейсе
-#   parser — generic (универсальный: текст+ссылки письма уходят в LLM, она сама делит на вакансии)
-#            или имя точного парсера из src/vacancy_retriever/collectors/email/parsers/
-#            (как написать точный парсер — docs/HANDBOOK.md, раздел "Точный парсер письма").
+#   parser — точный парсер из src/vacancy_retriever/collectors/email/parsers/ или generic.
+#            Точный парсер сам делит письмо на вакансии (дёшево). Письмо известного шаблона «без вакансий»
+#            (уведомления, промо) — скрывается без LLM и после прогона помечается прочитанным + ярлык.
+#            Незнакомый шаблон — письмо НЕ трогается (остаётся непрочитанным), в LLM не уходит, а во вкладке
+#            Statistics у ящика появляется пометка «N unrecognised letters» — повод дописать парсер.
+#            generic — всё письмо целиком уходит в LLM (дорого): только для отправителей без образцов.
+# Образцы писем и как писать парсер — docs/HANDBOOK.md, раздел «Точный парсер письма».
 senders:
-  - {match: "jobalerts-noreply@linkedin.com", name: "LinkedIn job alerts", parser: generic}
-  - {match: "jobs-listings@linkedin.com",     name: "LinkedIn jobs",       parser: generic}
-  - {match: "infostud.com",                   name: "Infostud",            parser: generic}
-  - {match: "hh.ru",                          name: "hh.ru",               parser: generic}
-  - {match: "headhunter.ge",                  name: "headhunter.ge",       parser: generic}
-  - {match: "headhunter.kg",                  name: "headhunter.kg",       parser: generic}
-  - {match: "superjob.ru",                    name: "SuperJob",            parser: generic}
-  - {match: "habr.com",                       name: "Habr Career",         parser: generic}
+  # --- LinkedIn (Gmail). Письма личных сообщений рекрутеров (messages-noreply@ и др.) сюда не входят — не трогаются.
+  - {match: "jobalerts-noreply@linkedin.com",    name: "LinkedIn job alerts",   parser: linkedin}
+  - {match: "jobs-noreply@linkedin.com",         name: "LinkedIn jobs",         parser: linkedin}
+  - {match: "jobs-listings@linkedin.com",        name: "LinkedIn jobs",         parser: linkedin}
+  - {match: "notifications-noreply@linkedin.com", name: "LinkedIn notifications", parser: linkedin}
+  - {match: "@em.linkedin.com",                  name: "LinkedIn Premium",      parser: linkedin}
+  # --- hh.ru (Яндекс): «Подходящие вакансии для резюме». Приглашения / отклики — незнакомые шаблоны, не трогаются.
+  - {match: "noreply@hh.ru",                     name: "hh.ru",                 parser: hh_ru}
+  # --- Стажировки и карьерные рассылки (Яндекс)
+  - {match: "internship.vk.company",             name: "VK Internship",         parser: vk_internship}
+  - {match: "changellenge.com",                  name: "Changellenge",          parser: changellenge}
+  - {match: "superjob.ru",                       name: "SuperJob",              parser: superjob}
+  - {match: "pulse@",                            name: "HR-платформа «Пульс»",  parser: pulse}
+  - {match: "technomoscow.ru",                   name: "Технополис Москва",     parser: newsletter}
+  # --- infostud (Gmail)
+  - {match: "infostudmail.com",                  name: "Infostud",              parser: infostud}
+  - {match: "infostud.com",                      name: "Infostud",              parser: infostud}
+  # --- Без образцов писем (пока не приходили) — универсальный разбор через LLM
+  - {match: "headhunter.ge",                     name: "headhunter.ge",         parser: generic}
+  - {match: "headhunter.kg",                     name: "headhunter.kg",         parser: generic}
+  - {match: "habr.com",                          name: "Habr Career",           parser: generic}

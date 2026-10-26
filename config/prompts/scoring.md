@@ -15,7 +15,7 @@ OMIT every field whose value equals its default (default = first "unknown"/"none
 Fields of each vacancy (enums are exact lowercase strings):
 - title_ru: short Russian job title; title_original: title as written
 - role_category: one key from the list below
-- seniority: intern|junior|middle|senior|lead|unknown; seniority_source: title|label|text|none ("label" = a separate grade tag like "Junior" or "Уровень: Middle"; "text" = only implied by the body, e.g. "опыт от 3 лет" is NOT a seniority, leave unknown/none)
+- seniority: intern|junior|middle|senior|lead|unknown; seniority_source: title|label|text|none ("label" = a separate grade tag like "Junior" or "Уровень: Middle"; "text" = the grade WORD is written in the body, e.g. "ищем Senior-аналитика", "позиция уровня Middle+". Years of experience are NOT a grade: "опыт от 3 лет" alone → seniority unknown, source none)
 - experience_years: number of required years (min of a range) or null
 - stack_overlap: strong|partial|none|n_a — overlap of REQUIRED skills with the candidate profile below (n_a for non-IT roles); matched_skills: candidate skills that matched
 - ad_language: ru|en|sr|other — language the ad is written in (Serbian Latin or Cyrillic → sr)

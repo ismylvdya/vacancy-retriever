@@ -32,6 +32,7 @@ function hideToast() { $("toast").hidden = true; }
 /* ---------- run status ---------- */
 function renderStatus(s) {
   const running = !!s.running;
+  document.body.classList.toggle("running", running);
   $("run-btn").hidden = running;
   $("cancel-btn").hidden = !running || s.owned === false;
   $("progress").hidden = !running;
@@ -317,11 +318,14 @@ if (filterForm) {
   document.addEventListener("click", (event) => { if (!event.target.closest(".fsel")) closeAll(); });
   document.addEventListener("keydown", (event) => { if (event.key === "Escape") closeAll(); });
   scroller.addEventListener("scroll", () => { closeAll(); fade(); });
-  window.addEventListener("scroll", closeAll, { passive: true });
   window.addEventListener("resize", fade);
+  // The open list is inside the scroller in the DOM: its wheel events must scroll the list, not the filter row.
   scroller.addEventListener("wheel", (event) => {
+    if (event.target.closest(".fsel-menu")) return;
     if (Math.abs(event.deltaY) > Math.abs(event.deltaX)) { scroller.scrollLeft += event.deltaY; event.preventDefault(); }
   }, { passive: false });
+  window.addEventListener("scroll", () => { if (!document.querySelector(".fsel[open]")) return; closeAll(); },
+    { passive: true });
   fade();
 }
 

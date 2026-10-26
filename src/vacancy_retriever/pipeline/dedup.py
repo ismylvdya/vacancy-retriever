@@ -21,14 +21,43 @@ class _Candidate:
     text: str
 
 
+TITLE_MIN_LENGTH = 12
+
+
+def _first_line(text: str) -> str:
+    return next((line for line in (text or "").splitlines() if line.strip()), "")
+
+
+@dataclass
+class TitleMatch:
+    raw_id: int
+    # The stored item is a channel post of this run still waiting for the LLM, the new one is a site / e-mail
+    # card of the same vacancy: the card (richer text) becomes the original and the post its duplicate.
+    swap: bool = False
+
+
+@dataclass
+class _Titled:
+    raw_id: int
+    source_id: str
+    title: str        # normalized: the item title, or the first line of a channel post
+    company: str      # normalized company of a card ("" for posts)
+    head: str         # normalized start of the text (posts: to find the company in it)
+    multi: bool
+    pending_here: bool
+
+
 @dataclass
 class RawDeduplicator:
     """Finds reposts of an already collected item: same link, same text, or near-identical text elsewhere."""
 
     repo: RawItemRepository
     history_days: int = 30
+    run_id: int | None = None
     _candidates: list[_Candidate] = field(default_factory=list)
     _loaded: bool = False
+    _titled: list[_Titled] = field(default_factory=list)
+    _titles_loaded: bool = False
 
     def _load(self) -> None:
         if self._loaded:
@@ -52,6 +81,53 @@ class RawDeduplicator:
         normalized = normalize_text(item.text)
         if len(normalized) > FUZZY_MIN_LENGTH:
             self._candidates.append(_Candidate(raw_id, item.source_id, len(normalized), normalized))
+        if self._titles_loaded:
+            titled = self._as_titled(raw_id, item.source_id, item.title, item.text, item.meta.get("company", ""),
+                                     item.multi, True)
+            if titled:
+                self._titled.append(titled)
+
+    # ---- exact title dedup (before the LLM, free): the same vacancy from two sources is evaluated once
+    @staticmethod
+    def _as_titled(raw_id: int, source_id: str, title: str, text: str, company: str, multi: bool,
+                   pending_here: bool) -> _Titled | None:
+        name = normalize_text(_first_line(text) if multi else title)
+        if len(name) < TITLE_MIN_LENGTH:
+            return None
+        # The head is normalized like a company name (legal forms dropped), so "TRUSTONE ONE DOO BEOGRAD" in a post
+        # matches the card's company "TRUSTONE ONE DOO BEOGRAD" → "trustone one beograd".
+        return _Titled(raw_id, source_id, name, normalize_company(company or ""), normalize_company(text[:400]),
+                       multi, pending_here)
+
+    def _load_titles(self) -> None:
+        if self._titles_loaded:
+            return
+        for row in self.repo.recent_titled(self.history_days):
+            titled = self._as_titled(row["id"], row["source_id"], row["title"] or "", row["head"] or "",
+                                     row["company"] or "", bool(row["multi"]),
+                                     row["status"] == "pending_llm" and row["run_id"] == self.run_id)
+            if titled:
+                self._titled.append(titled)
+        self._titles_loaded = True
+
+    def find_same_title(self, item: RawItem) -> TitleMatch | None:
+        """Same vacancy in another source: a card with the same title and company, or a channel post whose first line
+        is the card's title and whose text names the card's company. Similar-but-different titles are NOT merged —
+        a rare duplicate is better than a wrong merge (decision 2026-10-26)."""
+        new = self._as_titled(0, item.source_id, item.title, item.text, item.meta.get("company", ""), item.multi, True)
+        if new is None:
+            return None
+        self._load_titles()
+        for old in self._titled:
+            if old.source_id == item.source_id or old.title != new.title:
+                continue
+            if not new.multi and not old.multi and new.company and new.company == old.company:
+                return TitleMatch(old.raw_id)
+            if not new.multi and old.multi and new.company and new.company in old.head:
+                return TitleMatch(old.raw_id, swap=old.pending_here)
+            if new.multi and not old.multi and old.company and old.company in new.head:
+                return TitleMatch(old.raw_id)
+        return None
 
     def _fuzzy(self, item: RawItem) -> int | None:
         normalized = normalize_text(item.text)

@@ -208,3 +208,9 @@ def test_email_vacancy_shows_sender_name_and_icon(client, tmp_paths):
     assert 'src="/icons/mail-linkedin"' in feed
     assert client.get("/icons/mail-linkedin").status_code == 200
     assert client.get("/icons/mail-nothing").headers["content-type"].startswith("image/svg")
+
+
+def test_feed_is_hidden_while_a_run_is_going(client):
+    page = client.get("/").text
+    assert 'class="empty-state run-placeholder"' in page and 'class="feed-content"' in page
+    assert '<body data-tab="feed" class="">' in page

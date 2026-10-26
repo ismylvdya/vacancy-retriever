@@ -270,14 +270,50 @@ def test_digest_post_becomes_several_vacancies(env):
     assert len(storage.vacancies.processed("auto_skipped")) == 2
 
 
-def test_gray_zone_duplicates_are_merged_by_llm(env):
+def _gray_pair(monkeypatch) -> None:
+    # Similar company + title (a "gray" pair); the fuzzy repost check is switched off to test only the vacancy dedup.
+    monkeypatch.setattr("vacancy_retriever.pipeline.dedup.RawDeduplicator._fuzzy", lambda self, item: None)
+    FEED["chan_a"] = [post("chan_a", 1, "Команда ML в Белграде, офис у Славии. " * 8 + "FACTS:"
+                           + json.dumps([facts("Data Scientist (junior)", "Acme Labs")]))]
+    FEED["chan_b"] = [post("chan_b", 2, "Hiring for our modelling team, hybrid. " * 8 + "FACTS:"
+                           + json.dumps([facts("Junior Data Scientist / ML", "Acme Labs d.o.o.")]))]
+
+
+def test_gray_zone_duplicates_are_merged_by_llm_when_enabled(env, monkeypatch):
     config, storage, paths = env
-    FEED["chan_a"] = [post("chan_a", 1, "FACTS:" + json.dumps([facts("Data Scientist (junior)", "Acme Labs")]))]
-    FEED["chan_b"] = [post("chan_b", 2, "FACTS:" + json.dumps([facts("Junior Data Scientist / ML", "Acme Labs d.o.o.")]))]
+    config.llm.dedup_with_llm = True
+    _gray_pair(monkeypatch)
     run(config, storage, paths, FakeProvider(same_pairs=True))
     feed = storage.vacancies.feed()
     assert len(feed) == 1
     assert {s.source_id for s in feed[0].sources} == {"chan_a", "chan_b"}
+
+
+def test_gray_zone_pairs_stay_apart_without_llm_dedup(env, monkeypatch):
+    config, storage, paths = env
+    config.llm.dedup_with_llm = False
+    _gray_pair(monkeypatch)
+    summary = run(config, storage, paths, FakeProvider(same_pairs=True))
+    assert len(storage.vacancies.feed()) == 2
+    assert [c for c in storage.llm_calls.by_run(summary.run_id) if c["stage"] == "dedup"] == []
+
+
+def test_same_vacancy_on_a_site_and_in_a_channel_is_evaluated_once(env):
+    config, storage, paths = env
+    channel = post("chan_a", 1, "Мастер по ремонту квартир\nTRUSTONE ONE DOO BEOGRAD\n100 000 дин.")
+    channel.multi = True
+    card = RawItem("chan_b", "2", "https://jobs.example.com/2", "FACTS:" + json.dumps([facts(
+        "Мастер по ремонту квартир", "TRUSTONE ONE DOO BEOGRAD", "manual_trades")]), NOW - timedelta(hours=1),
+        title="Мастер по ремонту квартир", meta={"company": "TRUSTONE ONE DOO BEOGRAD"})
+    FEED["chan_a"], FEED["chan_b"] = [channel], [card]
+    provider = FakeProvider()
+    run(config, storage, paths, provider)
+    rows = {r["source_id"]: (r["status"], r["duplicate_of"]) for r in storage.db.query(
+        "SELECT source_id, status, duplicate_of FROM raw_items")}
+    assert rows["chan_b"] == ("scored", None), "the site card (richer text) is the original"
+    assert rows["chan_a"][0] == "duplicate"
+    [vacancy] = storage.vacancies.feed()
+    assert {s.source_id for s in vacancy.sources} == {"chan_a", "chan_b"}
 
 
 def test_gray_zone_pairs_of_skipped_vacancies_never_reach_llm(env):

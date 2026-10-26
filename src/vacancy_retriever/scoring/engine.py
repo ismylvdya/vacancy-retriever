@@ -93,7 +93,8 @@ class ScoringEngine:
             return "Not a vacancy"
         if category.kind == "drop":
             return category.drop_reason or category.label
-        if facts.seniority in self._rules.dropped_seniority and facts.seniority_source in {"title", "label"}:
+        grade_sources = {"title", "label", "text"} if self._rules.drop_seniority_from_text else {"title", "label"}
+        if facts.seniority in self._rules.dropped_seniority and facts.seniority_source in grade_sources:
             return f"Grade: {facts.seniority}"
         russian_required = "ru" in facts.required_languages
         if facts.ad_language == "sr" and not russian_required:
@@ -170,8 +171,12 @@ class ScoringEngine:
         if category.kind in {"it", "manual"} and experienced:
             minus += penalties.experience
             steps.append(f"−{penalties.experience} {facts.experience_years:g}+ years required")
-        stars = max(1, min(category.base - minus, category.cap))
-        return stars, " ".join([f"base {category.base}", *steps, f"(cap {category.cap}, min 1)"])
+        cap = category.cap
+        if category.kind == "it" and facts.english_working and penalties.english_working_max_stars is not None:
+            cap = min(cap, penalties.english_working_max_stars)
+            steps.append(f"English team cap {penalties.english_working_max_stars}")
+        stars = max(1, min(category.base - minus, cap))
+        return stars, " ".join([f"base {category.base}", *steps, f"(cap {cap}, min 1)"])
 
     @classmethod
     def _residence_permit(cls, facts: VacancyFacts, in_serbia: bool) -> tuple[ResidencePermit, str]:

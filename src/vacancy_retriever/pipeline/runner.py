@@ -176,7 +176,7 @@ class Pipeline:
     # ------------------------------------------------------------------ 1. collect
     def _collect_all(self, run_id: int, sources: list[SourceConfig], options: RunOptions,
                      run_start: datetime, http: PoliteHttpClient) -> None:
-        raw_dedup = RawDeduplicator(self.storage.items)
+        raw_dedup = RawDeduplicator(self.storage.items, run_id=run_id)
         for source in sources:
             self._check_cancel()
             if not source.enabled:
@@ -258,12 +258,21 @@ class Pipeline:
             if self.storage.items.is_known(source.id, item.external_id):
                 continue
             original = raw_dedup.find_original(item)
+            swap_with = None
+            if original is None:
+                match = raw_dedup.find_same_title(item)
+                if match and match.swap:
+                    swap_with = match.raw_id
+                elif match:
+                    original = match.raw_id
             raw_id = self.storage.items.insert(
                 run_id, item, "duplicate" if original else "pending_llm", duplicate_of=original
             )
             if raw_id is None:
                 continue
             stored += 1
+            if swap_with is not None:
+                self.storage.items.make_duplicate(swap_with, raw_id)
             if original:
                 for vacancy_id in self.storage.vacancies.ids_for_raw(original):
                     self.storage.vacancies.attach_source(run_id, vacancy_id, raw_id, source.id, item.url)
@@ -419,7 +428,7 @@ class Pipeline:
                 if verdict == "gray" and vacancy.decision == "show" and candidate.get("decision") == "show":
                     gray.append((vacancy.id, candidate["id"]))
         gray = [(a, b) for a, b in gray if a not in merged]
-        if gray:
+        if gray and self.config.llm.dedup_with_llm:
             merged.update(self._judge_gray(run_id, gray, merged))
         for vacancy_id in sorted(merged):
             target = merged[vacancy_id]

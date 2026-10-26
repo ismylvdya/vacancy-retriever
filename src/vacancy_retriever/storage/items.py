@@ -139,6 +139,21 @@ class RawItemRepository:
         )
         return [(r["duplicate_of"] or r["id"], r["source_id"], r["text"]) for r in rows]
 
+    def recent_titled(self, days: int) -> list[dict[str, Any]]:
+        """Items of the last days for the exact title dedup: id, source, title, start of the text, company, multi."""
+        since = to_iso(utcnow() - timedelta(days=days))
+        rows = self.db.query(
+            "SELECT id, source_id, title, substr(text, 1, 400) AS head, json_extract(meta_json, '$.company') AS company,"
+            " multi, status, run_id FROM raw_items WHERE collected_at >= ? AND status NOT IN ('duplicate', 'hidden')",
+            (since,),
+        )
+        return [dict(r) for r in rows]
+
+    def make_duplicate(self, raw_id: int, original_id: int) -> None:
+        """An item already stored becomes a duplicate of a better one (a channel post of a site vacancy)."""
+        self.db.execute("UPDATE raw_items SET status = 'duplicate', duplicate_of = ? WHERE id = ?", (original_id, raw_id))
+        self.db.execute("UPDATE raw_items SET duplicate_of = ? WHERE duplicate_of = ?", (original_id, raw_id))
+
     def duplicates_of(self, raw_id: int) -> list[StoredRawItem]:
         rows = self.db.query("SELECT * FROM raw_items WHERE duplicate_of = ?", (raw_id,))
         return [StoredRawItem.from_row(r) for r in rows]

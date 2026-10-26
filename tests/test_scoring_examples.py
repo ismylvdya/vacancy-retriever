@@ -134,8 +134,9 @@ def test_english_company_outside_serbia_is_dropped(engine):
 
 
 def test_experience_in_text_is_not_a_drop(engine):
-    facts = VacancyFacts.model_validate({**CONFIDENT, "role_category": "data_analyst", "seniority": "middle",
-                                         "seniority_source": "text", "employer_type": "russian",
+    """"опыт от 3 лет" is not a grade: the LLM leaves seniority unknown, the vacancy stays."""
+    facts = VacancyFacts.model_validate({**CONFIDENT, "role_category": "data_analyst", "seniority": "unknown",
+                                         "experience_years": 3, "employer_type": "russian",
                                          "work_format": "remote", "stack_overlap": "strong"})
     assert engine.evaluate(facts, NOW, NOW).decision == "show"
 
@@ -171,3 +172,16 @@ def test_russian_ad_is_not_dropped_for_serbian_requirement(engine):
     assert engine.evaluate(facts, NOW, NOW).decision == "show"
     facts = facts.model_copy(update={"ad_language": "en"})
     assert engine.evaluate(facts, NOW, NOW).skip_reason == "Serbian required, Russian not required"
+
+
+def test_english_working_team_gets_at_most_three_stars(engine):
+    facts = VacancyFacts.model_validate({**BELGRADE, "role_category": "ds_ml", "seniority": "junior",
+                                         "seniority_source": "title", "stack_overlap": "strong",
+                                         "english_working": True, "employment": "official", "serbian_entity": "yes"})
+    assert engine.evaluate(facts, NOW, NOW).stars == 3
+
+
+def test_grade_stated_only_in_text_is_dropped(engine):
+    facts = VacancyFacts.model_validate({**BELGRADE, "role_category": "ds_ml", "seniority": "senior",
+                                         "seniority_source": "text"})
+    assert engine.evaluate(facts, NOW, NOW).skip_reason == "Grade: senior"

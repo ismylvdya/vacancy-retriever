@@ -67,6 +67,7 @@ class PenaltyRules(_Strict):
     english_working: int = 1
     experience_years_threshold: float = 2
     experience: int = 1
+    english_working_max_stars: int | None = None
 
 
 class GroupInfo(_Strict):
@@ -93,6 +94,7 @@ class Rules(_Strict):
     categories: dict[str, CategoryRule]
     penalties: PenaltyRules = Field(default_factory=PenaltyRules)
     dropped_seniority: list[str] = Field(default_factory=lambda: ["middle", "senior", "lead"])
+    drop_seniority_from_text: bool = False
     groups: dict[int, GroupInfo]
     prefilter: PrefilterRules = Field(default_factory=PrefilterRules)
     serbia_country_names: list[str] = Field(default_factory=lambda: ["serbia", "сербия", "srbija"])
@@ -134,6 +136,7 @@ class ApiSettings(_Strict):
 
 
 class LlmConfig(_Strict):
+    dedup_with_llm: bool = True
     provider: Literal["claude_sdk", "anthropic_api", "openai_api"]
     models: dict[str, StageModels]
     batch_size: int = 10

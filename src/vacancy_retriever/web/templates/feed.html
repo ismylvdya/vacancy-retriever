@@ -2,6 +2,11 @@
 {% from "_row.html" import row, head %}
 {% block content %}
 {% set total = groups | map(attribute='cards') | map('length') | sum %}
+<section class="empty-state run-placeholder">
+  <h1>Run in progress</h1>
+  <p>The feed is hidden until the run finishes — then it reloads with the new vacancies.</p>
+</section>
+<div class="feed-content">
 {% if total == 0 %}
   <section class="empty-state">
     <h1>You're all caught up</h1>
@@ -31,4 +36,5 @@
   <button class="link quiet" id="recalc-btn" title="Re-apply config/rules.yaml without LLM calls">Recalculate</button>
 </footer>
 {% endif %}
+</div>
 {% endblock %}

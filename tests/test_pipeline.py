@@ -365,3 +365,14 @@ def test_detail_page_can_drop_a_vacancy_before_llm(env):
 def teardown_module(module):
     for name in ("fake", "broken", "unconfigured"):
         _REGISTRY.pop(name, None)
+
+
+def test_progress_lists_sources_done_failed_and_current(env):
+    config, storage, paths = env
+    FEED["chan_a"] = [post("chan_a", 1, "FACTS:" + json.dumps([facts("Junior Data Scientist", "Acme")]))]
+    pipeline = make_pipeline(config, storage, paths, FakeProvider())
+    pipeline.run(RunOptions(notify=False))
+    state = pipeline.progress.snapshot()
+    assert [s["id"] for s in state["sources"]] == ["chan_a", "chan_b", "broken", "mail"]
+    assert set(state["done_ids"]) == {"chan_a", "chan_b", "mail"} and state["error_ids"] == ["broken"]
+    assert state["current_id"] is None

@@ -43,6 +43,29 @@ function toast(text, undo) {
 function hideToast() { $("toast").hidden = true; }
 
 /* ---------- run status ---------- */
+const PHASE_ORDER = ["collecting", "prefilter", "details", "scoring", "dedup", "committing"];
+function renderStages(s) {
+  const index = PHASE_ORDER.indexOf(s.phase);
+  document.querySelectorAll("#stages li").forEach((li, i) => {
+    li.classList.toggle("done", index > i);
+    li.classList.toggle("now", index === i);
+  });
+}
+function renderSources(s) {
+  const strip = $("source-strip");
+  const sources = s.sources || [];
+  if (strip.dataset.run !== String(s.run_id) || strip.children.length !== sources.length) {
+    strip.dataset.run = String(s.run_id);
+    strip.innerHTML = sources.map((src) => `<span data-id="${escapeHtml(src.id)}" title="${escapeHtml(src.name)}">`
+      + `<img src="/icons/${encodeURIComponent(src.id)}" alt="" loading="lazy"></span>`).join("");
+  }
+  const done = new Set(s.done_ids || []);
+  const failed = new Set(s.error_ids || []);
+  for (const span of strip.children) {
+    const id = span.dataset.id;
+    span.className = failed.has(id) ? "err" : done.has(id) ? "ok" : id === s.current_id ? "now" : "";
+  }
+}
 function renderStatus(s) {
   const running = !!s.running;
   document.body.classList.toggle("running", running);
@@ -53,6 +76,8 @@ function renderStatus(s) {
   $("last-run").title = s.summary_line || "";
   if (typeof s.feed_count === "number") $("feed-count").textContent = s.feed_count;
   if (running) {
+    renderStages(s);
+    renderSources(s);
     $("progress-bar").style.width = `${s.percent || 0}%`;
     $("progress-percent").textContent = `${Math.round(s.percent || 0)}%`;
     const what = s.current || s.message || s.phase || "";

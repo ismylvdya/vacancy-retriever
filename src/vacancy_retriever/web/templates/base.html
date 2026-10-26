@@ -37,7 +37,13 @@
     <button class="btn" id="cancel-btn" {% if not status.running %}hidden{% endif %}>Cancel</button>
   </nav>
   <div class="progress" id="progress" {% if not status.running %}hidden{% endif %}>
+    <ol class="stages" id="stages">
+      {% for key, label in [("collecting", "Collect"), ("prefilter", "Filter"), ("details", "Details"), ("scoring", "LLM"), ("dedup", "Dedup"), ("committing", "Save")] %}
+      <li data-phase="{{ key }}">{{ label }}</li>
+      {% endfor %}
+    </ol>
     <div class="progress-track"><div class="progress-bar" id="progress-bar" style="width: {{ status.percent or 0 }}%"></div></div>
+    <div class="source-strip" id="source-strip"></div>
     <div class="progress-text"><span id="progress-percent">{{ (status.percent or 0) | round | int }}%</span><span id="progress-phase"></span></div>
   </div>
   <div class="notice" id="notice" hidden></div>

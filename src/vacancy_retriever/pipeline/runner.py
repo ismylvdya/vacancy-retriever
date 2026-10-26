@@ -127,7 +127,8 @@ class Pipeline:
         run_id = self.storage.runs.start(options.as_dict())
         sources = self._selected_sources(options)
         self.progress.start(run_id, to_iso(run_start) or "", os.getpid(),
-                            {s.id: self.stats.weight(s) for s in sources if s.enabled})
+                            {s.id: self.stats.weight(s) for s in sources if s.enabled},
+                            [(s.id, s.name) for s in sources if s.enabled])
         http = self.http_factory()
         try:
             self._collect_all(run_id, sources, options, run_start, http)
@@ -183,13 +184,13 @@ class Pipeline:
                 self.storage.runs.record_source(run_id, SourceRunRecord(source.id, "disabled",
                                                                         note=source.disabled_reason))
                 continue
-            self.progress.source_started(source.name)
+            self.progress.source_started(source.name, source.id)
             record = self._collect_source(run_id, source, options, run_start, http, raw_dedup)
             self.storage.runs.record_source(run_id, record)
             self._source_status[source.id] = record.status
             if record.status in ("ok", "truncated", "error"):
                 self.stats.observe(source.id, record.duration_s)
-            self.progress.source_done(source.id, source.name)
+            self.progress.source_done(source.id, source.name, failed=record.status == "error")
 
     def _collect_source(self, run_id: int, source: SourceConfig, options: RunOptions, run_start: datetime,
                         http: PoliteHttpClient, raw_dedup: RawDeduplicator) -> SourceRunRecord:

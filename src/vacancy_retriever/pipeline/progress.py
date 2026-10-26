@@ -57,6 +57,11 @@ class ProgressState:
     percent: float = 0.0
     current: str | None = None
     done_sources: list[str] = field(default_factory=list)
+    # For the progress strip: every source of the run (id + name), which are done / failed, which is going now.
+    sources: list[dict[str, str]] = field(default_factory=list)
+    done_ids: list[str] = field(default_factory=list)
+    error_ids: list[str] = field(default_factory=list)
+    current_id: str | None = None
     message: str = ""
     started_at: str | None = None
     pid: int | None = None
@@ -77,16 +82,19 @@ class ProgressTracker:
         with self._lock:
             return asdict(self._state)
 
-    def start(self, run_id: int, started_at: str, pid: int, weights: dict[str, float]) -> None:
+    def start(self, run_id: int, started_at: str, pid: int, weights: dict[str, float],
+              sources: list[tuple[str, str]] | None = None) -> None:
         with self._lock:
-            self._state = ProgressState(run_id=run_id, running=True, phase="collecting", started_at=started_at, pid=pid)
+            self._state = ProgressState(run_id=run_id, running=True, phase="collecting", started_at=started_at, pid=pid,
+                                        sources=[{"id": sid, "name": name} for sid, name in sources or []])
             self._weights = weights
             self._done_weight = 0.0
         self._flush(force=True)
 
-    def source_started(self, name: str) -> None:
+    def source_started(self, name: str, source_id: str | None = None) -> None:
         with self._lock:
             self._state.current = name
+            self._state.current_id = source_id
         self._flush(force=True)
 
     def source_page(self, source_id: str, name: str, page: int, max_pages: int) -> None:
@@ -98,11 +106,13 @@ class ProgressTracker:
             self._state.current = f"{name} · page {page}"
         self._flush()
 
-    def source_done(self, source_id: str, name: str) -> None:
+    def source_done(self, source_id: str, name: str, failed: bool = False) -> None:
         with self._lock:
             self._done_weight += self._weights.get(source_id, 1.0)
             self._state.done_sources.append(name)
+            (self._state.error_ids if failed else self._state.done_ids).append(source_id)
             self._state.current = None
+            self._state.current_id = None
             total = sum(self._weights.values()) or 1.0
             self._set_percent("collecting", self._done_weight / total)
         self._flush(force=True)
@@ -112,6 +122,7 @@ class ProgressTracker:
             self._state.phase = phase
             self._state.message = message
             self._state.current = None
+            self._state.current_id = None
             self._set_percent(phase, fraction)
         self._flush(force=fraction in (0.0, 1.0))
 

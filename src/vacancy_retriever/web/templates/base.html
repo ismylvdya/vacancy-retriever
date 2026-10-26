@@ -58,6 +58,14 @@
 <main class="main">
 {% block content %}{% endblock %}
 </main>
+<dialog class="report-dialog" id="report-dialog">
+  <form method="dialog" id="report-form">
+    <h3>Report this evaluation</h3>
+    <p class="muted small" id="report-title"></p>
+    <textarea id="report-text" rows="6" placeholder="What is wrong: group, stars, skip, permit, facts… (⌘↵ to submit)"></textarea>
+    <div class="report-actions"><span class="spacer"></span><button class="btn" value="cancel" formnovalidate>Cancel</button><button class="btn primary" id="report-submit" value="submit">Submit</button></div>
+  </form>
+</dialog>
 <div class="toast" id="toast" hidden><span id="toast-text"></span><button class="link" id="toast-undo" hidden>Undo</button></div>
 <script src="/static/app.js?v={{ version }}"></script>
 </body>

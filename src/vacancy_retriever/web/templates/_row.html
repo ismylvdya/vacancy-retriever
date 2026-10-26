@@ -5,7 +5,7 @@
 
 {% macro role(c) -%}
 <div class="role">
-  <div class="title"><span class="debug-only vac-id">#{{ c.id }}</span>{% if c.is_new %}<span class="new" title="New in the last run"></span>{% endif %}{{ c.title }}{% for f in c.flags %}<span class="flag">{{ f }}</span>{% endfor %}</div>
+  <div class="title"><span class="debug-only vac-id">#{{ c.id }}</span>{% if c.reports %}<span class="debug-only flag reported" title="{{ c.reports | length }} report(s)">Reported</span>{% endif %}{% if c.is_new %}<span class="new" title="New in the last run"></span>{% endif %}{{ c.title }}{% for f in c.flags %}<span class="flag">{{ f }}</span>{% endfor %}</div>
   {% if c.employer %}<div class="sub">{{ c.employer }}</div>{% endif %}
 </div>
 {%- endmacro %}
@@ -15,7 +15,7 @@
   {% if processed %}
   <div class="cells cells-processed">
     {{ role(c) }}
-    <div><div class="st st-{{ c.user_status }}">{{ c.status_label }}</div>{% if c.user_status == 'auto_skipped' and c.skip_reason %}<div class="sub">{{ c.skip_reason }}</div>{% endif %}</div>
+    <div><div class="st st-{{ c.user_status }}">{{ c.status_label }}</div>{% if c.user_status == 'auto_skipped' and c.skip_reason %}<div class="sub">{{ c.skip_reason }}</div>{% endif %}{% if c.user_note %}<div class="sub" title="{{ c.user_note }}">“{{ c.user_note }}”</div>{% endif %}</div>
     <div class="col-date">{{ c.published }}</div>
   </div>
   {% else %}
@@ -54,14 +54,16 @@
       {% else %}
         <button class="btn" data-action="status" data-status="applied">Applied<kbd>▶</kbd></button>
         <button class="btn" data-action="status" data-status="not_now">Not now<kbd>N</kbd></button>
-        <button class="btn" data-action="status" data-status="skipped">Skip<kbd>◀</kbd></button>
+        <span class="skip-group"><button class="btn" data-action="status" data-status="skipped">Skip<kbd>◀</kbd></button><input class="debug-only skip-note" type="text" placeholder="why skip? (optional)" aria-label="Reason of the skip"></span>
       {% endif %}
       <span class="spacer"></span>
+      <button class="link quiet debug-only" data-action="report">Report</button>
       <button class="link quiet debug-only" data-action="copy-id">Copy id</button>
       <button class="link quiet debug-only" data-action="copy-debug">Copy debug report</button>
       <button class="link quiet" data-action="copy">Copy text</button>
       <button class="link quiet" data-action="fulltext">Full text</button>
     </div>
+    {% if c.reports %}<div class="debug-only reports"><h4>Reports</h4>{% for r in c.reports %}<p><span class="muted small">{{ r.date }}</span> {{ r.text }}</p>{% endfor %}</div>{% endif %}
     <div class="debug-only debug-box" data-loaded=""></div>
     <pre class="fulltext" hidden>{{ c.description }}</pre>
   </div>

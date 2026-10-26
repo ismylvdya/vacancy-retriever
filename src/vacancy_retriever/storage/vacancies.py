@@ -66,6 +66,7 @@ class VacancyRecord:
     origin: str
     run_id: int
     sources: list[VacancySource] = field(default_factory=list)
+    user_note: str = ""  # debug mode: why the user skipped it
 
     @classmethod
     def from_row(cls, row: Any) -> VacancyRecord:
@@ -91,6 +92,7 @@ class VacancyRecord:
             primary_raw_id=row["primary_raw_id"],
             origin=row["origin"],
             run_id=row["run_id"],
+            user_note=row["user_note"] or "",
         )
 
 
@@ -167,6 +169,15 @@ class VacancyRepository:
         return records
 
     def processed(self, status_filter: str | None, limit: int = 500) -> list[VacancyRecord]:
+        if status_filter == "reported":
+            rows = self.db.query(
+                "SELECT v.* FROM vacancies v WHERE v.staged = 0 AND EXISTS (SELECT 1 FROM reports r WHERE r.vacancy_id = v.id)"
+                " ORDER BY (SELECT MAX(r.created_at) FROM reports r WHERE r.vacancy_id = v.id) DESC LIMIT ?",
+                (limit,),
+            )
+            records = [VacancyRecord.from_row(r) for r in rows]
+            self._load_sources(records)
+            return records
         statuses = [status_filter] if status_filter in PROCESSED_FILTERS else sorted(PROCESSED_FILTERS)
         marks = ",".join("?" * len(statuses))
         rows = self.db.query(
@@ -184,14 +195,35 @@ class VacancyRepository:
         )
         return {r["user_status"]: r["n"] for r in rows}
 
-    def set_user_status(self, vacancy_id: int, status: str) -> bool:
+    def set_user_status(self, vacancy_id: int, status: str, note: str | None = None) -> bool:
+        """note: the user's reason (debug mode, Skip); any status change without a note clears the old one."""
         if status not in USER_STATUSES:
             raise ValueError(f"Unknown status {status}")
         cursor = self.db.execute(
-            "UPDATE vacancies SET user_status = ?, user_set = ?, status_changed_at = ? WHERE id = ? AND staged = 0",
-            (status, 0 if status == "auto_skipped" else 1, to_iso(utcnow()), vacancy_id),
+            "UPDATE vacancies SET user_status = ?, user_set = ?, status_changed_at = ?, user_note = ?"
+            " WHERE id = ? AND staged = 0",
+            (status, 0 if status == "auto_skipped" else 1, to_iso(utcnow()), (note or "").strip() or None, vacancy_id),
         )
         return cursor.rowcount > 0
+
+    def add_report(self, vacancy_id: int, text: str) -> bool:
+        if not self.db.query_one("SELECT 1 FROM vacancies WHERE id = ? AND staged = 0", (vacancy_id,)):
+            return False
+        self.db.execute("INSERT INTO reports(vacancy_id, text, created_at) VALUES (?, ?, ?)",
+                        (vacancy_id, text.strip(), to_iso(utcnow())))
+        return True
+
+    def reports(self) -> dict[int, list[dict[str, Any]]]:
+        """vacancy id → its reports, oldest first."""
+        result: dict[int, list[dict[str, Any]]] = {}
+        for row in self.db.query("SELECT vacancy_id, text, created_at FROM reports ORDER BY id"):
+            result.setdefault(row["vacancy_id"], []).append({"text": row["text"], "created_at": row["created_at"]})
+        return result
+
+    def reports_count(self) -> int:
+        row = self.db.query_one("SELECT COUNT(DISTINCT vacancy_id) AS n FROM reports r JOIN vacancies v ON v.id = r.vacancy_id"
+                                " WHERE v.staged = 0")
+        return row["n"] if row else 0
 
     def new_in_feed_for_run(self, run_id: int) -> dict[int, int]:
         rows = self.db.query(

@@ -149,6 +149,15 @@ CREATE TABLE IF NOT EXISTS llm_calls (
     created_at TEXT NOT NULL
 );
 CREATE INDEX IF NOT EXISTS ix_llm_run ON llm_calls(run_id);
+
+-- Debug mode: the user's complaints about how a vacancy was evaluated (several per vacancy are fine).
+CREATE TABLE IF NOT EXISTS reports (
+    id INTEGER PRIMARY KEY,
+    vacancy_id INTEGER NOT NULL REFERENCES vacancies(id) ON DELETE CASCADE,
+    text TEXT NOT NULL,
+    created_at TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS ix_reports_vacancy ON reports(vacancy_id);
 """
 
 
@@ -169,7 +178,7 @@ class Database:
     @staticmethod
     def _migrate(conn: sqlite3.Connection) -> None:
         """Columns added after v0 databases were created. Add new ones here, never drop."""
-        added = {("source_runs", "seen", "INTEGER")}
+        added = {("source_runs", "seen", "INTEGER"), ("vacancies", "user_note", "TEXT")}
         for table, column, kind in added:
             columns = {row[1] for row in conn.execute(f"PRAGMA table_info({table})")}
             if column not in columns:

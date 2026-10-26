@@ -243,3 +243,24 @@ def test_salary_in_another_currency_shows_rub(client, tmp_paths):
     (tmp_paths.data / "rates" / "2026-01-01.json").write_text(json.dumps({"RUB": 1, "EUR": 90.0}))
     feed = client.get("/").text
     assert "1500–2000 €" in feed and "≈ 135 000–180 000 ₽" in feed
+
+
+def test_skip_with_a_reason_and_reports_in_debug_mode(client):
+    vacancy_id = client.vacancy_id
+    response = client.post(f"/api/vacancies/{vacancy_id}/status", json={"status": "skipped", "note": "офис в Москве"},
+                           headers=ORIGIN)
+    assert response.status_code == 200
+    page = client.get("/processed?filter=skipped").text
+    assert "“офис в Москве”" in page
+    assert client.post(f"/api/vacancies/{vacancy_id}/report", json={"text": "  "}, headers=ORIGIN).status_code == 400
+    assert client.post("/api/vacancies/999999/report", json={"text": "x"}, headers=ORIGIN).status_code == 404
+    response = client.post(f"/api/vacancies/{vacancy_id}/report",
+                           json={"text": "Группа 1 неверна:\nэто удалёнка из РФ"}, headers=ORIGIN)
+    assert response.json() == {"ok": True, "reported": 1}
+    reported = client.get("/processed?filter=reported").text
+    assert "Junior Data Scientist" in reported and "это удалёнка из РФ" in reported
+    assert 'href="/processed?filter=reported"' in reported and "Reported" in reported
+    debug = client.get(f"/api/vacancies/{vacancy_id}/debug").json()["report"]
+    assert "Skip reason (user): офис в Москве" in debug and "User report" in debug
+    client.post(f"/api/vacancies/{vacancy_id}/status", json={"status": "new"}, headers=ORIGIN)
+    assert "“офис в Москве”" not in client.get("/processed?filter=reported").text, "a status change clears the note"

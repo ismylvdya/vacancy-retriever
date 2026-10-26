@@ -7,6 +7,7 @@
     {% set params = ([('filter=' ~ key)] if key != 'all' else []) + ([query] if query else []) %}
     <a href="/processed{% if params %}?{{ params | join('&') }}{% endif %}" class="seg {{ 'on' if current == key }}">{{ label }}{% if key != 'all' %}<span class="count">{{ counts.get(key, 0) }}</span>{% endif %}</a>
   {% endfor %}
+  <a href="/processed?filter=reported" class="seg debug-only {{ 'on' if current == 'reported' }}" title="Debug mode: vacancies you reported as wrongly evaluated">Reported<span class="count">{{ reported_count }}</span></a>
   <a href="/processed?filter=hidden" class="seg debug-only {{ 'on' if current == 'hidden' }}" title="Debug mode: ads and posts the LLM called “not a vacancy”">Hidden{% if hidden is defined %}<span class="count">{{ hidden | sum(attribute='rows', start=[]) | length }}</span>{% endif %}</a>
 </div>
 

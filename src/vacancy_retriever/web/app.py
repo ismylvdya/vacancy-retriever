@@ -31,6 +31,11 @@ STATIC_ICONS = WEB_DIR / "static" / "icons"
 
 class StatusChange(BaseModel):
     status: str
+    note: str | None = None  # debug mode: the reason of a Skip
+
+
+class Report(BaseModel):
+    text: str
 
 
 class RunRequest(BaseModel):
@@ -88,7 +93,6 @@ def create_app(config: AppConfig, storage: Storage, port: int, manager: RunManag
     templates = Jinja2Templates(directory=str(WEB_DIR / "templates"))
     templates.env.globals.update(app_name=APP_NAME, version=_static_version())
     icons = IconStore(config.paths)
-    cards = views.CardBuilder(config, storage)
     allowed_hosts = _allowed_hosts(port)
     allowed_origins = {f"http://{host}" for host in allowed_hosts}
 
@@ -118,6 +122,7 @@ def create_app(config: AppConfig, storage: Storage, port: int, manager: RunManag
 
     @app.get("/", response_class=HTMLResponse)
     def feed(request: Request) -> HTMLResponse:
+        cards = views.CardBuilder(config, storage)  # per request: latest run, reports and rates change over time
         built = [cards.build(record) for record in storage.vacancies.feed()]
         return page(request, "feed.html", "feed", groups=views.group_feed(built, config))
 
@@ -130,18 +135,20 @@ def create_app(config: AppConfig, storage: Storage, port: int, manager: RunManag
             hidden = views.hidden_items(config, storage)
             return page(request, "processed.html", "processed", runs=[], hidden=hidden, total=0, current="hidden",
                         counts=storage.vacancies.processed_counts(), filters=processed_tabs, facets=[],
-                        active=False, query="")
+                        active=False, query="", reported_count=storage.vacancies.reports_count())
         chosen: dict[str, set[str]] = {}
         for key, value in request.query_params.multi_items():
             if key != "filter" and value:
                 chosen.setdefault(key, set()).add(value)
         records = storage.vacancies.processed(filter, limit=10000)
         kept, filters = views.apply_filters(config, records, chosen)
+        cards = views.CardBuilder(config, storage)
         built = [cards.build(record) for record in kept]
         query = urlencode([(k, v) for k, values in sorted(chosen.items()) for v in sorted(values)])
         return page(request, "processed.html", "processed", runs=views.group_by_run(built, storage),
                     total=len(built), current=filter or "all", counts=storage.vacancies.processed_counts(),
-                    filters=processed_tabs, facets=filters, active=bool(chosen), query=query)
+                    filters=processed_tabs, facets=filters, active=bool(chosen), query=query,
+                    reported_count=storage.vacancies.reports_count())
 
     @app.get("/api/vacancies/{vacancy_id}/debug")
     def vacancy_debug(vacancy_id: int) -> dict[str, Any]:
@@ -197,12 +204,20 @@ def create_app(config: AppConfig, storage: Storage, port: int, manager: RunManag
     @app.post("/api/vacancies/{vacancy_id}/status")
     def change_status(vacancy_id: int, change: StatusChange) -> dict[str, Any]:
         try:
-            changed = storage.vacancies.set_user_status(vacancy_id, change.status)
+            changed = storage.vacancies.set_user_status(vacancy_id, change.status, change.note)
         except ValueError as exc:
             raise HTTPException(400, str(exc)) from exc
         if not changed:
             raise HTTPException(404, "Vacancy not found")
         return {"ok": True, "feed_count": storage.vacancies.processed_counts().get("new", 0)}
+
+    @app.post("/api/vacancies/{vacancy_id}/report")
+    def report_vacancy(vacancy_id: int, report: Report) -> dict[str, Any]:
+        if not report.text.strip():
+            raise HTTPException(400, "Write what is wrong with this evaluation")
+        if not storage.vacancies.add_report(vacancy_id, report.text):
+            raise HTTPException(404, "Vacancy not found")
+        return {"ok": True, "reported": storage.vacancies.reports_count()}
 
     @app.get("/api/vacancies/{vacancy_id}/fulltext")
     def vacancy_text(vacancy_id: int) -> dict[str, str]:

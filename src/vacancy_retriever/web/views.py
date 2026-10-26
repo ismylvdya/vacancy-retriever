@@ -94,6 +94,8 @@ class Card:
     employer_type: str = ""
     ad_language: str = ""          # flag (or code) of the language the ad is written in
     required_languages: list[str] = field(default_factory=list)  # flags with the language name as tooltip
+    user_note: str = ""                                        # debug mode: why it was skipped
+    reports: list[dict[str, str]] = field(default_factory=list)  # debug mode: the user's complaints
 
     @property
     def low_fit(self) -> bool:
@@ -104,6 +106,7 @@ class CardBuilder:
     def __init__(self, config: AppConfig, storage: Storage):
         self._sources: dict[str, SourceConfig] = {s.id: s for s in config.sources.sources}
         self._rates = RatesStore(config.paths)
+        self._reports = storage.vacancies.reports()
         self._hours_per_month = config.rules.salary.hours_per_month
         self._sender_icons = sender_icons(config)
         self._storage = storage
@@ -146,6 +149,9 @@ class CardBuilder:
             employer_type=EMPLOYER_TYPES.get(facts.employer_type, "") if facts else "",
             ad_language=_flag(facts.ad_language) if facts and facts.ad_language != "other" else "",
             required_languages=[_flag(code) for code in facts.required_languages] if facts else [],
+            user_note=record.user_note,
+            reports=[{"text": r["text"], "date": format_local(r["created_at"], "%-d %b %H:%M")}
+                     for r in self._reports.get(record.id, [])],
         )
 
     def _salary_rub(self, record: VacancyRecord) -> str:
@@ -474,9 +480,12 @@ def debug_info(config: AppConfig, storage: Storage, vacancy_id: int) -> dict[str
     verdict = (f"group {record.group_no or '—'} · fit {record.stars or '—'} · permit {record.residence_permit or '—'}"
                f" · decision {record.decision}" + (f" ({record.skip_reason})" if record.skip_reason else "")
                + f" · status {record.user_status}")
+    reports = storage.vacancies.reports().get(record.id, [])
     report = "\n".join([
         f"Vacancy id {record.id}: {record.title}" + (f" — {record.employer}" if record.employer else ""),
         f"Run {record.run_id} · {verdict}",
+        *([f"Skip reason (user): {record.user_note}"] if record.user_note else []),
+        *[f"User report {format_local(r['created_at'], '%-d %b %H:%M')}: {r['text']}" for r in reports],
         "", "Why:", *[f"- {line}" for line in explain],
         "", "Raw items:", *[f"- {line}" for line in raw_lines],
         "", "Facts:", json.dumps(facts, ensure_ascii=False, indent=2) if facts else "none (not analysed)",

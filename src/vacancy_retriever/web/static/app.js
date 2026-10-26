@@ -213,8 +213,8 @@ function rowTitle(row) {
   return copy.textContent.trim().slice(0, 60);
 }
 
-async function postStatus(id, status) {
-  const data = await api("POST", `/api/vacancies/${id}/status`, { status });
+async function postStatus(id, status, note) {
+  const data = await api("POST", `/api/vacancies/${id}/status`, note ? { status, note } : { status });
   if (typeof data.feed_count === "number") $("feed-count").textContent = data.feed_count;
 }
 
@@ -265,8 +265,11 @@ function reflect(id, status) {
 async function setStatus(row, status) {
   const id = row.dataset.id;
   const previous = tab === "processed" ? row.querySelector(".st").className.replace("st st-", "") : "new";
-  try { await postStatus(id, status); } catch (e) { toast(e.message); return; }
-  history.undo.push({ id, from: previous, to: status, title: rowTitle(row) });
+  // Debug mode: the text next to Skip is saved as the reason of the skip.
+  const noteField = row.querySelector(".skip-note");
+  const note = status === "skipped" && debugOn() && noteField ? noteField.value.trim() : "";
+  try { await postStatus(id, status, note); } catch (e) { toast(e.message); return; }
+  history.undo.push({ id, from: previous, to: status, note, title: rowTitle(row) });
   history.redo = [];
   saveHistory();
   if (belongsHere(status)) reflect(id, status); else takeOff(row);
@@ -286,7 +289,7 @@ async function undo() {
 async function redo() {
   const entry = history.redo.pop();
   if (!entry) return;
-  try { await postStatus(entry.id, entry.to); } catch (e) { history.redo.push(entry); toast(e.message); return; }
+  try { await postStatus(entry.id, entry.to, entry.note); } catch (e) { history.redo.push(entry); toast(e.message); return; }
   history.undo.push(entry);
   saveHistory();
   reflect(entry.id, entry.to);
@@ -342,7 +345,7 @@ function escapeHtml(text) {
 }
 async function copyDebug(row, what) {
   try {
-    if (what === "id") { await writeClipboard(`vacancy id ${row.dataset.id}`); toast(`Copied id ${row.dataset.id}`); return; }
+    if (what === "id") { await writeClipboard(row.dataset.id); toast(`Copied id ${row.dataset.id}`); return; }
     const info = await debugInfo(row);
     await writeClipboard(info.report);
     toast("Debug report copied");
@@ -358,6 +361,44 @@ document.querySelectorAll("[data-notice]").forEach((box) => {
     try { await api("POST", `/api/notices/${encodeURIComponent(box.dataset.notice)}/dismiss`); box.remove(); }
     catch (e) { toast(e.message); }
   });
+});
+
+/* ---------- debug mode: Skip with a reason (Enter in the field), Report a wrong evaluation ---------- */
+document.addEventListener("keydown", (event) => {
+  const field = event.target.closest && event.target.closest(".skip-note");
+  if (field && event.key === "Enter") { event.preventDefault(); setStatus(field.closest(".vac"), "skipped"); }
+});
+
+let reportRow = null;
+function openReport(row) {
+  reportRow = row;
+  $("report-title").textContent = `#${row.dataset.id} · ${rowTitle(row)}`;
+  $("report-text").value = "";
+  $("report-dialog").showModal();
+  $("report-text").focus();
+}
+async function submitReport() {
+  const text = $("report-text").value.trim();
+  if (!text || !reportRow) { toast("Write what is wrong first"); return; }
+  try {
+    const data = await api("POST", `/api/vacancies/${reportRow.dataset.id}/report`, { text });
+    $("report-dialog").close();
+    delete debugCache[reportRow.dataset.id];
+    const title = reportRow.querySelector(".title");
+    if (title && !title.querySelector(".reported")) {
+      const flag = document.createElement("span");
+      flag.className = "debug-only flag reported";
+      flag.textContent = "Reported";
+      title.querySelector(".vac-id").after(flag);
+    }
+    const count = document.querySelector('a[href="/processed?filter=reported"] .count');
+    if (count) count.textContent = data.reported;
+    toast("Reported — see Processed → Reported");
+  } catch (e) { toast(e.message); }
+}
+$("report-submit").addEventListener("click", (event) => { event.preventDefault(); submitReport(); });
+$("report-text").addEventListener("keydown", (event) => {
+  if (event.key === "Enter" && (event.metaKey || event.ctrlKey)) { event.preventDefault(); submitReport(); }
 });
 
 async function copyText(row) {
@@ -390,10 +431,11 @@ document.addEventListener("click", (event) => {
     if (action === "copy") copyText(row);
     if (action === "copy-id") copyDebug(row, "id");
     if (action === "copy-debug") copyDebug(row, "report");
+    if (action === "report") openReport(row);
     if (action === "fulltext") toggleFullText(row);
     return;
   }
-  if (event.target.closest("a, .fulltext")) return;
+  if (event.target.closest("a, .fulltext, input, textarea")) return;
   if (row === current && row.classList.contains("open")) { row.classList.remove("open"); return; }
   focusRow(row, { scroll: false });
 });

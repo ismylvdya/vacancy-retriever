@@ -13,9 +13,11 @@
 <p class="note alert">Claude CLI reported auth source "{{ data.auth_source }}" — it may be using a paid API key instead of the subscription.</p>
 {% endif %}
 
+<div class="subbar">
 <div class="segmented" role="tablist">
   <a href="/statistics" class="seg {{ 'on' if view == 'sources' }}">Sources</a>
   <a href="/statistics?view=runs" class="seg {{ 'on' if view == 'runs' }}">Runs<span class="count">{{ runs | length }}</span></a>
+</div>
 </div>
 
 {% if view == 'sources' %}

@@ -8,6 +8,10 @@
   <link rel="stylesheet" href="/static/style.css?v={{ version }}">
 </head>
 <body data-tab="{{ tab }}" class="{{ 'running' if status.running }}">
+<div class="history" aria-label="History of status changes">
+  <button class="btn icon" id="undo-btn" disabled title="Nothing to undo" aria-label="Undo">↶</button>
+  <button class="btn icon" id="redo-btn" disabled title="Nothing to redo" aria-label="Redo">↷</button>
+</div>
 <label class="debug-toggle" title="Show vacancy ids, the rule trace and LLM facts"><span>Debug</span><input type="checkbox" role="switch" id="debug-toggle"><i class="switch"></i></label>
 <h1 class="app-title">🦆 Vacancy Retriever</h1>
 <header class="top">

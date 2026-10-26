@@ -9,7 +9,8 @@ from ..scoring.facts import VacancyFacts
 from ..timeutil import from_iso, to_iso, utcnow
 from .db import Database
 
-USER_STATUSES = {"new", "applied", "skipped", "not_now"}
+# auto_skipped is accepted only to undo "Return to feed": the vacancy goes back under the rules (user_set = 0).
+USER_STATUSES = {"new", "applied", "skipped", "not_now", "auto_skipped"}
 PROCESSED_FILTERS = {"applied", "skipped", "not_now", "auto_skipped"}
 
 
@@ -187,8 +188,8 @@ class VacancyRepository:
         if status not in USER_STATUSES:
             raise ValueError(f"Unknown status {status}")
         cursor = self.db.execute(
-            "UPDATE vacancies SET user_status = ?, user_set = 1, status_changed_at = ? WHERE id = ? AND staged = 0",
-            (status, to_iso(utcnow()), vacancy_id),
+            "UPDATE vacancies SET user_status = ?, user_set = ?, status_changed_at = ? WHERE id = ? AND staged = 0",
+            (status, 0 if status == "auto_skipped" else 1, to_iso(utcnow()), vacancy_id),
         )
         return cursor.rowcount > 0
 

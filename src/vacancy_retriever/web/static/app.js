@@ -16,6 +16,19 @@ async function api(method, url, body) {
   return data;
 }
 
+/* ---------- sticky headers: heights of the top bar and the sub-tab bar ---------- */
+function measureSticky() {
+  const top = document.querySelector(".top");
+  const sub = document.querySelector(".subbar");
+  document.documentElement.style.setProperty("--top-h", `${top ? top.offsetHeight : 0}px`);
+  document.documentElement.style.setProperty("--sub-h", `${sub ? sub.offsetHeight : 0}px`);
+}
+if (window.ResizeObserver) {
+  const observer = new ResizeObserver(measureSticky);
+  document.querySelectorAll(".top, .subbar").forEach((el) => observer.observe(el));
+}
+measureSticky();
+
 /* ---------- toast with optional undo ---------- */
 let toastTimer = null;
 function toast(text, undo) {
@@ -126,38 +139,116 @@ function updateCounts(row, delta) {
   if (counter) counter.textContent = Math.max(0, Number(counter.textContent) + delta);
 }
 
-const LABELS = { applied: "Applied", not_now: "Moved to Not now", skipped: "Skipped", new: "Returned to feed" };
+const LABELS = { applied: "Applied", not_now: "Moved to Not now", skipped: "Skipped", new: "Returned to feed",
+  auto_skipped: "Auto-skipped" };
+
+/* ---------- status changes with undo / redo history (kept per browser tab across pages) ---------- */
+const HISTORY_KEY = "vr-history";
+function loadHistory() {
+  try { return JSON.parse(sessionStorage.getItem(HISTORY_KEY)) || { undo: [], redo: [] }; }
+  catch (e) { return { undo: [], redo: [] }; }
+}
+function saveHistory() {
+  try { sessionStorage.setItem(HISTORY_KEY, JSON.stringify(history)); } catch (e) { /* private mode */ }
+  $("undo-btn").disabled = !history.undo.length;
+  $("redo-btn").disabled = !history.redo.length;
+  $("undo-btn").title = history.undo.length ? `Undo: ${history.undo[history.undo.length - 1].title}` : "Nothing to undo";
+  $("redo-btn").title = history.redo.length ? `Redo: ${history.redo[history.redo.length - 1].title}` : "Nothing to redo";
+}
+const history = loadHistory();
+const removedRows = new Map(); // id → {row, parent, next}: rows taken off this page, for an in-place undo
+
+function rowTitle(row) {
+  const title = row.querySelector(".title");
+  if (!title) return `#${row.dataset.id}`;
+  const copy = title.cloneNode(true);
+  copy.querySelectorAll(".vac-id, .flag, .new").forEach((el) => el.remove());
+  return copy.textContent.trim().slice(0, 60);
+}
+
+async function postStatus(id, status) {
+  const data = await api("POST", `/api/vacancies/${id}/status`, { status });
+  if (typeof data.feed_count === "number") $("feed-count").textContent = data.feed_count;
+}
+
+function belongsHere(status) {
+  return tab === "feed" ? status === "new" : tab === "processed" && status !== "new";
+}
+
+function takeOff(row) {
+  const rows = visibleRows();
+  const following = rows[rows.indexOf(row) + 1] || rows[rows.indexOf(row) - 1];
+  removedRows.set(row.dataset.id, { row, parent: row.parentNode, next: row.nextElementSibling });
+  row.classList.add("leaving");
+  setTimeout(() => {
+    const parent = row.parentNode;
+    row.remove();
+    if (parent) updateCounts(parent, -1);
+    current = null;
+    if (following) focusRow(following);
+  }, 180);
+}
+
+function putBack(id) {
+  const kept = removedRows.get(id);
+  if (!kept) return false;
+  removedRows.delete(id);
+  kept.row.classList.remove("leaving");
+  kept.parent.insertBefore(kept.row, kept.next && kept.next.parentNode === kept.parent ? kept.next : null);
+  updateCounts(kept.parent, 1);
+  focusRow(kept.row);
+  return true;
+}
+
+/* Show the result of an undo / redo on this page: move the row in or out, or reload when it is not here. */
+function reflect(id, status) {
+  const row = document.querySelector(`.vac[data-id="${id}"]`);
+  if (belongsHere(status)) {
+    if (row && !row.classList.contains("leaving")) {
+      const label = row.querySelector(".st");
+      if (label) { label.className = `st st-${status}`; label.textContent = LABELS[status] || status; }
+      return;
+    }
+    if (!putBack(id)) setTimeout(() => location.reload(), 400);
+  } else if (row) {
+    takeOff(row);
+  }
+}
 
 async function setStatus(row, status) {
   const id = row.dataset.id;
   const previous = tab === "processed" ? row.querySelector(".st").className.replace("st st-", "") : "new";
-  const parent = row.parentNode;
-  const next = row.nextElementSibling;
-  try {
-    const data = await api("POST", `/api/vacancies/${id}/status`, { status });
-    if (typeof data.feed_count === "number") $("feed-count").textContent = data.feed_count;
-  } catch (e) { toast(e.message); return; }
-  const rows = visibleRows();
-  const following = rows[rows.indexOf(row) + 1] || rows[rows.indexOf(row) - 1];
-  row.classList.add("leaving");
-  setTimeout(() => {
-    row.remove();
-    updateCounts(parent, -1);
-    current = null;
-    if (following) focusRow(following);
-  }, 180);
-  const undoStatus = previous === "auto_skipped" ? null : previous;
-  toast(LABELS[status] || "Saved", undoStatus ? async () => {
-    try {
-      const data = await api("POST", `/api/vacancies/${id}/status`, { status: undoStatus });
-      if (typeof data.feed_count === "number") $("feed-count").textContent = data.feed_count;
-      row.classList.remove("leaving");
-      parent.insertBefore(row, next && next.parentNode === parent ? next : null);
-      updateCounts(parent, 1);
-      focusRow(row);
-    } catch (e) { toast(e.message); }
-  } : null);
+  try { await postStatus(id, status); } catch (e) { toast(e.message); return; }
+  history.undo.push({ id, from: previous, to: status, title: rowTitle(row) });
+  history.redo = [];
+  saveHistory();
+  if (belongsHere(status)) reflect(id, status); else takeOff(row);
+  toast(LABELS[status] || "Saved", undo);
 }
+
+async function undo() {
+  const entry = history.undo.pop();
+  if (!entry) return;
+  try { await postStatus(entry.id, entry.from); } catch (e) { history.undo.push(entry); toast(e.message); return; }
+  history.redo.push(entry);
+  saveHistory();
+  reflect(entry.id, entry.from);
+  toast(`Undone: ${entry.title}`);
+}
+
+async function redo() {
+  const entry = history.redo.pop();
+  if (!entry) return;
+  try { await postStatus(entry.id, entry.to); } catch (e) { history.redo.push(entry); toast(e.message); return; }
+  history.undo.push(entry);
+  saveHistory();
+  reflect(entry.id, entry.to);
+  toast(`Redone: ${LABELS[entry.to] || entry.to} — ${entry.title}`);
+}
+
+$("undo-btn").addEventListener("click", undo);
+$("redo-btn").addEventListener("click", redo);
+saveHistory();
 
 async function writeClipboard(text) {
   if (navigator.clipboard && window.isSecureContext) { await navigator.clipboard.writeText(text); return; }
@@ -272,7 +363,7 @@ document.addEventListener("keydown", (event) => {
   if (key === "enter") { event.preventDefault(); current.classList.add("open"); toggleFullText(current); return; }
   if (key === "c") { copyText(current); return; }
   if (tab === "feed") {
-    const map = { a: "applied", n: "not_now", s: "skipped" };
+    const map = { arrowright: "applied", n: "not_now", arrowleft: "skipped" };
     if (map[key]) { event.preventDefault(); setStatus(current, map[key]); }
   } else if (tab === "processed" && key === "r") {
     setStatus(current, "new");

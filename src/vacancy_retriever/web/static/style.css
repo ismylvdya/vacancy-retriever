@@ -63,9 +63,16 @@ kbd { display: inline-block; min-width: 16px; padding: 0 3px; margin-left: 6px; 
 /* ---------- layout ---------- */
 .main { max-width: var(--content); margin: 0 auto; padding: 0 20px 48px; }
 .sheet { background: var(--panel); border-radius: 12px; box-shadow: 0 0 0 1px var(--line); overflow: hidden; margin: 0 0 16px; }
-.group { background: var(--panel); border-radius: 12px; box-shadow: 0 0 0 1px var(--line); margin: 0 0 16px; overflow: hidden; }
-.sheet .group { background: none; border-radius: 0; box-shadow: none; margin: 0; }
-.sheet .group + .group { border-top: 1px solid var(--line); }
+.group { background: var(--panel); border-radius: 12px; box-shadow: 0 0 0 1px var(--line); margin: 0 0 16px; overflow: clip; }
+/* Sticky headers: the top bar, then sub-tabs + filters, then the heading of the group / run being scrolled.
+   --top-h and --sub-h are measured in app.js. overflow: clip (not hidden) keeps position: sticky working. */
+.subbar { position: sticky; top: var(--top-h, 0px); z-index: 8; background: var(--bg); padding-top: 2px; }
+.subbar .segmented { margin-bottom: 10px; }
+.group > .group-head, .group > .section-head { position: sticky; top: calc(var(--top-h, 0px) + var(--sub-h, 0px));
+  z-index: 5; background: var(--panel); border-radius: 12px 12px 0 0; }
+/* Each feed group is its own card with an empty gap between them, so it is obvious where a group ends. */
+.sheet { background: none; box-shadow: none; overflow: visible; border-radius: 0; }
+.sheet .group { margin: 0 0 16px; }
 .group-head { display: flex; align-items: baseline; gap: 8px; width: 100%; padding: 16px 16px 8px; background: none; border: 0;
   font: inherit; color: var(--text); cursor: pointer; text-align: left; }
 .group-title { font-weight: 500; font-size: 14px; }
@@ -156,6 +163,12 @@ kbd { display: inline-block; min-width: 16px; padding: 0 3px; margin-left: 6px; 
 .run-placeholder { display: none; }
 body.running .run-placeholder { display: block; }
 body.running .feed-content { display: none; }
+
+/* ---------- undo / redo, top-left corner (mirrors the Debug switch) ---------- */
+.history { position: fixed; top: 10px; left: 16px; z-index: 40; display: flex; gap: 6px; }
+.btn.icon { width: 28px; height: 26px; padding: 0; font-size: 15px; line-height: 1; display: inline-flex;
+  align-items: center; justify-content: center; background: var(--bg); }
+.btn.icon:disabled { color: var(--faint); border-color: var(--line); cursor: default; }
 
 /* ---------- debug mode ---------- */
 body:not(.debug) .debug-only { display: none !important; }

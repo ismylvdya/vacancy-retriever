@@ -1,6 +1,7 @@
 {% extends "base.html" %}
 {% from "_row.html" import row %}
 {% block content %}
+<div class="subbar">
 <div class="segmented" role="tablist">
   {% for key, label in filters %}
     {% set params = ([('filter=' ~ key)] if key != 'all' else []) + ([query] if query else []) %}
@@ -30,6 +31,7 @@
   <a class="btn reset{{ ' off' if not active }}" href="/processed{% if current != 'all' %}?filter={{ current }}{% endif %}">Reset</a>
 </form>
 {% endif %}
+</div>
 
 {% if hidden is defined %}
 {% for run in hidden %}

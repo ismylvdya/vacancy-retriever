@@ -67,6 +67,10 @@ class Prefilter:
             return self._check_rvc(item)
         if item.multi:
             return KEEP
+        # Sites that state the grade in their data (Habr Career "qualification"): middle / senior / lead drop for free.
+        site_grade = str(item.meta.get("grade") or "").strip().lower()
+        if site_grade in self._rules.dropped_seniority:
+            return PrefilterResult("skip", f"Grade: {site_grade}")
         return self._check_title(item.title)
 
     def _check_rvc(self, item: StoredRawItem) -> PrefilterResult:

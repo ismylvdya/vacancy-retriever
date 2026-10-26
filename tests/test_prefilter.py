@@ -95,3 +95,19 @@ def test_language_filter_on_real_serbian_ad(prefilter):
 def test_looks_serbian(text, serbian):
     from vacancy_retriever.pipeline.prefilter import looks_serbian
     assert looks_serbian(text) is serbian
+
+
+def test_grade_from_site_data_is_dropped_for_free(config):
+    from datetime import UTC, datetime
+
+    from vacancy_retriever.pipeline.prefilter import Prefilter
+    from vacancy_retriever.storage.items import StoredRawItem
+
+    def item(grade):
+        return StoredRawItem(1, 1, False, "habr", "1", "", "Data Analyst", "Data Analyst", None, None, False,
+                             {"grade": grade}, "pending_llm", None)
+
+    prefilter = Prefilter(config.rules)
+    assert prefilter.check(item("Senior"), datetime.now(UTC)).reason == "Grade: senior"
+    assert prefilter.check(item(None), datetime.now(UTC)).action == "keep"
+    assert prefilter.check(item("Junior"), datetime.now(UTC)).action == "keep"

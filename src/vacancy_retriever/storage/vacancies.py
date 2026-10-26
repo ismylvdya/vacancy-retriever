@@ -39,6 +39,7 @@ class NewVacancy:
 class VacancySource:
     source_id: str
     url: str
+    sender: str = ""  # e-mail sources: the sender from config/mail.yaml ("hh.ru", "LinkedIn job alerts")
 
 
 @dataclass
@@ -238,7 +239,9 @@ class VacancyRepository:
         by_id = {r.id: r for r in records}
         marks = ",".join("?" * len(by_id))
         rows = self.db.query(
-            f"SELECT vacancy_id, source_id, url FROM vacancy_sources WHERE vacancy_id IN ({marks}) ORDER BY id",
+            "SELECT s.vacancy_id, s.source_id, s.url, json_extract(r.meta_json, '$.email.sender') AS sender"
+            f" FROM vacancy_sources s LEFT JOIN raw_items r ON r.id = s.raw_item_id WHERE s.vacancy_id IN ({marks})"
+            " ORDER BY s.id",
             tuple(by_id),
         )
         seen: set[tuple[int, str, str]] = set()
@@ -247,4 +250,4 @@ class VacancyRepository:
             if key in seen:
                 continue
             seen.add(key)
-            by_id[row["vacancy_id"]].sources.append(VacancySource(row["source_id"], row["url"] or ""))
+            by_id[row["vacancy_id"]].sources.append(VacancySource(row["source_id"], row["url"] or "", row["sender"] or ""))

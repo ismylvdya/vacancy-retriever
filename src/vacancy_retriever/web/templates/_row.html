@@ -40,7 +40,7 @@
     {% if c.summary %}<p class="summary">{{ c.summary }}</p>{% endif %}
     {% if permit_column and c.permit_reason %}<p class="why">Permit {{ c.permit | lower }}, based on “{{ c.permit_reason }}”</p>{% endif %}
     {% if c.languages_note %}<p class="why">Requires {{ c.languages_note }}</p>{% endif %}
-    {% if c.sources %}<div class="sources">{% for s in c.sources %}<a class="src" href="{{ s.url }}" target="_blank" rel="noopener noreferrer"><img src="/icons/{{ s.source_id }}" alt="" loading="lazy">{{ s.name }}</a>{% endfor %}</div>{% endif %}
+    {% if c.sources %}<div class="sources">{% for s in c.sources %}<a class="src src-{{ s.kind }}" href="{{ s.url }}" target="_blank" rel="noopener noreferrer"><span class="src-ico"><img src="/icons/{{ s.icon or s.source_id }}" alt="" loading="lazy"></span>{{ s.name }}</a>{% endfor %}</div>{% endif %}
     <div class="actions">
       {% if processed %}
         <button class="btn" data-action="status" data-status="new">Return to feed<kbd>R</kbd></button>

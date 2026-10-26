@@ -44,6 +44,7 @@ class SourceLink:
     name: str
     url: str
     kind: str  # site | telegram | email
+    icon: str = ""  # id for /icons/<id>: the source, or "mail-<key>" of the e-mail sender
 
 
 @dataclass
@@ -82,6 +83,7 @@ class Card:
 class CardBuilder:
     def __init__(self, config: AppConfig, storage: Storage):
         self._sources: dict[str, SourceConfig] = {s.id: s for s in config.sources.sources}
+        self._sender_icons = sender_icons(config)
         self._storage = storage
         latest = storage.runs.last_finished()
         self._latest_run = latest["id"] if latest and latest["status"] == "committed" else None
@@ -144,8 +146,20 @@ class CardBuilder:
             kind = "telegram" if config and config.type == "telegram" else (
                 "email" if config and config.type == "email" else "site")
             url = link if kind == "email" and link else source.url
-            (channels if kind == "telegram" else sites).append(SourceLink(source.source_id, name, url, kind))
+            icon = source.source_id
+            if kind == "email" and source.sender:
+                name, icon = source.sender, self._sender_icons.get(source.sender) or source.source_id
+            (channels if kind == "telegram" else sites).append(SourceLink(source.source_id, name, url, kind, icon))
         return sites + channels
+
+
+def sender_icons(config: AppConfig) -> dict[str, str]:
+    """Sender name → icon id. The first rule with an icon wins (several addresses share one sender name)."""
+    icons: dict[str, str] = {}
+    for rule in config.mail.senders:
+        if rule.icon_id:
+            icons.setdefault(rule.name, rule.icon_id)
+    return icons
 
 
 def full_text(storage: Storage, vacancy_id: int) -> str:
@@ -269,9 +283,11 @@ def _fact(name: str, labels: dict[str, str] | None = None) -> Any:
 
 
 def _sources(names: dict[str, str]) -> Any:
+    """E-mail vacancies are listed by sender ("hh.ru"), everything else by source."""
     def get(record: VacancyRecord) -> list[tuple[str, str]]:
-        ids = sorted({s.source_id for s in record.sources})
-        return [(i, names.get(i, i)) for i in ids] or [(NONE_VALUE, NONE_VALUE)]
+        values = {(f"{s.source_id}:{s.sender}", s.sender) if s.sender else (s.source_id, names.get(s.source_id, s.source_id))
+                  for s in record.sources}
+        return sorted(values) or [(NONE_VALUE, NONE_VALUE)]
     return get
 
 

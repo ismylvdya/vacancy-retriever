@@ -162,6 +162,13 @@ class SenderRule(_Strict):
     match: str
     name: str
     parser: str = "generic"
+    # Icon of the sender on cards: key of config/icons/mail-<icon>.* or of a favicon downloaded from `site`.
+    icon: str | None = None
+    site: str | None = None
+
+    @property
+    def icon_id(self) -> str | None:
+        return f"mail-{self.icon}" if self.icon else None
 
 
 class MailboxConfig(_Strict):

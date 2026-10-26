@@ -140,6 +140,11 @@ class EmailCollector(Collector):
             log.info("%s: unrecognised letters: %s", self.source.id, unknown)
         return CollectResult(items=items, note=note)
 
+    def sender_icons(self) -> list[tuple[str, str]]:
+        """(icon id, site) of senders whose favicon is downloaded from their site (not linkedin.com — forbidden)."""
+        config = AppConfig()
+        return sorted({(rule.icon_id, rule.site) for rule in config.mail.senders if rule.icon_id and rule.site})
+
     @staticmethod
     def _watch(config: AppConfig, mailbox: MailboxConfig, uid: str, message: Message, items: list[RawItem]) -> None:
         for template in {item.meta.get("template") for item in items} & WATCHED_TEMPLATES.keys():

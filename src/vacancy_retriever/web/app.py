@@ -13,7 +13,7 @@ from fastapi.templating import Jinja2Templates
 from pydantic import BaseModel
 
 from ..app_info import APP_NAME, APP_VERSION
-from ..config import AppConfig
+from ..config import AppConfig, SourceConfig
 from .. import notices
 from ..icons import IconStore
 from ..pipeline.manager import AlreadyRunning, RunManager
@@ -202,11 +202,14 @@ def create_app(config: AppConfig, storage: Storage, port: int, manager: RunManag
 
     @app.get("/icons/{source_id}")
     def icon(source_id: str) -> FileResponse:
+        if source_id.startswith("mail-"):
+            path = icons.resolve(SourceConfig(id=source_id, type="email", name=source_id))
+            return FileResponse(path or STATIC_ICONS / "mail.svg", headers={"Cache-Control": "max-age=3600"})
         source = next((s for s in config.sources.sources if s.id == source_id), None)
         path = icons.resolve(source) if source else None
         if path is None:
             kind = source.type if source else ""
-            fallback = {"telegram": "telegram.svg", "email": "mail.svg"}.get(kind, "globe.svg")
+            fallback = {"telegram": "telegram.png", "email": "mail.svg"}.get(kind, "globe.svg")
             path = STATIC_ICONS / fallback
         return FileResponse(path, headers={"Cache-Control": "max-age=3600"})
 

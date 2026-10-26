@@ -230,9 +230,25 @@ class Pipeline:
         new_cursor = result.new_cursor or SourceCursor(last_published_at=run_start - TIME_CURSOR_MARGIN)
         self.storage.runs.stage_cursor(run_id, source.id, new_cursor)
         self.icons.refresh(source, result.icon_url or collector.icon_url(), http)
+        self._refresh_sender_icons(collector, http)
         seen = result.seen if result.seen is not None else len(result.items)
         return SourceRunRecord(source.id, result.status, collected=stored, seen=seen, note=result.note,
                                duration_s=time.monotonic() - started)
+
+    def _refresh_sender_icons(self, collector: Collector, http: PoliteHttpClient) -> None:
+        """E-mail senders (hh.ru, VK…): favicon of their site, once a month; an icon is never worth an error."""
+        from ..collectors.sites._common import favicon_from_html
+
+        for icon_id, site in getattr(collector, "sender_icons", lambda: [])():
+            stand_in = SourceConfig(id=icon_id, type="email", name=icon_id)
+            if self.icons.user_icon(stand_in) or not self.icons.needs_refresh(icon_id) or is_forbidden(site):
+                continue
+            try:
+                url = favicon_from_html(http.get_text(site), site)
+            except Exception as exc:  # noqa: BLE001
+                log.info("Sender icon page %s failed: %s", site, exc)
+                continue
+            self.icons.refresh(stand_in, url, http)
 
     def _store_items(self, run_id: int, source: SourceConfig, result: CollectResult,
                      raw_dedup: RawDeduplicator) -> int:

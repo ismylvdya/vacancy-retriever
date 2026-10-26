@@ -186,3 +186,25 @@ def test_developer_notice_banner_and_dismiss(client, tmp_paths):
     assert 'data-notice="first:x"' in page and "Copy text" in page and "Тема: «Новые вакансии»" in page
     assert client.post("/api/notices/first:x/dismiss", headers=ORIGIN).status_code == 200
     assert 'data-notice="first:x"' not in client.get("/").text
+
+
+def test_email_vacancy_shows_sender_name_and_icon(client, tmp_paths):
+    storage = client.storage
+    run_id = storage.runs.start({})
+    item = RawItem("gmail", "linkedin:42", "https://www.linkedin.com/jobs/view/42/", "Junior ML Engineer\nAcme · Belgrade",
+                   utcnow() - timedelta(hours=2), title="Junior ML Engineer",
+                   meta={"email": {"mailbox": "gmail", "uid": "5", "sender": "LinkedIn job alerts"}})
+    raw_id = storage.items.insert(run_id, item, "scored")
+    facts = VacancyFacts.model_validate({"title_original": "Junior ML Engineer", "role_category": "ds_ml",
+                                         "country": "Serbia", "city": "Belgrade", "confidence": "high"})
+    verdict = ScoringEngine(AppConfig(tmp_paths).rules).evaluate(facts, item.published_at, utcnow())
+    vacancy_id = storage.vacancies.insert(run_id, NewVacancy(raw_id, "llm", "Junior ML Engineer", "Acme", "ds_ml",
+                                                             "junior", verdict.decision, None, item.published_at,
+                                                             facts, verdict))
+    storage.vacancies.attach_source(run_id, vacancy_id, raw_id, "gmail", item.url)
+    storage.runs.commit(run_id, {}, 1)
+    feed = client.get("/").text
+    assert 'class="src src-email"' in feed and "LinkedIn job alerts" in feed
+    assert 'src="/icons/mail-linkedin"' in feed
+    assert client.get("/icons/mail-linkedin").status_code == 200
+    assert client.get("/icons/mail-nothing").headers["content-type"].startswith("image/svg")

@@ -35,26 +35,28 @@ mailboxes:
 #            Незнакомый шаблон — письмо НЕ трогается (остаётся непрочитанным), в LLM не уходит, а во вкладке
 #            Statistics у ящика появляется пометка «N unrecognised letters» — повод дописать парсер.
 #            generic — всё письмо целиком уходит в LLM (дорого): только для отправителей без образцов.
+#   icon   — иконка отправителя на карточках: файл config/icons/mail-<icon>.png|svg|ico, иначе favicon сайта `site`
+#            (скачивается раз в месяц в data/icons/). linkedin.com не открывается — иконка LinkedIn лежит файлом.
 # Образцы писем и как писать парсер — docs/HANDBOOK.md, раздел «Точный парсер письма».
 senders:
   # --- LinkedIn (Gmail). Письма личных сообщений рекрутеров (messages-noreply@ и др.) сюда не входят — не трогаются.
-  - {match: "jobalerts-noreply@linkedin.com",    name: "LinkedIn job alerts",   parser: linkedin}
-  - {match: "jobs-noreply@linkedin.com",         name: "LinkedIn jobs",         parser: linkedin}
-  - {match: "jobs-listings@linkedin.com",        name: "LinkedIn jobs",         parser: linkedin}
-  - {match: "notifications-noreply@linkedin.com", name: "LinkedIn notifications", parser: linkedin}
-  - {match: "@em.linkedin.com",                  name: "LinkedIn Premium",      parser: linkedin}
+  - {match: "jobalerts-noreply@linkedin.com",    name: "LinkedIn job alerts",   parser: linkedin, icon: linkedin}
+  - {match: "jobs-noreply@linkedin.com",         name: "LinkedIn jobs",         parser: linkedin, icon: linkedin}
+  - {match: "jobs-listings@linkedin.com",        name: "LinkedIn jobs",         parser: linkedin, icon: linkedin}
+  - {match: "notifications-noreply@linkedin.com", name: "LinkedIn notifications", parser: linkedin, icon: linkedin}
+  - {match: "@em.linkedin.com",                  name: "LinkedIn Premium",      parser: linkedin, icon: linkedin}
   # --- hh.ru (Яндекс): «Подходящие вакансии для резюме». Приглашения / отклики — незнакомые шаблоны, не трогаются.
-  - {match: "noreply@hh.ru",                     name: "hh.ru",                 parser: hh_ru}
+  - {match: "noreply@hh.ru",                     name: "hh.ru",                 parser: hh_ru, icon: hh}
   # --- Стажировки и карьерные рассылки (Яндекс)
-  - {match: "internship.vk.company",             name: "VK Internship",         parser: vk_internship}
-  - {match: "changellenge.com",                  name: "Changellenge",          parser: changellenge}
-  - {match: "superjob.ru",                       name: "SuperJob",              parser: superjob}
+  - {match: "internship.vk.company",             name: "VK Internship",         parser: vk_internship, icon: vk_internship, site: "https://internship.vk.company"}
+  - {match: "changellenge.com",                  name: "Changellenge",          parser: changellenge, icon: changellenge, site: "https://changellenge.com"}
+  - {match: "superjob.ru",                       name: "SuperJob",              parser: superjob, icon: superjob, site: "https://www.superjob.ru"}
   - {match: "pulse@",                            name: "HR-платформа «Пульс»",  parser: pulse}
   - {match: "technomoscow.ru",                   name: "Технополис Москва",     parser: newsletter}
   # --- infostud (Gmail)
-  - {match: "infostudmail.com",                  name: "Infostud",              parser: infostud}
-  - {match: "infostud.com",                      name: "Infostud",              parser: infostud}
+  - {match: "infostudmail.com",                  name: "Infostud",              parser: infostud, icon: infostud, site: "https://poslovi.infostud.com"}
+  - {match: "infostud.com",                      name: "Infostud",              parser: infostud, icon: infostud, site: "https://poslovi.infostud.com"}
   # --- Без образцов писем (пока не приходили) — универсальный разбор через LLM
-  - {match: "headhunter.ge",                     name: "headhunter.ge",         parser: generic}
-  - {match: "headhunter.kg",                     name: "headhunter.kg",         parser: generic}
-  - {match: "habr.com",                          name: "Habr Career",           parser: generic}
+  - {match: "headhunter.ge",                     name: "headhunter.ge",         parser: generic, icon: hh}
+  - {match: "headhunter.kg",                     name: "headhunter.kg",         parser: generic, icon: hh}
+  - {match: "habr.com",                          name: "Habr Career",           parser: generic, icon: habr, site: "https://career.habr.com"}

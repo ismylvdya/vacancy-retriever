@@ -115,7 +115,14 @@ kbd { display: inline-block; min-width: 16px; padding: 0 3px; margin-left: 6px; 
 .why { margin: 0 0 4px; color: var(--muted); font-size: 13px; }
 .actions { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; margin-top: 12px; }
 .src { display: inline-flex; align-items: center; gap: 6px; font-size: 13px; color: var(--muted); margin-left: 6px; }
-.src img { width: 14px; height: 14px; border-radius: 3px; object-fit: cover; }
+.src img { width: 14px; height: 14px; border-radius: 3px; object-fit: cover; display: block; }
+.src-ico { position: relative; display: inline-block; }
+/* the channel avatar / sender icon with a small badge of where it came from: Telegram or e-mail */
+.src-telegram .src-ico::after, .src-email .src-ico::after { content: ""; position: absolute; right: -4px; bottom: -3px;
+  width: 9px; height: 9px; border-radius: 50%; box-shadow: 0 0 0 1px var(--panel); }
+.src-telegram .src-ico::after { background: url("/static/icons/telegram.png") center / cover no-repeat; }
+.src-email .src-ico::after { background: var(--panel) url("/static/icons/mail.svg") center / 7px no-repeat;
+  box-shadow: 0 0 0 1px var(--line-strong); }
 .src:hover { color: var(--text); text-decoration: none; }
 .actions .link { margin-left: 12px; }
 .sources { display: flex; flex-wrap: wrap; gap: 4px 14px; margin-top: 8px; }

@@ -113,6 +113,13 @@ class EmailCollector(Collector):
         oldest = since - timedelta(days=1)
         items: list[RawItem] = []
         unknown: list[str] = []
+        # Vacancies taken from earlier letters of this same pass are "known" too: the database only learns about them
+        # after the collector returns, and a letter repeating them must become "all vacancies already collected".
+        taken: set[str] = set()
+
+        def is_known(external_id: str) -> bool:
+            return external_id in taken or ctx.is_known(external_id)
+
         try:
             with mailbox:
                 mailbox.select(readonly=True)
@@ -126,7 +133,8 @@ class EmailCollector(Collector):
                     if mailbox.has_processed_label(fetched):
                         continue
                     letter = items_from_message(self.source.id, mailbox.config.id, uid, fetched.message, rule,
-                                                ctx.is_known)
+                                                is_known)
+                    taken.update(item.external_id for item in letter.items)
                     if letter.unknown:
                         unknown.append(f"{rule.name}: {letter.unknown}")
                     self._watch(config, mailbox.config, uid, fetched.message, letter.items)

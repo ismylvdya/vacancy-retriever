@@ -223,3 +223,15 @@ def test_sample_emails(config):
         if "first" in want:
             first = vacancies[0]
             assert {k: getattr(first, k, None) or first.meta.get(k) for k in want["first"]} == want["first"], name
+
+
+def test_letter_repeating_vacancies_of_an_earlier_letter_in_the_same_pass_is_marked(email_collector, monkeypatch):
+    """Letters 11 and 12 list the same LinkedIn job: the second one becomes a hidden "already collected" item."""
+    collector, imap, _ = email_collector
+    imap.labels.clear()
+    ctx = CollectContext(SourceCursor(), datetime.now(UTC) - timedelta(days=30), 1, lambda _id: False,
+                         threading.Event())
+    items = collector.collect(ctx).items
+    assert [i.meta["email"]["uid"] for i in items] == ["11", "12"]
+    assert not items[0].meta.get("ignore")
+    assert items[1].meta["ignore"].startswith("All vacancies already collected")

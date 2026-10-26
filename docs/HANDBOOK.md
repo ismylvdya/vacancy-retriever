@@ -183,7 +183,7 @@ VK Internship (`vk_internship`: страница стажировки докач
 SuperJob (`superjob`), HR-платформа «Пульс» (`pulse`), Infostud (`infostud`), Технополис Москва (`newsletter`).
 Без образцов — headhunter.ge/.kg и Хабр Карьера (`generic`, письмо целиком в LLM).
 **Иконки:** на карточке у вакансии из письма — имя отправителя и его иконка со значком ✉️ (у Telegram — аватар
-канала со значком Telegram). Иконка отправителя: файл `config/icons/mail-<icon>.png|svg` (LinkedIn и hh лежат файлами:
+канала со значком Telegram). Иконка отправителя: файл `config/icons/mail-<icon>.png|svg` (LinkedIn, hh, SuperJob и «Пульс» лежат файлами:
 linkedin.com не открываем, hh.ru отвечает 406), иначе favicon сайта из поля `site` в `mail.yaml`, иначе конвертик.
 **Безопасность ссылок:** в письмах hh (`loginkey=`) и SuperJob (`?i=`) ссылки входят в аккаунт без пароля —
 парсеры сохраняют только чистый адрес вакансии.

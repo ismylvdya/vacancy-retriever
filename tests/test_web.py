@@ -234,3 +234,12 @@ def test_run_panel_passes_period_and_source_groups(client, monkeypatch):
     assert client.post("/api/run", json={"days": 99}, headers=ORIGIN).status_code == 400
     assert client.post("/api/run", json={"groups": []}, headers=ORIGIN).status_code == 400
     assert 'id="run-more"' in client.get("/").text
+
+
+def test_salary_in_another_currency_shows_rub(client, tmp_paths):
+    import json
+
+    (tmp_paths.data / "rates").mkdir(exist_ok=True)
+    (tmp_paths.data / "rates" / "2026-01-01.json").write_text(json.dumps({"RUB": 1, "EUR": 90.0}))
+    feed = client.get("/").text
+    assert "1500–2000 €" in feed and "≈ 135 000–180 000 ₽" in feed

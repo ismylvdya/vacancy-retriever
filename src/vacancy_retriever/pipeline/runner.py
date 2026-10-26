@@ -25,6 +25,7 @@ from ..collectors.http import BlockedError, PoliteHttpClient, is_forbidden
 from ..collectors.registry import collector_for
 from ..config import AppConfig, SourceConfig
 from ..icons import IconStore
+from ..rates import RatesStore
 from ..llm.base import LlmError, LlmProvider
 from ..scoring.engine import ScoringEngine
 from ..scoring.facts import VacancyFacts
@@ -32,7 +33,7 @@ from ..storage import Storage
 from ..storage.items import StoredRawItem
 from ..storage.runs import SourceRunRecord
 from ..storage.vacancies import NewVacancy
-from ..timeutil import format_local, to_iso, utcnow
+from ..timeutil import format_local, local, to_iso, utcnow
 from .dedup import RawDeduplicator, compare_vacancies, dedup_key
 from .llm_stage import DedupJudge, LlmCaller, ScoredItem, VacancyScorer, run_jobs
 from .prefilter import Prefilter
@@ -130,6 +131,7 @@ class Pipeline:
                             {s.id: self.stats.weight(s) for s in sources if s.enabled},
                             [(s.id, s.name) for s in sources if s.enabled])
         http = self.http_factory()
+        self._rates = RatesStore(self.config.paths).fetch_today(http, local(run_start).date())
         try:
             self._collect_all(run_id, sources, options, run_start, http)
             self._check_cancel()
@@ -392,7 +394,7 @@ class Pipeline:
     def _vacancy_from_facts(self, item: StoredRawItem, facts: VacancyFacts, now: datetime) -> NewVacancy | None:
         if not facts.employer_name or facts.employer_name == "unknown":
             facts.employer_name = item.meta.get("company") or facts.employer_name
-        verdict = self.engine.evaluate(facts, item.published_at, now)
+        verdict = self.engine.evaluate(facts, item.published_at, now, getattr(self, "_rates", None))
         if verdict.decision == "hidden":
             return None
         title = item.title if (not item.multi and item.title) else facts.display_title

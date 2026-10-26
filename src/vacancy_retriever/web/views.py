@@ -8,7 +8,9 @@ from typing import Any
 from ..config import AppConfig, SourceConfig
 from ..storage import Storage
 from ..storage.vacancies import VacancyRecord
-from ..timeutil import format_local, from_iso
+from ..rates import RatesStore
+from ..scoring.salary import format_rub, monthly_rub, parse_salary
+from ..timeutil import format_local, from_iso, local
 
 LANGUAGES = {
     "ru": "Russian", "en": "English", "sr": "Serbian", "de": "German", "fr": "French", "es": "Spanish",
@@ -76,6 +78,7 @@ class Card:
     city: str
     country: str
     salary: str
+    salary_rub: str  # "≈ 77 000 ₽" when the ad is in another currency and the rate is known
     published: str
     is_new: bool
     summary: str
@@ -100,6 +103,8 @@ class Card:
 class CardBuilder:
     def __init__(self, config: AppConfig, storage: Storage):
         self._sources: dict[str, SourceConfig] = {s.id: s for s in config.sources.sources}
+        self._rates = RatesStore(config.paths)
+        self._hours_per_month = config.rules.salary.hours_per_month
         self._sender_icons = sender_icons(config)
         self._storage = storage
         latest = storage.runs.last_finished()
@@ -125,6 +130,7 @@ class CardBuilder:
             city=_known(facts.city) if facts else "",
             country=_known(facts.country) if facts else "",
             salary=_salary(facts.salary_text) if facts else "",
+            salary_rub=self._salary_rub(record),
             published=format_local(record.published_at, "%-d %b") if record.published_at else "",
             is_new=record.run_id == self._latest_run and record.user_status == "new",
             summary=_known(facts.summary_ru) if facts else "",
@@ -141,6 +147,19 @@ class CardBuilder:
             ad_language=_flag(facts.ad_language) if facts and facts.ad_language != "other" else "",
             required_languages=[_flag(code) for code in facts.required_languages] if facts else [],
         )
+
+    def _salary_rub(self, record: VacancyRecord) -> str:
+        """Monthly RUB by the rates of the day the vacancy was collected; only for ads in another currency."""
+        salary = parse_salary(record.facts.salary_text) if record.facts else None
+        if salary is None or salary.currency in (None, "RUB"):
+            return ""
+        rates = self._rates.for_date(local(record.created_at).date() if record.created_at else None)
+        low, high = (monthly_rub(v, salary, rates or {}, self._hours_per_month) for v in (salary.low, salary.high))
+        if low is None and high is None:
+            return ""
+        if low is not None and high is not None:
+            return f"≈ {format_rub(low).removesuffix(' ₽')}–{format_rub(high)}"
+        return f"≈ {format_rub(low)}" if low is not None else f"≈ up to {format_rub(high)}"
 
     def _links(self, record: VacancyRecord) -> list[SourceLink]:
         sites: list[SourceLink] = []
@@ -440,7 +459,9 @@ def debug_info(config: AppConfig, storage: Storage, vacancy_id: int) -> dict[str
     if record is None:
         return None
     if record.facts is not None:
-        explain = ScoringEngine(config.rules).explain(record.facts, record.published_at, utcnow())
+        collected = local(record.created_at).date() if record.created_at else None
+        explain = ScoringEngine(config.rules).explain(record.facts, record.published_at, utcnow(),
+                                                      RatesStore(config.paths).for_date(collected))
         facts = record.facts.model_dump()
     else:
         explain = [f"Skipped before the LLM (no facts): {record.skip_reason or '—'}"]

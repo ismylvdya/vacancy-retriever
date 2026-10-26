@@ -88,6 +88,11 @@ class PrefilterRules(_Strict):
     rvc_serbia_markers: list[str] = Field(default_factory=list)
 
 
+class SalaryRules(_Strict):
+    max_floor_rub: int | None = None
+    hours_per_month: int = 160
+
+
 class Rules(_Strict):
     max_age_days: int = 30
     first_run_days: int = 7
@@ -95,6 +100,7 @@ class Rules(_Strict):
     penalties: PenaltyRules = Field(default_factory=PenaltyRules)
     dropped_seniority: list[str] = Field(default_factory=lambda: ["middle", "senior", "lead"])
     drop_seniority_from_text: bool = False
+    salary: SalaryRules = Field(default_factory=SalaryRules)
     groups: dict[int, GroupInfo]
     prefilter: PrefilterRules = Field(default_factory=PrefilterRules)
     serbia_country_names: list[str] = Field(default_factory=lambda: ["serbia", "сербия", "srbija"])

@@ -6,6 +6,7 @@ from typing import Literal
 
 from ..config import CategoryRule, Rules
 from .facts import VacancyFacts
+from .salary import format_rub, monthly_rub, parse_salary
 
 Decision = Literal["show", "skip", "hidden"]
 ResidencePermit = Literal["yes", "likely", "no"]
@@ -32,12 +33,14 @@ class ScoringEngine:
         self._rules = rules
 
     def evaluate(
-        self, facts: VacancyFacts, published_at: datetime | None, now: datetime
+        self, facts: VacancyFacts, published_at: datetime | None, now: datetime,
+        rates: dict[str, float] | None = None,
     ) -> Verdict:
+        """rates: RUB per currency unit on the day the vacancy was collected (None = no salary rule)."""
         category = self._category(facts)
         in_serbia = self._works_in_serbia(facts)
         permit, permit_reason = self._residence_permit(facts, in_serbia)
-        skip = self._skip_reason(facts, category, in_serbia, published_at, now)
+        skip = self._skip_reason(facts, category, in_serbia, published_at, now) or self._salary_too_high(facts, rates)
         if category.kind == "hidden":
             return Verdict("hidden", "Not a vacancy", None, None, permit, permit_reason, False, False)
         group = self._group(facts, category, in_serbia)
@@ -53,7 +56,23 @@ class ScoringEngine:
             informal_flag=group == 4,
         )
 
-    def explain(self, facts: VacancyFacts, published_at: datetime | None, now: datetime) -> list[str]:
+    def salary_floor_rub(self, facts: VacancyFacts, rates: dict[str, float] | None) -> float | None:
+        salary = parse_salary(facts.salary_text)
+        if salary is None or not rates:
+            return None
+        return monthly_rub(salary.low, salary, rates, self._rules.salary.hours_per_month)
+
+    def _salary_too_high(self, facts: VacancyFacts, rates: dict[str, float] | None) -> str | None:
+        limit = self._rules.salary.max_floor_rub
+        if facts.role_category == "not_a_vacancy" or not limit:
+            return None
+        floor = self.salary_floor_rub(facts, rates)
+        if floor is not None and floor > limit:
+            return f"Salary floor above {format_rub(limit)}"
+        return None
+
+    def explain(self, facts: VacancyFacts, published_at: datetime | None, now: datetime,
+                rates: dict[str, float] | None = None) -> list[str]:
         """Debug mode: the same decision as evaluate(), step by step, in plain words."""
         category = self._category(facts)
         in_serbia = self._works_in_serbia(facts)
@@ -61,9 +80,13 @@ class ScoringEngine:
         lines = [f"Category: {facts.role_category} → {category.kind} (base {category.base}★, cap {category.cap}★)"]
         lines.append(f"Works in Serbia: {'yes' if in_serbia else 'no'} (country {country}, "
                      f"serbian_entity {facts.serbian_entity})")
-        skip = self._skip_reason(facts, category, in_serbia, published_at, now)
+        skip = self._skip_reason(facts, category, in_serbia, published_at, now) or self._salary_too_high(facts, rates)
         if category.kind == "hidden":
             return [*lines, "Decision: hidden (not a vacancy)"]
+        floor = self.salary_floor_rub(facts, rates)
+        if facts.salary_text:
+            lines.append(f"Salary «{facts.salary_text}»: floor ≈ {format_rub(floor)}/month" if floor is not None
+                         else f"Salary «{facts.salary_text}»: no floor in a known currency")
         group, why = self._group_with_reason(facts, category, in_serbia)
         lines.append(f"Group {group}: {why}")
         stars, steps = self._stars_with_steps(facts, category)

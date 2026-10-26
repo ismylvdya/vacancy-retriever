@@ -32,7 +32,7 @@
       {% elif c.city %}<div>{{ c.city }}</div>
       {% else %}<span class="none">—</span>{% endif %}
     </div>
-    <div class="col-salary">{% if c.salary %}{{ c.salary }}{% else %}<span class="none">—</span>{% endif %}</div>
+    <div class="col-salary">{% if c.salary %}{{ c.salary }}{% if c.salary_rub %}<div class="sub" title="Per month, by the rate on the day the vacancy was collected">{{ c.salary_rub }}</div>{% endif %}{% else %}<span class="none">—</span>{% endif %}</div>
     <div class="col-date">{{ c.published }}</div>
   </div>
   {% endif %}

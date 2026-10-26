@@ -9,8 +9,8 @@
 </head>
 <body data-tab="{{ tab }}" class="{{ 'running' if status.running }}">
 <div class="history" aria-label="History of status changes">
-  <button class="btn icon" id="undo-btn" disabled title="Nothing to undo" aria-label="Undo">↶</button>
-  <button class="btn icon" id="redo-btn" disabled title="Nothing to redo" aria-label="Redo">↷</button>
+  <button class="btn icon" id="undo-btn" disabled title="Nothing to undo" aria-label="Undo"><svg viewBox="0 0 16 16" width="15" height="15" aria-hidden="true"><path d="M5.5 3.5 2.5 6.5l3 3" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/><path d="M2.8 6.5h6.7a3.5 3.5 0 0 1 0 7H7" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
+  <button class="btn icon mirror" id="redo-btn" disabled title="Nothing to redo" aria-label="Redo"><svg viewBox="0 0 16 16" width="15" height="15" aria-hidden="true"><path d="M5.5 3.5 2.5 6.5l3 3" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/><path d="M2.8 6.5h6.7a3.5 3.5 0 0 1 0 7H7" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
 </div>
 <label class="debug-toggle" title="Show vacancy ids, the rule trace and LLM facts"><span>Debug</span><input type="checkbox" role="switch" id="debug-toggle"><i class="switch"></i></label>
 <h1 class="app-title">🦆 Vacancy Retriever</h1>

@@ -20,9 +20,37 @@ async function api(method, url, body) {
 function measureSticky() {
   const top = document.querySelector(".top");
   const sub = document.querySelector(".subbar");
-  document.documentElement.style.setProperty("--top-h", `${top ? top.offsetHeight : 0}px`);
-  document.documentElement.style.setProperty("--sub-h", `${sub ? sub.offsetHeight : 0}px`);
+  const groupHead = document.querySelector(".group > .group-head, .group > .section-head");
+  // exact (fractional) heights: offsetHeight rounds, and the rounded-off fraction of a pixel let rows show through
+  const height = (el) => (el ? el.getBoundingClientRect().height : 0);
+  document.documentElement.style.setProperty("--top-h", `${height(top)}px`);
+  document.documentElement.style.setProperty("--sub-h", `${height(sub)}px`);
+  document.documentElement.style.setProperty("--gh-h", `${height(groupHead)}px`);
+  stickInScrollers();
 }
+
+/* Wide tables scroll sideways in .hscroll, and position: sticky does not work inside a scroll box — so their headers
+   ([data-stick]) follow the page with a transform instead. data-stick="1" stays under the data-stick="0" of its box. */
+function stickInScrollers() {
+  const height = (el) => (el ? el.getBoundingClientRect().height : 0);
+  const base = height(document.querySelector(".top")) + height(document.querySelector(".subbar")) + 1;  // + --frame
+  document.querySelectorAll(".hscroll").forEach((box) => {
+    const first = box.querySelector('[data-stick="0"]');
+    // the heading of the card the table is in («Sources · State after the latest run») sticks too: go under it
+    const card = box.closest(".group")?.querySelector(":scope > .section-head, :scope > .group-head");
+    box.querySelectorAll("[data-stick]").forEach((head) => {
+      head.style.transform = "";
+      const level = (head.dataset.stick === "1" && first ? height(first) : 0) + height(card);
+      const owner = head.closest("table, .runs-block") || box;
+      const rect = head.getBoundingClientRect(), area = owner.getBoundingClientRect();
+      const shift = Math.min(base + level - rect.top, area.bottom - rect.bottom - rect.height);
+      if (shift > 0) head.style.transform = `translateY(${shift}px)`;
+    });
+  });
+}
+window.addEventListener("scroll", stickInScrollers, { passive: true });
+window.addEventListener("resize", stickInScrollers);
+document.addEventListener("toggle", stickInScrollers, true);  // a run opened or closed in Statistics → Runs
 if (window.ResizeObserver) {
   const observer = new ResizeObserver(measureSticky);
   document.querySelectorAll(".top, .subbar").forEach((el) => observer.observe(el));
@@ -139,8 +167,20 @@ $("run-custom").addEventListener("click", () => {
   const groups = groupBoxes.filter((box) => box.checked).map((box) => box.value);
   if (!groups.length) { toast("Choose at least one group of sources"); return; }
   try { localStorage.setItem(RUN_KEY, JSON.stringify({ days, groups })); } catch (e) { /* no storage */ }
-  startRun({ days, groups: groups.length === groupBoxes.length ? null : groups });
+  const missed = $("run-missed");
+  startRun({ days, groups: groups.length === groupBoxes.length ? null : groups, include_missed: !!(missed && missed.checked) });
 });
+/* Missed period after a break: stays in the panel until it is included in a run or dismissed. */
+if ($("missed-dismiss")) {
+  $("missed-dismiss").addEventListener("click", async (event) => {
+    event.stopPropagation();
+    try {
+      await api("POST", "/api/missed/dismiss");
+      $("missed").remove();
+      document.querySelector("#run-more .dot-alert")?.remove();
+    } catch (e) { toast(e.message); }
+  });
+}
 
 let cancelArmed = null;
 $("cancel-btn").addEventListener("click", async () => {
@@ -548,7 +588,7 @@ function applicationRow(item) {
   li.dataset.id = item.id;
   const head = el("div", "app-head");
   if (item.active) head.append(el("span", "spinner"));
-  head.append(el("b", "app-title", item.title));
+  head.append(el("b", "app-item-title", item.title));
   const dismiss = el("button", "link quiet app-dismiss", "×");
   Object.assign(dismiss, { title: "Remove from the sidebar (files stay)", ariaLabel: "Remove from the sidebar" });
   dismiss.dataset.app = "dismiss";
@@ -567,6 +607,7 @@ function applicationRow(item) {
     actions.append(a);
   };
   if (item.has_pdf) button("reveal", "Show PDF");
+  if (item.pdf_removed) button("retry", "Rebuild PDF");
   if (item.has_letter) button("letter", "Copy letter");
   if (item.note_url) link(item.note_url, "Note", false);
   if (item.folder_url) link(item.folder_url, "Drive", true);
@@ -575,13 +616,37 @@ function applicationRow(item) {
   return li;
 }
 
+/* The sidebar can be folded into a tab on the right edge; the content then goes back to the centre. */
+const SIDEBAR_KEY = "vr-sidebar-hidden";
+let applyItems = 0;
+let sidebarHidden = false;
+try { sidebarHidden = localStorage.getItem(SIDEBAR_KEY) === "1"; } catch (e) { /* no storage */ }
+function layoutSidebar() {
+  if (!applySidebar) return;
+  const shown = applyItems > 0 && !sidebarHidden;
+  applySidebar.hidden = !shown;
+  $("apply-show").hidden = !(applyItems > 0 && sidebarHidden);
+  $("apply-count").textContent = applyItems || "";
+  document.body.classList.toggle("with-sidebar", shown);
+  measureSticky();
+}
+function setSidebarHidden(hidden) {
+  sidebarHidden = hidden;
+  try { localStorage.setItem(SIDEBAR_KEY, hidden ? "1" : "0"); } catch (e) { /* no storage */ }
+  layoutSidebar();
+}
+if (applySidebar) {
+  $("apply-hide").addEventListener("click", () => setSidebarHidden(true));
+  $("apply-show").addEventListener("click", () => setSidebarHidden(false));
+}
+
 async function refreshApplications() {
   if (!applySidebar) return;
   clearTimeout(applyTimer);
   try {
     const data = await api("GET", "/api/applications");
-    applySidebar.hidden = !data.items.length;
-    document.body.classList.toggle("with-sidebar", data.items.length > 0);
+    applyItems = data.items.length;
+    layoutSidebar();
     $("apply-list").replaceChildren(...data.items.map(applicationRow));
     applyTimer = setTimeout(refreshApplications, data.items.some((item) => item.active) ? 2500 : 30000);
   } catch (e) {

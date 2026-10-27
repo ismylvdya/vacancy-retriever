@@ -1,18 +1,19 @@
 from __future__ import annotations
 
-from datetime import timedelta
+import time
+from datetime import date, timedelta
 from pathlib import Path
 from typing import Any
 
 import pytest
 from fastapi.testclient import TestClient
 
-from vacancy_retriever.apply.drive import DriveItem, NoDrive, file_url, folder_url
+from vacancy_retriever.apply.drive import DriveItem, NoDrive, StubDrive, file_url, folder_url
 from vacancy_retriever.apply.models import ApplicationState, ApplyError, Materials
 from vacancy_retriever.apply.obsidian import ObsidianVault, frontmatter, normalize_company, note_file_name
 from vacancy_retriever.apply.pipeline import ApplicationPipeline, ApplyServices, DossierBuilder
 from vacancy_retriever.apply.resume import MaterialsWriter, insert_cv_link
-from vacancy_retriever.apply.service import ApplicationService, ApplicationWorker
+from vacancy_retriever.apply.service import clean_cv_files, ApplicationService, ApplicationWorker
 from vacancy_retriever.collectors.base import RawItem
 from vacancy_retriever.collectors.job_search import employer_links
 from vacancy_retriever.config import AppConfig, ObsidianSettings
@@ -148,7 +149,9 @@ def test_full_pipeline_makes_note_cv_letter_and_folder(env):
     assert meta["👾где"] == ["🇷🇺яз: в Сербии очно"] and meta["retriever_id"] == env.vacancy_id
     assert meta["👾FK"] == "[[Acme (IT)]]", "employer note found by its name without the legal suffix"
     assert meta["👾необходимые скилы"] == "Python, SQL, A/B testing"
-    assert meta["👾статус"] is None and meta["начало"] is None, "the user still has to apply on the site"
+    assert meta["👾статус"] == ["откликнулся"] and str(meta["начало"]) == date.today().isoformat()
+    assert "%%" not in text, "no service markers in the note"
+    assert text.index("### описание вакансии") < text.index("https://telegram.me/serbiawork/1") < text.index("### моё")
     assert "https://telegram.me/serbiawork/1" in text and "Полный текст вакансии про Data Science" in text
     assert f"[Папка на Google Drive]({folder_url('F1')})" in text and file_url("P1") in text
     assert "ВСТАВИТЬ" not in text
@@ -187,13 +190,42 @@ def test_user_edits_in_the_note_are_kept(env):
     note.rename(renamed)
     text = renamed.read_text(encoding="utf-8").replace("👾необходимые скилы: \"Python, SQL, A/B testing\"",
                                                        "👾необходимые скилы: мои")
-    renamed.write_text(text.replace("## Описание", "Мои мысли\n\n## Описание"), encoding="utf-8")
-    env.storage.applications.update(app.id, skills="Go")
+    text = text.replace("### моё\n\n", "### моё\n\nМои мысли\n")
+    renamed.write_text(text, encoding="utf-8")
+    env.storage.applications.update(app.id, skills="Go", pdf_url="https://drive/new")
     env.service.retry(app.id)
     app = run_all(env)
     text = renamed.read_text(encoding="utf-8")
     assert app.note_path == str(renamed), "found again by retriever_id"
-    assert "👾необходимые скилы: мои" in text and "Мои мысли" in text
+    assert "👾необходимые скилы: мои" in text and "Мои мысли" in text and "https://drive/new" not in text
+    assert "edited by hand" in app.warning
+
+
+def test_cv_files_are_removed_at_the_next_run_and_rebuilt_without_llm(env):
+    env.service.enqueue(env.vacancy_id)
+    app = run_all(env)
+    pdf = Path(app.pdf_path)
+    (pdf.parent / "note_mine.md").write_text("kept", encoding="utf-8")
+    assert clean_cv_files(pdf.parent.parent, keep={app.vacancy_id}) == 0, "an application in work is not touched"
+    assert clean_cv_files(pdf.parent.parent, keep=set()) >= 1
+    assert not pdf.exists() and (pdf.parent / "note_mine.md").exists()
+    env.service.retry(app.id)
+    app = run_all(env)
+    assert Path(app.pdf_path).exists() and env.provider.calls == 1 and env.skill.builds == 2
+
+
+def test_mine_section_follows_the_app_until_the_user_edits_it(env):
+    env.services.drive = NoDrive("Google Drive not connected")
+    env.service.enqueue(env.vacancy_id)
+    app = run_all(env)
+    note = Path(app.note_path)
+    assert "Google Drive не подключён" in note.read_text(encoding="utf-8")
+    env.services.drive = env.drive  # Drive connected later: Retry puts the real links in
+    env.service.retry(app.id)
+    app = run_all(env)
+    text = note.read_text(encoding="utf-8")
+    assert f"[Папка на Google Drive]({folder_url('F1')})" in text and file_url("P1") in text
+    assert "Google Drive не подключён" not in text and text.count("### моё") == 1
 
 
 def test_without_drive_the_rest_is_done_and_letter_keeps_the_marker(env):
@@ -203,6 +235,15 @@ def test_without_drive_the_rest_is_done_and_letter_keeps_the_marker(env):
     assert app.state == ApplicationState.DONE and app.warning == "Google Drive not connected"
     assert "ВСТАВИТЬ" in app.letter and app.folder_url is None
     assert "Google Drive не подключён" in Path(app.note_path).read_text(encoding="utf-8")
+
+
+def test_drive_stub_gives_obviously_fake_links_and_a_warning(env):
+    env.services.drive = StubDrive()
+    env.service.enqueue(env.vacancy_id)
+    app = run_all(env)
+    assert app.state == ApplicationState.DONE and "stub" in app.warning
+    assert app.folder_url.startswith("https://drive-stub.invalid/") and "ВСТАВИТЬ" not in app.letter
+    assert "https://drive-stub.invalid/" in app.letter and "drive.google.com" not in app.letter
 
 
 def test_setup_error_fails_with_retry(env):
@@ -261,7 +302,9 @@ def test_where_labels(env):
     facts = VacancyFacts.model_validate({"ad_language": "en", "work_format": "remote", "country": "Germany"})
     assert builder.where(facts) == ["🇺🇸: удаленка"]
     facts = VacancyFacts.model_validate({"ad_language": "en", "work_format": "office", "country": "Germany"})
-    assert builder.where(facts) == ["🇺🇸: очно в 3-ей стране"]
+    assert builder.where(facts) == [], "no such option in the user's list (28.10.2026)"
+    facts = VacancyFacts.model_validate({"ad_language": "en", "work_format": "hybrid", "country": "Serbia"})
+    assert builder.where(facts) == ["🇺🇸: в Сербии очно"]
     assert builder.where(VacancyFacts()) == []
 
 

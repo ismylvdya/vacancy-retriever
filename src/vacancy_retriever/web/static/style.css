@@ -34,7 +34,8 @@ kbd { display: inline-block; min-width: 16px; padding: 0 3px; margin-left: 6px; 
 [hidden] { display: none !important; }
 
 /* ---------- header ---------- */
-.app-title { margin: 28px 0 0; text-align: center; font-size: 28px; font-weight: 650; letter-spacing: -0.01em; }
+/* 3× the old space around the title (28 → 84 above; 16 → 48 below with the bar's own 16px padding) */
+.app-title { margin: 84px 0 52px; text-align: center; font-size: 56px; font-weight: 650; letter-spacing: -0.02em; line-height: 1.1; }
 .top { position: sticky; top: 0; z-index: 10; background: var(--bg); }
 .nav { display: flex; align-items: center; gap: 2px; max-width: var(--content); margin: 0 auto; padding: 16px 20px 12px; }
 .tab { padding: 5px 10px; border-radius: 6px; color: var(--muted); font-size: 13px; }
@@ -77,15 +78,40 @@ kbd { display: inline-block; min-width: 16px; padding: 0 3px; margin-left: 6px; 
 .notice.error { color: var(--danger); }
 
 /* ---------- layout ---------- */
-.main { max-width: var(--content); margin: 0 auto; padding: 0 20px 48px; }
+.main { max-width: var(--content); margin: 0 auto; padding: var(--frame) 20px 48px; }  /* room for the first card's frame */
 .sheet { background: var(--panel); border-radius: 12px; box-shadow: 0 0 0 1px var(--line); overflow: hidden; margin: 0 0 16px; }
-.group { background: var(--panel); border-radius: 12px; box-shadow: 0 0 0 1px var(--line); margin: 0 0 16px; overflow: clip; }
+.group { background: var(--panel); border-radius: 12px; box-shadow: 0 0 0 1px var(--line); margin: 0 0 16px; overflow: clip;
+  overflow-clip-margin: 4px; }  /* the stuck heading's frame and corner fill sit just outside the card box */
 /* Sticky headers: the top bar, then sub-tabs + filters, then the heading of the group / run being scrolled.
    --top-h and --sub-h are measured in app.js. overflow: clip (not hidden) keeps position: sticky working. */
-.subbar { position: sticky; top: var(--top-h, 0px); z-index: 8; background: var(--bg); padding-top: 2px; }
+.subbar { position: sticky; top: var(--top-h, 0px); z-index: 8; background: var(--bg); padding-top: 2px; box-shadow: 0 -2px 0 var(--bg);
+  margin-bottom: var(--frame); }  /* the card below keeps its 1px frame visible */
 .subbar .segmented { margin-bottom: 10px; }
-.group > .group-head, .group > .section-head { position: sticky; top: calc(var(--top-h, 0px) + var(--sub-h, 0px));
-  z-index: 5; background: var(--panel); border-radius: 12px 12px 0 0; }
+/* --frame: the card's 1px frame lies OUTSIDE its box, so every stuck heading stops 1px below the bars above it —
+   flush against them, the opaque bars would cover the frame (28.10.2026: the top line was always cut off). */
+:root { --frame: 1px; }
+.group > .group-head, .group > .section-head { position: sticky;
+  top: calc(var(--top-h, 0px) + var(--sub-h, 0px) + var(--frame)); z-index: 5; background: none; }
+/* A stuck heading carries the card's top with it: its own rounded corners and frame (::after), and the page
+   background behind them (::before) so nothing scrolled shows in the corners or in a sliver above. */
+.group > .group-head::before, .group > .section-head::before, .group > .group-head::after, .group > .section-head::after {
+  content: ""; position: absolute; z-index: -1; pointer-events: none; }
+.group > .group-head::before, .group > .section-head::before { left: -2px; right: -2px; top: -3px; height: 16px;
+  background: var(--bg); }
+.group > .group-head::after, .group > .section-head::after { inset: -1px -1px 0 -1px; background: var(--panel);
+  border: 1px solid var(--line); border-bottom: 0; border-radius: 13px 13px 0 0; }  /* = the card's 1px ring */
+/* column titles stick right under the group / run heading */
+/* anything wider than the content scrolls sideways inside its card (wide tables, LLM facts, long code) */
+.hscroll { overflow-x: auto; overflow-y: hidden; }
+.runs-block { min-width: 1250px; }   /* every column stays; a narrow window scrolls the runs sideways */
+.hscroll > .table { min-width: 640px; }
+.hscroll [data-stick] { position: relative; z-index: 4; background: var(--panel); will-change: transform;
+  box-shadow: 0 -2px 0 var(--panel); }
+.hscroll thead[data-stick] th { background: var(--panel); }
+pre { max-width: 100%; overflow-x: auto; }
+.group-body > .cells.head, .group > .cells-processed.head { position: sticky; z-index: 4; background: var(--panel);
+  box-shadow: 0 -2px 0 var(--panel);
+  top: calc(var(--top-h, 0px) + var(--sub-h, 0px) + var(--frame) + var(--gh-h, 0px)); }
 /* Each feed group is its own card with an empty gap between them, so it is obvious where a group ends. */
 .sheet { background: none; box-shadow: none; overflow: visible; border-radius: 0; }
 .sheet .group { margin: 0 0 16px; }
@@ -119,9 +145,9 @@ kbd { display: inline-block; min-width: 16px; padding: 0 3px; margin-left: 6px; 
 .new { display: inline-block; width: 6px; height: 6px; border-radius: 50%; background: var(--accent); margin-right: 8px; vertical-align: 2px; }
 .flag { display: inline-block; margin-left: 8px; padding: 0 6px; border-radius: 4px; background: var(--flag-bg);
   color: var(--likely); font-size: 11px; font-weight: 500; line-height: 18px; vertical-align: 1px; }
-.fit { display: inline-flex; gap: 3px; }
-.fit i { width: 6px; height: 6px; border-radius: 50%; background: var(--dot-off); }
-.fit i.on { background: var(--dot-on); }
+.fit { display: inline-flex; gap: 1px; color: var(--dot-on); }
+.fit .star { width: 13px; height: 13px; fill: none; stroke: currentColor; stroke-width: 1.7; stroke-linejoin: round; }
+.fit .star.on { fill: currentColor; }
 .permit-yes { color: var(--ok); }
 .permit-likely { color: var(--likely); }
 .permit-no { color: var(--muted); }
@@ -150,8 +176,16 @@ kbd { display: inline-block; min-width: 16px; padding: 0 3px; margin-left: 6px; 
 .src-telegram .src-ico::after { background: url("/static/icons/telegram.png") center / cover no-repeat; }
 .src-email .src-ico::after { background: var(--panel) url("/static/icons/mail.svg") center / 7px no-repeat;
   box-shadow: 0 0 0 1px var(--line-strong); }
+/* which mailbox the letter came from: the Gmail / Yandex Mail envelope instead of the generic one */
+.src-email.src-from-gmail .src-ico::after, .src-email.src-from-yandex .src-ico::after { width: 7.4px; height: 6px;
+  right: -3.7px; bottom: -3px; border-radius: 0; box-shadow: none; background: center / contain no-repeat; }  /* centre = corner */
+.src-email.src-from-gmail .src-ico::after { background-image: url("/static/icons/gmail.png"); }
+.src-email.src-from-yandex .src-ico::after { background-image: url("/static/icons/yandex-mail.png"); }
 .src:hover { color: var(--text); text-decoration: none; }
 .actions .link { margin-left: 12px; }
+/* Secondary card actions (Copy text, Full text, debug tools): outlined like Apply / Not now / Skip, quieter text. */
+.actions .btn-quiet { color: var(--muted); }
+.actions .btn-quiet:hover { color: var(--text); }
 .sources { display: flex; flex-wrap: wrap; gap: 4px 14px; margin-top: 8px; }
 .sources .src { margin-left: 0; }
 .fulltext { white-space: pre-wrap; font: 13px/1.6 -apple-system, sans-serif; color: var(--text); border-left: 2px solid var(--line-strong);
@@ -193,9 +227,14 @@ body.running .feed-content { display: none; }
 .run-groups { display: flex; gap: 12px; margin: 10px 0 6px; }
 .run-groups input { accent-color: var(--accent); }
 .run-panel .btn { width: 100%; margin-top: 6px; }
+.missed { margin: 0 0 10px; padding: 8px 10px; border-radius: 8px; background: var(--warn-bg, rgba(240, 170, 40, .12)); }
+.missed p { margin: 0 0 4px; }
+.missed label { margin-right: 10px; }
+.run-more { position: relative; }
+.run-more .dot-alert { position: absolute; top: 3px; right: 3px; margin: 0; }
 
 /* ---------- undo / redo, top-left corner (mirrors the Debug switch) ---------- */
-.history { position: fixed; top: 10px; left: 16px; z-index: 40; display: flex; gap: 6px; }
+.history { display: flex; gap: 6px; margin-right: 10px; }
 .btn.icon { width: 28px; height: 26px; padding: 0; font-size: 15px; line-height: 1; display: inline-flex;
   align-items: center; justify-content: center; background: var(--bg); }
 .btn.icon:disabled { color: var(--faint); border-color: var(--line); cursor: default; }
@@ -222,7 +261,7 @@ body.debug .skip-group .btn { border-radius: var(--radius) 0 0 var(--radius); }
 
 /* ---------- debug mode ---------- */
 body:not(.debug) .debug-only { display: none !important; }
-.debug-toggle { position: fixed; top: 14px; right: 16px; z-index: 40; display: inline-flex; align-items: center; gap: 8px;
+.debug-toggle { display: inline-flex; align-items: center; gap: 8px; margin-left: 12px;
   font-size: 12px; color: var(--faint); cursor: pointer; user-select: none; }
 .debug-toggle input { position: absolute; opacity: 0; width: 0; height: 0; }
 .switch { position: relative; width: 28px; height: 16px; border-radius: 999px; background: var(--line-strong); transition: background .15s; }
@@ -299,7 +338,7 @@ body.debug .debug-toggle { color: var(--accent); }
 .run > summary::-webkit-details-marker { display: none; }
 .run > summary:hover { background: var(--hover); }
 .run-row { grid-template-columns: 110px 110px 70px 70px minmax(0, 1fr); font-size: 13px; }
-.stats-row { grid-template-columns: 104px 96px 64px 40px 128px 128px 150px minmax(0, 1fr); }
+.stats-row { grid-template-columns: 104px 92px 60px 52px 52px 70px 120px 116px 140px minmax(280px, 1fr); }
 .real-limit { width: 58px; margin-right: 3px; font: inherit; font-size: 13px; text-align: right; padding: 2px 5px;
   color: var(--text); background: var(--bg); border: 1px solid var(--line); border-radius: 6px; }
 .real-limit:focus { outline: none; border-color: var(--accent); }
@@ -335,21 +374,26 @@ body.debug .debug-toggle { color: var(--accent); }
   .group { overflow-x: auto; }
   .table { min-width: 560px; }
   .run-row { grid-template-columns: 96px 100px 60px 40px minmax(0, 1fr); }
-  .stats-row { grid-template-columns: 96px 90px 40px 80px minmax(0, 1fr); }
-  .stats-row > :nth-child(3), .stats-row > :nth-child(6), .stats-row > :nth-child(7) { display: none; }
-  .app-title { font-size: 22px; margin-top: 16px; }
+  .app-title { font-size: 36px; margin: 48px 0 44px; }
 }
 
 /* Apply sidebar (▶): CV, cover letter, Obsidian note and Drive folder per vacancy */
 .apply-sidebar { position: fixed; top: 0; right: 0; width: 300px; height: 100vh; overflow-y: auto; z-index: 30;
   background: var(--panel); border-left: 1px solid var(--line); padding: 16px 14px 32px; }
 body.with-sidebar { padding-right: 300px; }
-body.with-sidebar .debug-toggle { right: 316px; }
+.apply-hide { margin-left: auto; font-size: 18px; line-height: 1; padding: 0 2px; }
+.apply-tab { position: fixed; top: 50%; right: 0; z-index: 30; transform: translateY(-50%); display: flex;
+  flex-direction: column; align-items: center; gap: 6px; padding: 10px 6px; font: inherit; font-size: 12px;
+  color: var(--muted); background: var(--panel); border: 1px solid var(--line-strong); border-right: 0;
+  border-radius: 10px 0 0 10px; cursor: pointer; }
+.apply-tab:hover { color: var(--text); }
+.apply-tab-label { writing-mode: vertical-rl; letter-spacing: .04em; }
+
 .apply-head { font-size: 15px; margin: 0 0 12px; display: flex; gap: 8px; align-items: baseline; }
 .apply-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 10px; }
 .app-item { border: 1px solid var(--line); border-radius: var(--radius); padding: 10px 10px 8px; }
 .app-head { display: flex; gap: 8px; align-items: center; }
-.app-title { flex: 1; font-size: 13px; line-height: 1.3; }
+.app-item-title { flex: 1; font-size: 13px; line-height: 1.3; }
 .app-dismiss { color: var(--faint); font-size: 16px; line-height: 1; }
 .app-status { margin-top: 4px; color: var(--muted); }
 .app-done .app-status { color: var(--ok); }
@@ -364,6 +408,8 @@ body.with-sidebar .debug-toggle { right: 316px; }
 @keyframes spin { to { transform: rotate(360deg); } }
 @media (max-width: 1000px) {
   body.with-sidebar { padding-right: 0; }
-  body.with-sidebar .debug-toggle { right: 16px; }
+
   .apply-sidebar { position: static; width: auto; height: auto; border-left: 0; border-bottom: 1px solid var(--line); }
 }
+/* a folded group is all heading: the frame goes round the whole card */
+.group.collapsed > .group-head::after { inset: -1px; border-bottom: 1px solid var(--line); border-radius: 13px; }

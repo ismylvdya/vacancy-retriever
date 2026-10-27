@@ -23,6 +23,7 @@ from ..collectors.base import (
 from ..collectors.http import BlockedError, PoliteHttpClient, is_forbidden
 from ..collectors.registry import collector_for
 from ..config import AppConfig, SourceConfig
+from .. import traffic
 from ..icons import IconStore
 from ..rates import RatesStore
 from ..llm.base import LlmError, LlmProvider
@@ -41,6 +42,7 @@ from .progress import ProgressTracker, SourceStats
 log = logging.getLogger(__name__)
 
 TIME_CURSOR_MARGIN = timedelta(hours=1)
+MISSED_SLACK = timedelta(hours=2)  # a smaller gap between periods is not worth a banner
 DEDUP_WINDOW_DAYS = 30
 
 
@@ -49,6 +51,7 @@ class RunOptions:
     source_ids: list[str] | None = None
     limit: int | None = None
     since: timedelta | None = None
+    backfill: dict[str, datetime] | None = None  # source → collect again from here, ignoring its cursor (missed period)
     trigger: str = "ui"
     notify: bool = True
 
@@ -57,6 +60,7 @@ class RunOptions:
             "source_ids": self.source_ids,
             "limit": self.limit,
             "since_hours": self.since.total_seconds() / 3600 if self.since else None,
+            "backfill": {s: to_iso(t) for s, t in self.backfill.items()} if self.backfill else None,
             "trigger": self.trigger,
         }
 
@@ -72,6 +76,7 @@ class RunSummary:
     llm_error: str | None = None
     duration_s: float = 0.0
     started_at: str | None = None
+    network_bytes: int = 0  # what the app downloaded (traffic.py; Claude CLI not included)
 
     @property
     def new_total(self) -> int:
@@ -86,6 +91,7 @@ class RunSummary:
             "pending_llm": self.pending_llm,
             "llm_error": self.llm_error,
             "duration_s": round(self.duration_s, 1),
+            "network_bytes": self.network_bytes,
         }
 
 
@@ -117,18 +123,21 @@ class Pipeline:
         self.stats = SourceStats(config.paths.source_stats)
         self._collectors: dict[str, Collector] = {}
         self._source_status: dict[str, str] = {}
+        self._period_start: dict[str, datetime] = {}  # source → where this run's period began (not first runs)
         self._llm_error: str | None = None
         self._scored_previous: set[int] = set()
 
     # ------------------------------------------------------------------ entry point
     def run(self, options: RunOptions) -> RunSummary:
         started = time.monotonic()
+        self._traffic_start = traffic.total()
         run_start = self.now()
         run_id = self.storage.runs.start(options.as_dict())
         sources = self._selected_sources(options)
         self.progress.start(run_id, to_iso(run_start) or "", os.getpid(),
                             {s.id: self.stats.weight(s) for s in sources if s.enabled},
                             [(s.id, s.name) for s in sources if s.enabled])
+        self._clean_cv_files()
         http = self.http_factory()
         self._rates = RatesStore(self.config.paths).fetch_today(http, local(run_start).date())
         try:
@@ -155,6 +164,7 @@ class Pipeline:
         finally:
             http.close()
             self.stats.save()
+        self._note_missed_periods(run_id, sources, options)
         self._after_commit(summary)
         self.progress.finish("done", self._summary_line(summary))
         if options.notify and self.notifier:
@@ -200,9 +210,15 @@ class Pipeline:
         cursor = self.storage.runs.cursor(source.id)
         first_run = not self.storage.runs.has_cursor(source.id)
         window = options.since or timedelta(days=rules.first_run_days if first_run else rules.max_age_days)
+        since = run_start - window
+        if not first_run:
+            self._period_start[source.id] = since
+        backfill = (options.backfill or {}).get(source.id)
+        if backfill is not None:  # the missed period: walk back to it, already known posts are skipped as usual
+            since, cursor = min(since, backfill), SourceCursor()
         ctx = CollectContext(
             cursor=cursor,
-            since=run_start - window,
+            since=since,
             max_pages=source.max_pages,
             is_known=lambda external_id: self.storage.items.is_known(source.id, external_id),
             cancel_event=self.cancel_event,
@@ -372,7 +388,8 @@ class Pipeline:
         except LlmError as exc:
             self._llm_error = str(exc)
             return
-        caller = LlmCaller(provider, self.storage.llm_calls, run_id, self.config.llm.retries)
+        caller = LlmCaller(provider, self.storage.llm_calls, run_id, self.config.llm.retries,
+                           self.config.paths.data / "llm_failures")
         names = {s.id: s.name for s in self.config.sources.sources}
         scorer = VacancyScorer(self.config, caller, names)
         batches = scorer.batches(pending)
@@ -484,6 +501,30 @@ class Pipeline:
         return decided
 
     # ------------------------------------------------------------------ 6. commit
+    def _clean_cv_files(self) -> None:
+        """CVs made by ▶ live until the next Run (config/apply.yaml → resume.clean_files_on_run)."""
+        if not self.config.apply.resume.clean_files_on_run:
+            return
+        from ..apply.service import clean_cv_files
+
+        removed = clean_cv_files(self.config.paths.data / "applications", self.storage.applications.active_vacancy_ids())
+        if removed:
+            log.info("Removed %d CV files of earlier applications", removed)
+
+    def _note_missed_periods(self, run_id: int, sources: list[SourceConfig], options: RunOptions) -> None:
+        """A period that began after this source's previous run leaves a hole (its cursor moves on): remember it
+        for the Run panel. E-mail is exempt — unread letters are read whatever their age."""
+        runs = self.storage.runs
+        for source in sources:
+            if source.type == "email" or self._source_status.get(source.id) not in ("ok", "truncated"):
+                continue
+            if options.backfill and source.id in options.backfill:
+                runs.clear_missed([source.id])  # the hole was collected in this run
+                continue
+            began, previous = self._period_start.get(source.id), runs.last_collected(source.id, run_id)
+            if began and previous and began - previous > MISSED_SLACK:
+                runs.add_missed(source.id, previous, began)
+
     def _commit(self, run_id: int, started: float, run_start: datetime) -> RunSummary:
         self.progress.phase("committing", "Saving")
         self._update_source_counts(run_id)
@@ -494,6 +535,7 @@ class Pipeline:
             new_by_group=self.storage.vacancies.new_in_feed_for_run(run_id),
             errors=len(error_sources), error_sources=error_sources,
             llm_error=self._llm_error, duration_s=time.monotonic() - started, started_at=to_iso(run_start),
+            network_bytes=traffic.total() - self._traffic_start,
         )
         self._check_cancel()
         self.storage.runs.commit(run_id, summary.as_dict(), self.config.rules.max_age_days, self.now())

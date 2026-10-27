@@ -35,9 +35,10 @@ Reply with ONE JSON object and nothing else:
 class ResumeSkill:
     """The user's resume-tailor Claude skill: its instructions are the prompt, its build.py makes the PDF."""
 
-    def __init__(self, skill_dir: Path, tex_bin_dir: Path | None = None):
+    def __init__(self, skill_dir: Path, tex_bin_dir: Path | None = None, tex_cache_dir: Path | None = None):
         self.skill_dir = skill_dir
         self.tex_bin_dir = tex_bin_dir
+        self.tex_cache_dir = tex_cache_dir
 
     @property
     def script(self) -> Path:
@@ -52,6 +53,8 @@ class ResumeSkill:
         env = dict(os.environ)
         if self.tex_bin_dir:
             env["PATH"] = f"{self.tex_bin_dir}{os.pathsep}{env.get('PATH', '')}"
+        if self.tex_cache_dir:  # Tectonic's packages stay in the project (.cache/tectonic), not in ~/Library/Caches
+            env["TECTONIC_CACHE_DIR"] = str(self.tex_cache_dir)
         return env
 
     def _run(self, *args: str, timeout: int) -> str:
@@ -76,10 +79,12 @@ class ResumeSkill:
 
     def build(self, selection: dict[str, Any], out_dir: Path) -> tuple[Path, str | None]:
         """Compiles the one-page CV. Returns the PDF and a warning (e.g. it did not fit one page)."""
-        if not shutil.which("xelatex", path=self._env()["PATH"]):
-            raise ApplyError("xelatex not found: install TeX (brew install --cask basictex) or set "
-                             "resume.tex_bin_dir in config/apply.yaml", kind="setup")
+        path = self._env()["PATH"]
+        if not (shutil.which("tectonic", path=path) or shutil.which("xelatex", path=path)):
+            raise ApplyError("Neither tectonic nor xelatex found: brew install tectonic (docs/APPLY.md)", kind="setup")
         out_dir.mkdir(parents=True, exist_ok=True)
+        # The skill's own schema shows "section_order": null, but build.py fails on a null: optional keys are dropped.
+        selection = {key: value for key, value in selection.items() if value is not None}
         selection_path = out_dir / "selection.json"
         selection_path.write_text(json.dumps(selection, ensure_ascii=False, indent=1), encoding="utf-8")
         output = self._run("build", str(selection_path), "--out", str(out_dir), timeout=300)

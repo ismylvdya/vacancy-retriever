@@ -225,6 +225,31 @@ def test_llm_failure_keeps_items_pending_and_retries_next_run(env):
     assert [v.title for v in storage.vacancies.feed()] == ["Junior CV Engineer"]
 
 
+class PoisonProvider(FakeProvider):
+    """Writes broken JSON for any batch holding a POISON post (Run 27.10: 20 items stuck on such replies)."""
+
+    async def complete_json(self, system: str, user: str, model: str, schema=None) -> LlmResponse:
+        if "POISON" in user:
+            self.calls += 1
+            exc = LlmError("Invalid JSON in model reply: Expecting ',' delimiter", kind="parse")
+            exc.usage, exc.raw_text = LlmUsage(100, 40, 0, 0, model), '{"results": [{"input_id": 1, oops'
+            raise exc
+        return await super().complete_json(system, user, model, schema)
+
+
+def test_broken_json_for_one_post_does_not_hold_back_the_batch(env):
+    config, storage, paths = env
+    FEED["chan_a"] = [post("chan_a", i, "FACTS:" + json.dumps([facts(f"Junior Data Scientist {i}", f"Acme {i}")]))
+                      for i in range(1, 4)] + [post("chan_a", 4, "POISON")]
+    summary = run(config, storage, paths, PoisonProvider())
+    assert summary.pending_llm == 1  # only the culprit waits
+    assert len(storage.vacancies.feed()) == 3
+    failed = [c for c in storage.llm_calls.by_run(summary.run_id) if not c["ok"]]
+    assert failed and all(c["output_tokens"] == 40 for c in failed)  # tokens of failed calls are counted
+    kept = list((paths.data / "llm_failures").glob("*.txt"))
+    assert kept and "oops" in kept[0].read_text()
+
+
 def test_cancel_during_llm_rolls_back_everything_but_tokens(env):
     config, storage, paths = env
     FEED["chan_a"] = [post("chan_a", 1, "FACTS:" + json.dumps([facts("Junior Data Scientist", "Acme")]))]
@@ -376,3 +401,48 @@ def test_progress_lists_sources_done_failed_and_current(env):
     assert [s["id"] for s in state["sources"]] == ["chan_a", "chan_b", "broken", "mail"]
     assert set(state["done_ids"]) == {"chan_a", "chan_b", "mail"} and state["error_ids"] == ["broken"]
     assert state["current_id"] is None
+
+
+def test_missed_period_after_a_break_is_remembered_until_collected(env):
+    from vacancy_retriever.timeutil import to_iso
+
+    config, storage, paths = env
+    FEED["chan_a"] = [post("chan_a", 1, "FACTS:" + json.dumps([facts("Junior Data Scientist", "Acme")]))]
+    first = run(config, storage, paths, FakeProvider())
+    storage.db.execute("UPDATE runs SET started_at = ? WHERE id = ?", (to_iso(NOW - timedelta(days=10)), first.run_id))
+    run(config, storage, paths, FakeProvider(), since=timedelta(days=1))  # back after 10 days, only 1 day asked
+    missed = storage.runs.missed()
+    assert missed["chan_a"] == (NOW - timedelta(days=10), NOW - timedelta(days=1))
+    assert "mail" not in missed and "broken" not in missed  # e-mail is exempt, failed sources prove nothing
+    run(config, storage, paths, FakeProvider(), backfill={"chan_a": missed["chan_a"][0]})
+    assert FakeCollector.calls[-2].last_id is None or FakeCollector.calls[-1].last_id is None  # cursor ignored
+    assert "chan_a" not in storage.runs.missed()
+    storage.runs.clear_missed()
+    assert storage.runs.missed() == {}
+
+
+def test_run_start_removes_cv_files_of_earlier_applications(env):
+    config, storage, paths = env
+    folder = paths.data / "applications" / "5"
+    folder.mkdir(parents=True)
+    (folder / "Ismailov_CV_Acme_DA.pdf").write_bytes(b"%PDF")
+    (folder / "note_mine.md").write_text("kept", encoding="utf-8")
+    run(config, storage, paths, FakeProvider())
+    assert not (folder / "Ismailov_CV_Acme_DA.pdf").exists() and (folder / "note_mine.md").exists()
+
+
+def test_llm_gets_the_oldest_posts_first(env):
+    config, storage, paths = env
+    config.__dict__["llm"] = config.llm.model_copy(update={"batch_size": 2, "max_concurrency": 1})
+    FEED["chan_a"] = [post("chan_a", i, "FACTS:" + json.dumps([facts(f"Junior Data Scientist {i}", f"Acme {i}")]))
+                      for i in range(1, 6)]  # post i is i+1 hours old
+    seen: list[list[int]] = []
+
+    class Recording(FakeProvider):
+        async def complete_json(self, system, user, model, schema=None):
+            seen.append([int(e["text"].split("Scientist ")[1].split('"')[0]) for e in json.loads(user)])
+            return await super().complete_json(system, user, model, schema)
+
+    run(config, storage, paths, Recording())
+    order = [n for batch in seen for n in batch]
+    assert order == sorted(order, reverse=True), "the oldest (highest number) go first"

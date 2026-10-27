@@ -1,0 +1,17 @@
+#!/bin/sh
+# «xelatex» для build.py скилла resume-tailor, сделанный из Tectonic (brew install tectonic: без sudo, недостающие
+# пакеты TeX он докачивает сам). build.py вызывает `xelatex -interaction=nonstopmode cv.tex` и читает cv.log / cv.pdf.
+# Кэш пакетов Tectonic — в папке проекта (.cache/tectonic), не в ~/Library. Подключается в config/apply.yaml →
+# resume.tex_bin_dir: scripts/tex. С настоящим XeLaTeX (MacTeX / BasicTeX) эта обёртка не нужна.
+ROOT=$(cd "$(dirname "$0")/../.." && pwd)
+export TECTONIC_CACHE_DIR="$ROOT/.cache/tectonic"
+TECTONIC=$(command -v tectonic || echo /opt/homebrew/bin/tectonic)
+FILE=""
+for arg in "$@"; do
+  case "$arg" in
+    -*) ;;            # опции xelatex (-interaction=…) Tectonic не нужны
+    *) FILE="$arg" ;;
+  esac
+done
+[ -n "$FILE" ] || { echo "usage: xelatex file.tex" >&2; exit 2; }
+exec "$TECTONIC" --keep-logs --chatter minimal "$FILE"

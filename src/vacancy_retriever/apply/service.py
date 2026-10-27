@@ -11,7 +11,7 @@ from ..config import AppConfig
 from ..storage import Storage
 from ..storage.applications import ApplicationRepository
 from ..timeutil import utcnow
-from .drive import CloudFolders, GoogleDrive, GoogleToken, NoDrive
+from .drive import CloudFolders, GoogleDrive, GoogleToken, NoDrive, StubDrive
 from .models import Application, ApplicationState
 from .obsidian import ObsidianVault
 from .pipeline import ApplicationPipeline, ApplyServices, DossierBuilder
@@ -20,6 +20,28 @@ from .resume import MaterialsWriter, ResumeSkill
 log = logging.getLogger(__name__)
 
 TOKEN_FILE = "google_drive_token.json"
+
+
+KEPT_FILES = {"note_mine.md"}  # tiny, and needed to keep the user's edits in «### моё»
+
+
+def clean_cv_files(out_dir: Path, keep: set[int]) -> int:
+    """PDF / .tex / selection.json of applications are deleted when the next Run starts (user, 28.10.2026: they stay
+    in Finder until then, no CVs pile up in the project). Applications still in work (`keep`) are not touched.
+    The selection stays in the database, so «Rebuild PDF» in the sidebar makes the PDF again without LLM."""
+    if not out_dir.is_dir():
+        return 0
+    removed = 0
+    for path in out_dir.glob("*/*"):
+        if not path.parent.name.isdigit() or int(path.parent.name) in keep or path.name in KEPT_FILES:
+            continue
+        try:
+            if path.is_file():
+                path.unlink()
+                removed += 1
+        except OSError:
+            continue
+    return removed
 
 
 class ApplicationWorker:
@@ -148,6 +170,8 @@ def reveal_in_finder(path: Path) -> bool:
 
 def create_drive(config: AppConfig) -> CloudFolders:
     settings = config.apply.drive
+    if settings.stub:
+        return StubDrive()
     if not settings.enabled:
         return NoDrive("Google Drive is off (config/apply.yaml → drive.enabled)")
     client_id, secret = config.secrets.get("GOOGLE_OAUTH_CLIENT_ID"), config.secrets.get("GOOGLE_OAUTH_CLIENT_SECRET")
@@ -168,7 +192,8 @@ def create_application_service(config: AppConfig, storage: Storage) -> Applicati
     vault = ObsidianVault(vault_dir, apply.obsidian) if vault_dir and vault_dir.is_dir() else None
     resume = apply.resume
     skill = ResumeSkill(config.resolve_path(resume.skill_dir),
-                        config.resolve_path(resume.tex_bin_dir) if resume.tex_bin_dir else None)
+                        config.resolve_path(resume.tex_bin_dir) if resume.tex_bin_dir else None,
+                        config.paths.root / ".cache" / "tectonic")
     llm = config.llm
     sdk = llm.claude_sdk.model_copy(update={"effort": resume.effort, "thinking": None})
     model = llm.stage_models.resume or llm.stage_models.scoring

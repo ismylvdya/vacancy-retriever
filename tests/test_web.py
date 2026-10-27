@@ -205,7 +205,7 @@ def test_email_vacancy_shows_sender_name_and_icon(client, tmp_paths):
     storage.vacancies.attach_source(run_id, vacancy_id, raw_id, "gmail", item.url)
     storage.runs.commit(run_id, {}, 1)
     feed = client.get("/").text
-    assert 'class="src src-email"' in feed and "LinkedIn job alerts" in feed
+    assert 'class="src src-email src-from-gmail"' in feed and "LinkedIn job alerts" in feed
     assert 'src="/icons/mail-linkedin"' in feed
     assert client.get("/icons/mail-linkedin").status_code == 200
     assert client.get("/icons/mail-nothing").headers["content-type"].startswith("image/svg")
@@ -275,3 +275,23 @@ def test_real_share_of_the_limit_is_typed_by_hand(client):
     assert client.post(f"/api/runs/{run_id}/real-limit", json={"percent": 140}, headers=ORIGIN).status_code == 400
     assert client.post("/api/runs/99999/real-limit", json={"percent": 1}, headers=ORIGIN).status_code == 404
     assert client.post(f"/api/runs/{run_id}/real-limit", json={"percent": None}, headers=ORIGIN).status_code == 200
+
+
+def test_missed_period_banner_include_and_dismiss(client, tmp_paths, monkeypatch):
+    from vacancy_retriever.pipeline.manager import RunManager
+
+    storage = Storage.open(tmp_paths.default_db, tmp_paths.token_log)
+    assert 'id="missed"' not in client.get("/").text
+    now = utcnow().replace(microsecond=0)  # stored to the second
+    start, end = now - timedelta(days=10), now - timedelta(days=1)
+    storage.runs.add_missed("serbiawork", start, end)
+    page = client.get("/").text
+    assert 'id="missed"' in page and "Not collected" in page and 'id="run-missed"' in page
+    started = []
+    monkeypatch.setattr(RunManager, "start", lambda self, options: started.append(options))
+    client.post("/api/run", json={"days": 1, "include_missed": True}, headers=ORIGIN)
+    assert started[-1].backfill == {"serbiawork": start}
+    client.post("/api/run", json={"days": 1, "groups": ["sites"], "include_missed": True}, headers=ORIGIN)
+    assert started[-1].backfill is None, "a Telegram hole is not collected by a sites-only run"
+    assert client.post("/api/missed/dismiss", headers=ORIGIN).status_code == 200
+    assert 'id="missed"' not in client.get("/").text

@@ -31,6 +31,7 @@ from pathlib import Path
 import httpx
 from bs4 import BeautifulSoup
 
+from .. import traffic
 from .http import USER_AGENT
 from .vpn import VpnError, XrayTunnel
 
@@ -197,6 +198,7 @@ class LinkedInGuestFetcher:
         self._fetched += 1
         try:
             response = self._http().get(url)
+            traffic.add(traffic.response_size(response))
         except httpx.HTTPError as exc:
             log.info("LinkedIn guest page %s failed: %s", url, exc)
             return None

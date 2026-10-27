@@ -307,6 +307,7 @@ class ObsidianSettings(_Strict):
     tags: list[str] = Field(default_factory=lambda: ["👾травля", "👾retrieved"])
     what: str = "📋 вакансия"
     label_non_it: str = "📋не IT"
+    status: str = "откликнулся"
     where: WhereLabels = Field(default_factory=WhereLabels)
     employer_what: str = "🧔🏻‍♂️ работодатель"
 
@@ -316,10 +317,12 @@ class ResumeSettings(_Strict):
     tex_bin_dir: str | None = None
     max_skills: int = Field(default=10, ge=1, le=30)
     effort: Literal["low", "medium", "high"] | None = "medium"
+    clean_files_on_run: bool = True
 
 
 class DriveSettings(_Strict):
     enabled: bool = True
+    stub: bool = False
     root_folder: str = "Vacancy Retriever"
     share_with_link: bool = True
 

@@ -56,6 +56,42 @@ class RunRepository:
     def history(self, limit: int = 200) -> list[dict[str, Any]]:
         return [dict(r) for r in self.db.query("SELECT * FROM runs ORDER BY id DESC LIMIT ?", (limit,))]
 
+    # ---- missed periods: a run whose period starts after the previous run leaves a hole nobody will collect
+    #      (cursors move on). Kept per source until included in a run or dismissed (user, 28.10.2026).
+    MISSED_KEY = "missed_periods"
+
+    def last_collected(self, source_id: str, before_run: int) -> datetime | None:
+        """Start of the latest committed run, before `before_run`, that collected this source."""
+        row = self.db.query_one(
+            "SELECT r.started_at FROM source_runs s JOIN runs r ON r.id = s.run_id WHERE s.source_id = ?"
+            " AND s.run_id < ? AND r.status = 'committed' AND s.status IN ('ok', 'truncated')"
+            " ORDER BY r.id DESC LIMIT 1", (source_id, before_run))
+        return from_iso(row["started_at"]) if row else None
+
+    def missed(self) -> dict[str, tuple[datetime, datetime]]:
+        row = self.db.query_one("SELECT value FROM meta WHERE key = ?", (self.MISSED_KEY,))
+        try:
+            data = json.loads(row["value"]) if row else {}
+        except ValueError:
+            data = {}
+        return {source: (from_iso(a), from_iso(b)) for source, (a, b) in data.items()}
+
+    def _save_missed(self, periods: dict[str, tuple[datetime, datetime]]) -> None:
+        value = json.dumps({s: [to_iso(a), to_iso(b)] for s, (a, b) in periods.items()})
+        self.db.execute("INSERT INTO meta(key, value) VALUES (?, ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value",
+                        (self.MISSED_KEY, value))
+
+    def add_missed(self, source_id: str, start: datetime, end: datetime) -> None:
+        periods = self.missed()
+        if source_id in periods:  # holes of one source merge into one span
+            start, end = min(start, periods[source_id][0]), max(end, periods[source_id][1])
+        periods[source_id] = (start, end)
+        self._save_missed(periods)
+
+    def clear_missed(self, source_ids: list[str] | None = None) -> None:
+        periods = self.missed()
+        self._save_missed({} if source_ids is None else {s: p for s, p in periods.items() if s not in source_ids})
+
     def set_real_limit(self, run_id: int, percent: float | None) -> bool:
         """The share of the 5-hour Claude Pro limit the run really took (claude.ai → Settings → Usage), typed by hand."""
         cursor = self.db.execute("UPDATE runs SET real_limit_pct = ? WHERE id = ?", (percent, run_id))

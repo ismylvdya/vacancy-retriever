@@ -10,6 +10,7 @@ from email import message_from_bytes
 from email.message import Message
 from email.policy import default as default_policy
 
+from ... import traffic
 from ...config import MailboxConfig
 from . import utf7
 
@@ -65,6 +66,8 @@ class Mailbox:
 
     def _check(self, response: tuple[str, list], action: str) -> list:
         status, data = response
+        traffic.add(sum(sum(len(x) for x in part if isinstance(x, bytes)) if isinstance(part, tuple)
+                        else len(part) if isinstance(part, bytes) else 0 for part in data or []))
         if status != "OK":
             raise MailError(f"{self.config.name}: {action} failed: {data!r}")
         return data

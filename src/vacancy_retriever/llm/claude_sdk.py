@@ -144,7 +144,12 @@ class ClaudeSdkProvider(LlmProvider):
         if result.structured_output is not None and isinstance(result.structured_output, dict):
             data = result.structured_output
         else:
-            data = parse_json_object(result.result or "".join(text_parts))
+            text = result.result or "".join(text_parts)
+            try:
+                data = parse_json_object(text)
+            except LlmError as exc:
+                exc.usage, exc.raw_text = usage, text  # the tokens were spent all the same
+                raise
         return LlmResponse(data=data, usage=usage, raw_text=result.result or "", auth_source=auth_source)
 
     @staticmethod

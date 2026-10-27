@@ -14,6 +14,8 @@ class LlmError(Exception):
         super().__init__(message)
         self.kind = kind
         self.retryable = retryable
+        self.usage: LlmUsage | None = None  # tokens the failed call still spent (e.g. a reply that is not JSON)
+        self.raw_text: str | None = None    # the reply itself, for diagnosis
 
 
 @dataclass
@@ -49,8 +51,24 @@ class LlmProvider(ABC):
 _FENCE = re.compile(r"^```(?:json)?\s*|\s*```$", re.M)
 
 
+def _repair_quotes(text: str, attempts: int = 40) -> Any:
+    """The usual way a model breaks JSON: a quote inside a string left unescaped («company "Pulse" hires»).
+    The decoder stops right after such a quote expecting ',' or '}' — escape the quote it stopped after and retry."""
+    for _ in range(attempts):
+        try:
+            return json.loads(text)
+        except json.JSONDecodeError as exc:
+            if not exc.msg.startswith(("Expecting ',' delimiter", "Expecting ':' delimiter")):
+                raise
+            quote = text.rfind('"', 0, exc.pos)
+            if quote <= 0 or text[quote - 1] == "\\":
+                raise
+            text = text[:quote] + '\\"' + text[quote + 1:]
+    return json.loads(text)
+
+
 def parse_json_object(text: str) -> dict[str, Any]:
-    """Parse the JSON object from a model reply, tolerating code fences and surrounding prose."""
+    """Parse the JSON object from a model reply, tolerating code fences, surrounding prose and unescaped quotes."""
     cleaned = _FENCE.sub("", text.strip())
     try:
         value = json.loads(cleaned)
@@ -59,7 +77,7 @@ def parse_json_object(text: str) -> dict[str, Any]:
         if start < 0 or end <= start:
             raise LlmError(f"No JSON object in model reply: {text[:200]!r}", kind="parse") from None
         try:
-            value = json.loads(cleaned[start : end + 1])
+            value = _repair_quotes(cleaned[start : end + 1])
         except json.JSONDecodeError as exc:
             raise LlmError(f"Invalid JSON in model reply: {exc}", kind="parse") from exc
     if not isinstance(value, dict):

@@ -48,6 +48,7 @@ class RunRequest(BaseModel):
 
     days: int | None = None
     groups: list[str] | None = None
+    include_missed: bool = False  # also collect the missed periods of the chosen sources (banner in the panel)
 
 
 SOURCE_GROUPS = {"telegram": lambda s: s.type == "telegram", "email": lambda s: s.type == "email",
@@ -122,8 +123,21 @@ def create_app(config: AppConfig, storage: Storage, port: int, manager: RunManag
         return templates.TemplateResponse(request, template, {
             "tab": tab, "feed_count": counts.get("new", 0), "status": full_status(),
             "health_problems": health_problems(), "notices": notices.active(config.paths.notices),
-            "max_days": config.rules.max_age_days, **context,
+            "max_days": config.rules.max_age_days, "missed": missed_summary(), **context,
         })
+
+    def missed_summary() -> dict[str, Any] | None:
+        """Run panel banner: the span of all missed periods and the names of their sources."""
+        periods = storage.runs.missed()
+        if not periods:
+            return None
+        names = {s.id: s.name for s in config.sources.sources}
+        start, end = min(a for a, _ in periods.values()), max(b for _, b in periods.values())
+        groups = sorted({g for s in config.sources.sources if s.id in periods
+                         for g, test in SOURCE_GROUPS.items() if test(s)})
+        return {"from": format_local(start, "%-d %b %H:%M"), "to": format_local(end, "%-d %b %H:%M"),
+                "count": len(periods), "groups": groups,
+                "sources": ", ".join(sorted(names.get(s, s) for s in periods))}
 
     def health_problems() -> int:
         return sum(1 for row in views.latest_source_states(views.health(config, storage, limit=6)) if row.warn)
@@ -199,11 +213,20 @@ def create_app(config: AppConfig, storage: Storage, port: int, manager: RunManag
             source_ids = [s.id for s in config.sources.sources if s.enabled
                           and any(SOURCE_GROUPS[g](s) for g in request.groups)]
         since = timedelta(days=request.days) if request.days else None
+        backfill = None
+        if request.include_missed:
+            chosen = set(source_ids) if source_ids is not None else {s.id for s in config.sources.sources if s.enabled}
+            backfill = {s: start for s, (start, _) in storage.runs.missed().items() if s in chosen} or None
         try:
-            manager.start(RunOptions(source_ids=source_ids, since=since, trigger="ui"))
+            manager.start(RunOptions(source_ids=source_ids, since=since, backfill=backfill, trigger="ui"))
         except AlreadyRunning as exc:
             raise HTTPException(409, str(exc)) from exc
         return {"started": True}
+
+    @app.post("/api/missed/dismiss")
+    def dismiss_missed() -> dict[str, Any]:
+        storage.runs.clear_missed()
+        return {"ok": True}
 
     @app.post("/api/runs/{run_id}/real-limit")
     def set_real_limit(run_id: int, value: RealLimit) -> dict[str, Any]:

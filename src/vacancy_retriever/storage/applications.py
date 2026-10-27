@@ -56,6 +56,12 @@ class ApplicationRepository:
         )
         return Application.from_row(row) if row else None
 
+    def active_vacancy_ids(self) -> set[int]:
+        """Vacancies whose application is queued, in work or waiting for the Claude limit."""
+        rows = self.db.query("SELECT vacancy_id FROM applications WHERE state IN (?, ?, ?)",
+                             (ApplicationState.QUEUED, ApplicationState.WORKING, ApplicationState.WAITING))
+        return {r["vacancy_id"] for r in rows}
+
     def visible(self) -> list[Application]:
         rows = self.db.query("SELECT * FROM applications WHERE dismissed = 0 ORDER BY id DESC")
         return [Application.from_row(r) for r in rows]

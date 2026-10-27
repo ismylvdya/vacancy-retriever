@@ -26,6 +26,8 @@ from urllib.parse import urlparse
 
 import httpx
 
+from .. import traffic
+
 log = logging.getLogger(__name__)
 
 JSEARCH_URL = "https://api.openwebninja.com/jsearch/search-v2"
@@ -281,6 +283,7 @@ class JobSearchLookup:
             self._remote_left[provider.id] -= 1
         try:
             response = self._http().request(method, url, params=params, headers=headers)
+            traffic.add(traffic.response_size(response))
         except httpx.HTTPError as exc:
             log.info("Job search %s failed: %s", provider.id, type(exc).__name__)  # no URL: it may carry the key
             return None

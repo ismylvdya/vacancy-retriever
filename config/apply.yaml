@@ -10,7 +10,7 @@ retry_minutes: 30
 
 obsidian:
   # Папка vault (абсолютный путь или относительно папки проекта). Пусто = заметки не создаются.
-  vault_dir: VAULT/chumbulev
+  vault_dir: ~/Library/Mobile Documents/iCloud~md~obsidian/Documents/chumbulev
   # Подпапка внутри vault для новых заметок. Пусто = корень (как у существующих заметок-вакансий).
   folder: ""
   # Теги новой заметки: первый — общий тег поиска работы, второй отличает созданные приложением.
@@ -18,30 +18,42 @@ obsidian:
   what: "📋 вакансия"
   # Метка для работы руками (категории с kind: manual в rules.yaml).
   label_non_it: "📋не IT"
-  # Что писать в «👾где»: язык работодателя × формат работы.
+  # «👾статус» новой заметки (решение пользователя 28.10.2026). Пусто = не ставить.
+  status: "откликнулся"
+  # Что писать в «👾где» (ровно одно значение): язык работодателя × формат работы. Пусто = не заполнять.
+  # «Гибрид в Сербии» = «в Сербии очно».
   where:
     ru_remote: "🇷🇺яз: удаленка"
     ru_serbia: "🇷🇺яз: в Сербии очно"
     ru_abroad: "🇷🇺яз: очно в 3-ей стране"
     en_remote: "🇺🇸: удаленка"
     en_serbia: "🇺🇸: в Сербии очно"
-    en_abroad: "🇺🇸: очно в 3-ей стране"
+    en_abroad: ""       # такого варианта нет в списке пользователя (28.10.2026)
   # Заметки-работодатели для ссылки в «👾FK»: заметки с этим значением в «👾что_это» (по имени файла и aliases).
   employer_what: "🧔🏻‍♂️ работодатель"
 
 resume:
   # Папка скилла resume-tailor (SKILL.md, scripts/build.py, references/).
-  skill_dir: ~/.claude/skills/resume-tailor
+  # Скилл синхронизируется из claude.ai в ~/.claude/skills/synced/<id>/resume-tailor (путь меняется при пересинхронизации).
+  skill_dir: ~/.claude/skills/synced/8437cc82-309a-4070-9f7c-de6326094222_f6e7bee1-9ee5-4fe7-b462-2a288701e268/resume-tailor
   # Папка с xelatex, если его нет в PATH (например /Library/TeX/texbin после brew install --cask basictex).
-  tex_bin_dir: /Library/TeX/texbin
+  # scripts/tex — обёртка «xelatex» над Tectonic (brew install tectonic, без sudo; кэш в .cache/tectonic).
+  tex_bin_dir: scripts/tex
   # Сколько ключевых навыков вакансии писать в свойство «👾необходимые скилы».
   max_skills: 10
   # Глубина размышлений модели для резюме и письма (claude_sdk): low | medium | high.
   effort: medium
+  # true — PDF / .tex резюме из data/applications/ удаляются при запуске следующего Run (до него лежат в Finder;
+  # заявки в работе не трогаются). Подборка блоков остаётся в базе: «Rebuild PDF» в сайдбаре соберёт PDF заново
+  # без LLM. Решение пользователя 28.10.2026.
+  clean_files_on_run: true
 
 drive:
   # false — папки и загрузка в Google Drive не делаются (в письме останется маркер ВСТАВИТЬ).
   enabled: true
+  # true — заглушка вместо Google Drive: явно фальшивые ссылки https://drive-stub.invalid/… в письме и заметке
+  # (чтобы проверить всё остальное до настройки Drive). Письмо с такой ссылкой НЕ отправлять. Решение 28.10.2026.
+  stub: true
   # Общая папка приложения в «Мой диск».
   root_folder: Vacancy Retriever
   # Папки вакансий доступны всем, у кого есть ссылка (только чтение) — иначе работодатель не откроет резюме.

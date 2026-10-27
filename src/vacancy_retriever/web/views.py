@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 from collections import defaultdict
 from dataclasses import dataclass, field
+from pathlib import Path
 from typing import Any
 from urllib.parse import quote
 
@@ -259,6 +260,13 @@ class HealthRun:
     rows: list[HealthRow] = field(default_factory=list)
     problems: int = 0
     real_limit_pct: float | None = None  # typed by the user from claude.ai → Usage
+    collected: int = 0  # new posts / letters / cards collected by all sources
+    to_feed: int = 0    # of them, vacancies that went to the feed
+
+    @property
+    def network_mb(self) -> str:
+        value = self.summary.get("network_bytes")
+        return "" if value is None else f"{value / 1_000_000:.1f}"
 
 
 def health(config: AppConfig, storage: Storage, limit: int = 60) -> list[HealthRun]:
@@ -287,6 +295,8 @@ def health(config: AppConfig, storage: Storage, limit: int = 60) -> list[HealthR
                 ALERT_LABELS.get(alert, alert), warn,
             ))
             health_run.problems += int(warn)
+            health_run.collected += row["collected"] or 0
+            health_run.to_feed += row["to_feed"] or 0
         result.append(health_run)
     return list(reversed(result))
 
@@ -546,7 +556,10 @@ def application_item(storage: Storage, application: Application) -> dict[str, An
         "employer": record.employer if record else "",
         "state": state, "active": application.state.active, "status": status,
         "error": application.error, "warning": application.warning,
-        "has_pdf": bool(application.pdf_path), "has_letter": bool(application.letter),
+        "has_pdf": bool(application.pdf_path and Path(application.pdf_path).exists()),
+        # the CV file is deleted when the next Run starts (apply.yaml → resume.clean_files_on_run); Retry rebuilds it
+        "pdf_removed": bool(state == "done" and application.pdf_path
+                            and not Path(application.pdf_path).exists()), "has_letter": bool(application.letter),
         "note_url": f"obsidian://open?path={quote(application.note_path)}" if application.note_path else None,
         "folder_url": application.folder_url, "pdf_url": application.pdf_url,
     }

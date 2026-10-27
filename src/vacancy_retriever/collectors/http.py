@@ -9,6 +9,8 @@ from urllib.parse import urlparse
 
 import httpx
 
+from .. import traffic
+
 log = logging.getLogger(__name__)
 
 USER_AGENT = (
@@ -90,6 +92,7 @@ class PoliteHttpClient:
             try:
                 target = httpx.URL(url).copy_merge_params(params) if params else url
                 response = self._client.get(target)
+                traffic.add(traffic.response_size(response))
             except httpx.TransportError as exc:
                 last_exc = exc
                 log.warning("GET %s failed (%s), attempt %s", url, exc, attempt + 1)

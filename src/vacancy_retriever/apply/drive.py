@@ -65,6 +65,25 @@ class NoDrive(CloudFolders):
         raise ApplyError(self.reason, kind="setup")
 
 
+class StubDrive(CloudFolders):
+    """drive.stub: no Google at all — obviously fake links (the .invalid domain never resolves), so the rest of the
+    application (note, letter, sidebar) can be tried before Google Drive is set up. The letter must not be sent
+    with such a link: the sidebar warns about it."""
+
+    STUB_HOST = "https://drive-stub.invalid"
+    reason = "Google Drive stub: the links are fake — replace them before sending (config/apply.yaml → drive.stub)"
+
+    @property
+    def available(self) -> bool:
+        return True
+
+    def ensure_folder(self, key: int, name: str) -> DriveItem:
+        return DriveItem(f"stub-folder-{key}", f"{self.STUB_HOST}/folder/{key}")
+
+    def upload_pdf(self, key: int, folder_id: str, path: Path) -> DriveItem:
+        return DriveItem(f"stub-pdf-{key}", f"{self.STUB_HOST}/folder/{key}/{path.name}")
+
+
 class GoogleToken:
     """OAuth tokens of the Desktop-app client in data/google_drive_token.json (owner-only permissions)."""
 

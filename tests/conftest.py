@@ -26,3 +26,17 @@ def tmp_paths(tmp_path: Path) -> ProjectPaths:
     paths = ProjectPaths(tmp_path)
     paths.ensure()
     return paths
+
+
+@pytest.fixture(autouse=True)
+def no_network(monkeypatch):
+    """Tests never use the network (CLAUDE.md). Before 28.10.2026 every pipeline test downloaded CBR rates: 6–10 s
+    each and a flaky cancel test. Mocked transports (httpx.MockTransport) are not affected."""
+    import httpx
+
+    def refuse(self, request):
+        raise httpx.ConnectError(f"tests must not use the network: {request.url.host}", request=request)
+
+    monkeypatch.setattr(httpx.HTTPTransport, "handle_request", refuse)
+    # The pipeline asks for today's rates on every run: in tests there are none (salary tests use saved files).
+    monkeypatch.setattr("vacancy_retriever.rates.RatesStore._download", staticmethod(lambda http: None))

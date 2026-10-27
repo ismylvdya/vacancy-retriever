@@ -1,5 +1,6 @@
 {% macro fit_dots(n) -%}
-{%- if n -%}<span class="fit" title="Fit {{ n }} of 5" aria-label="Fit {{ n }} of 5">{% for i in range(5) %}<i class="{{ 'on' if i < n }}"></i>{% endfor %}</span>
+{#- star.fill / star in the shape of SF Symbols, one colour (P2, 28.10.2026) -#}
+{%- if n -%}<span class="fit" title="Fit {{ n }} of 5" aria-label="Fit {{ n }} of 5">{% for i in range(5) %}<svg class="star{{ ' on' if i < n }}" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3.2l2.6 5.6 6.1.7-4.5 4.2 1.2 6.1L12 16.8l-5.4 3 1.2-6.1-4.5-4.2 6.1-.7z"/></svg>{% endfor %}</span>
 {%- else -%}<span class="fit"></span>{%- endif -%}
 {%- endmacro %}
 
@@ -47,7 +48,7 @@
       {%- if c.required_languages %}<span title="Required languages">Requires {{ c.required_languages | join(' ') }}</span>{% endif -%}
     </p>
     {% endif %}
-    {% if c.sources %}<div class="sources">{% for s in c.sources %}<a class="src src-{{ s.kind }}" href="{{ s.url }}" target="_blank" rel="noopener noreferrer"><span class="src-ico"><img src="/icons/{{ s.icon or s.source_id }}" alt="" loading="lazy"></span>{{ s.name }}</a>{% endfor %}</div>{% endif %}
+    {% if c.sources %}<div class="sources">{% for s in c.sources %}<a class="src src-{{ s.kind }} src-from-{{ s.source_id }}" href="{{ s.url }}" target="_blank" rel="noopener noreferrer"><span class="src-ico"><img src="/icons/{{ s.icon or s.source_id }}" alt="" loading="lazy"></span>{{ s.name }}</a>{% endfor %}</div>{% endif %}
     <div class="actions">
       {% if processed %}
         <button class="btn" data-action="status" data-status="new">Return to feed<kbd>R</kbd></button>
@@ -57,11 +58,11 @@
         <span class="skip-group"><button class="btn" data-action="status" data-status="skipped">Skip<kbd>◀</kbd></button><input class="debug-only skip-note" type="text" placeholder="why skip? (optional)" aria-label="Reason of the skip"></span>
       {% endif %}
       <span class="spacer"></span>
-      <button class="link quiet debug-only" data-action="report">Report</button>
-      <button class="link quiet debug-only" data-action="copy-id">Copy id</button>
-      <button class="link quiet debug-only" data-action="copy-debug">Copy debug report</button>
-      <button class="link quiet" data-action="copy">Copy text</button>
-      <button class="link quiet" data-action="fulltext">Full text</button>
+      <button class="btn btn-quiet debug-only" data-action="report">Report</button>
+      <button class="btn btn-quiet debug-only" data-action="copy-id">Copy id</button>
+      <button class="btn btn-quiet debug-only" data-action="copy-debug">Copy debug report</button>
+      <button class="btn btn-quiet" data-action="copy">Copy text<kbd>C</kbd></button>
+      <button class="btn btn-quiet" data-action="fulltext">Full text<kbd>↵</kbd></button>
     </div>
     {% if c.reports %}<div class="debug-only reports"><h4>Reports</h4>{% for r in c.reports %}<p><span class="muted small">{{ r.date }}</span> {{ r.text }}</p>{% endfor %}</div>{% endif %}
     <div class="debug-only debug-box" data-loaded=""></div>

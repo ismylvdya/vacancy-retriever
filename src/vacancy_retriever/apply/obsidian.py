@@ -4,6 +4,7 @@ import json
 import re
 from collections.abc import Iterator
 from dataclasses import dataclass
+from datetime import date
 from pathlib import Path
 from urllib.parse import quote
 
@@ -17,6 +18,9 @@ SKILLS_PROPERTY = "👾необходимые скилы"
 _FORBIDDEN = re.compile(r'[\\/:*?"<>|#^\[\]]+')
 _LEGAL = re.compile(r"\b(d\.?o\.?o\.?|llc|ltd|inc|gmbh|ооо|ао|пао|ип)\b|\([^)]*\)", re.I)
 _PLACEHOLDER = "_готовится…_"
+DESCRIPTION_HEADING = "### описание вакансии"
+MINE_HEADING = "### моё"
+_MINE = re.compile(rf"^{re.escape(MINE_HEADING)}[ \t]*\n(.*?)(?=^#{{1,3}} |\Z)", re.S | re.M)
 
 
 def note_file_name(title: str, employer: str) -> str:
@@ -37,10 +41,6 @@ def _yaml_value(value: str) -> str:
     return json.dumps(value, ensure_ascii=False)
 
 
-def _block(name: str, content: str) -> str:
-    return f"%%vr:{name}%%\n{content.strip()}\n%%/vr:{name}%%"
-
-
 def frontmatter(text: str) -> dict:
     if not text.startswith("---"):
         return {}
@@ -56,17 +56,19 @@ def frontmatter(text: str) -> dict:
 class NoteRenderer:
     settings: ObsidianSettings
 
-    def render(self, dossier: VacancyDossier, employer_link: str | None) -> str:
+    def render(self, dossier: VacancyDossier, employer_link: str | None, today: date | None = None) -> str:
+        """Properties like the user's own vacancy notes (начало = today, статус, one «где»), then the template
+        «### описание вакансии» (sources + text) and «### моё» (Drive folder + letter, filled in when ready)."""
+        started = (today or date.today()).isoformat()
         lines = ["---", "tags:", *[f"  - {_yaml_value(t)}" for t in self.settings.tags],
-                 "👾что_это:", f"  - {_yaml_value(self.settings.what)}", "👾где:",
-                 *[f"  - {_yaml_value(w)}" for w in dossier.where], "👾лэйблы:",
+                 "👾что_это:", f"  - {_yaml_value(self.settings.what)}", f"начало: {started}", "👾статус:",
+                 *([f"  - {_yaml_value(self.settings.status)}"] if self.settings.status else []), "👾где:",
+                 *[f"  - {_yaml_value(w)}" for w in dossier.where[:1]], "👾лэйблы:",
                  *[f"  - {_yaml_value(label)}" for label in dossier.labels],
                  f"👾FK: {_yaml_value(employer_link) if employer_link else ''}".rstrip(),
-                 f"{SKILLS_PROPERTY}:", "👾статус:", "начало:", f"{ID_PROPERTY}: {dossier.vacancy_id}", "---", ""]
-        body = [*dossier.links, "",
-                "## Резюме", _block("folder", _PLACEHOLDER), "",
-                "## Сопроводительное", _block("letter", _PLACEHOLDER), "",
-                "## Описание", _fence(dossier.text), ""]
+                 f"{SKILLS_PROPERTY}:", f"{ID_PROPERTY}: {dossier.vacancy_id}", "---", ""]
+        body = [DESCRIPTION_HEADING, "", *dossier.links, "", _fence(dossier.text), "",
+                MINE_HEADING, "", _PLACEHOLDER, ""]
         return "\n".join(lines + body)
 
 
@@ -132,13 +134,18 @@ class ObsidianVault:
         return None
 
     @staticmethod
-    def set_block(path: Path, name: str, content: str) -> bool:
-        """Replaces the text between %%vr:name%% and %%/vr:name%%. No markers (the user removed them) — no change."""
+    def set_mine(path: Path, content: str, previous: str | None) -> bool:
+        """Fills «### моё». It is rewritten only while it holds the placeholder or exactly what the app wrote there
+        last time (`previous`): once the user edits the section — or removes the heading — it is left alone."""
         text = path.read_text(encoding="utf-8")
-        pattern = re.compile(rf"%%vr:{re.escape(name)}%%\n.*?%%/vr:{re.escape(name)}%%", re.S)
-        if not pattern.search(text):
+        match = _MINE.search(text)
+        if not match:
             return False
-        path.write_text(pattern.sub(lambda _: _block(name, content), text, count=1), encoding="utf-8")
+        current = match.group(1).strip()
+        if current not in {_PLACEHOLDER, (previous or "").strip()} or current == content.strip():
+            return current == content.strip()
+        new = f"{text[:match.start(1)]}\n{content.strip()}\n\n{text[match.end(1):].lstrip()}".rstrip() + "\n"
+        path.write_text(new, encoding="utf-8")
         return True
 
     @staticmethod
@@ -156,12 +163,7 @@ class ObsidianVault:
         return True
 
     @staticmethod
-    def letter_block(letter: str) -> str:
-        return _fence(letter)
-
-    @staticmethod
-    def folder_block(folder_url: str | None, pdf_url: str | None) -> str:
-        if not folder_url:
-            return "_Google Drive не подключён — папки нет._"
-        line = f"[Папка на Google Drive]({folder_url})"
-        return f"{line} · [PDF]({pdf_url})" if pdf_url else line
+    def mine_section(folder_url: str | None, letter: str) -> str:
+        """«### моё»: the Drive folder, then the letter (with the link to the CV file) in a code block."""
+        folder = f"[Папка на Google Drive]({folder_url})" if folder_url else "_Google Drive не подключён — папки нет._"
+        return f"{folder}\n\n{_fence(letter)}"

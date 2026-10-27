@@ -8,22 +8,30 @@
   <link rel="stylesheet" href="/static/style.css?v={{ version }}">
 </head>
 <body data-tab="{{ tab }}" class="{{ 'running' if status.running }}">
-<div class="history" aria-label="History of status changes">
-  <button class="btn icon" id="undo-btn" disabled title="Nothing to undo" aria-label="Undo"><svg viewBox="0 0 16 16" width="15" height="15" aria-hidden="true"><path d="M5.5 3.5 2.5 6.5l3 3" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/><path d="M2.8 6.5h6.7a3.5 3.5 0 0 1 0 7H7" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
-  <button class="btn icon mirror" id="redo-btn" disabled title="Nothing to redo" aria-label="Redo"><svg viewBox="0 0 16 16" width="15" height="15" aria-hidden="true"><path d="M5.5 3.5 2.5 6.5l3 3" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/><path d="M2.8 6.5h6.7a3.5 3.5 0 0 1 0 7H7" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
-</div>
-<label class="debug-toggle" title="Show vacancy ids, the rule trace and LLM facts"><span>Debug</span><input type="checkbox" role="switch" id="debug-toggle"><i class="switch"></i></label>
+
 <h1 class="app-title">🦆 Vacancy Retriever</h1>
 <header class="top">
   <nav class="nav">
+    <div class="history" aria-label="History of status changes">
+      <button class="btn icon" id="undo-btn" disabled title="Nothing to undo" aria-label="Undo"><svg viewBox="0 0 16 16" width="15" height="15" aria-hidden="true"><path d="M5.5 3.5 2.5 6.5l3 3" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/><path d="M2.8 6.5h6.7a3.5 3.5 0 0 1 0 7H7" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
+      <button class="btn icon mirror" id="redo-btn" disabled title="Nothing to redo" aria-label="Redo"><svg viewBox="0 0 16 16" width="15" height="15" aria-hidden="true"><path d="M5.5 3.5 2.5 6.5l3 3" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/><path d="M2.8 6.5h6.7a3.5 3.5 0 0 1 0 7H7" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
+    </div>
     <a href="/" class="tab {{ 'on' if tab == 'feed' }}">Feed<span class="count" id="feed-count">{{ feed_count }}</span></a>
     <a href="/processed" class="tab {{ 'on' if tab == 'processed' }}">Processed</a>
     <a href="/statistics" class="tab {{ 'on' if tab == 'statistics' }}">Statistics{% if health_problems %}<span class="dot-alert" title="Some sources have problems"></span>{% endif %}</a>
     <span class="spacer"></span>
     <span class="updated" id="last-run" title="{{ status.summary_line }}">{{ status.last_run_short }}</span>
     <span class="run-group" id="run-group" {% if status.running %}hidden{% endif %}>
-      <button class="btn run-main" id="run-btn" title="Everything new since the last run">Run</button><button class="btn run-more" id="run-more" aria-label="Run options" title="Period and sources">▾</button>
+      <button class="btn run-main" id="run-btn" title="Everything new since the last run">Run</button><button class="btn run-more" id="run-more" aria-label="Run options" title="{{ 'Missed period — see options' if missed else 'Period and sources' }}">▾{% if missed %}<span class="dot-alert"></span>{% endif %}</button>
       <div class="run-panel" id="run-panel" hidden>
+        {% if missed %}
+        <div class="missed" id="missed">
+          <p><strong>Not collected:</strong> {{ missed.from }} – {{ missed.to }}</p>
+          <p class="muted small" title="{{ missed.sources }}">A run after a break with a short period skipped this time for {{ missed.count }} source{{ 's' if missed.count != 1 }}; later runs will not reach back to it.</p>
+          <label><input type="checkbox" id="run-missed" checked> Include in this run</label>
+          <button class="link quiet small" id="missed-dismiss" type="button">Dismiss</button>
+        </div>
+        {% endif %}
         <label class="run-days">Period <input type="number" id="run-days" min="1" max="{{ max_days }}" placeholder="since last run"> days</label>
         <div class="run-groups">
           <label><input type="checkbox" value="telegram" checked> Telegram</label>
@@ -35,6 +43,7 @@
       </div>
     </span>
     <button class="btn" id="cancel-btn" {% if not status.running %}hidden{% endif %}>Cancel</button>
+    <label class="debug-toggle" title="Show vacancy ids, the rule trace and LLM facts"><span>Debug</span><input type="checkbox" role="switch" id="debug-toggle"><i class="switch"></i></label>
   </nav>
   <div class="progress" id="progress" {% if not status.running %}hidden{% endif %}>
     <ol class="stages" id="stages">
@@ -55,8 +64,9 @@
   <pre class="dev-notice-text">{{ n.text }}</pre>
 </section>
 {% endfor %}
+<button class="apply-tab" id="apply-show" type="button" hidden title="Show the Apply sidebar" aria-label="Show the Apply sidebar">«<span class="apply-tab-label">Apply</span><span class="count" id="apply-count"></span></button>
 <aside class="apply-sidebar" id="apply-sidebar" hidden aria-label="Applications">
-  <h2 class="apply-head">Apply <span class="muted small">CV · letter · note · Drive</span></h2>
+  <h2 class="apply-head">Apply <span class="muted small">CV · letter · note · Drive</span><button class="link quiet apply-hide" id="apply-hide" type="button" title="Hide the sidebar" aria-label="Hide the sidebar">»</button></h2>
   <ul class="apply-list" id="apply-list"></ul>
 </aside>
 <main class="main">

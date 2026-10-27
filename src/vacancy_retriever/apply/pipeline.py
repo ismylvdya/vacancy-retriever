@@ -13,7 +13,7 @@ from typing import Any
 from ..config import AppConfig
 from ..storage import Storage
 from ..timeutil import utcnow
-from .drive import CloudFolders
+from .drive import CloudFolders, StubDrive
 from .models import Application, ApplicationState, ApplyError, VacancyDossier
 from .obsidian import SKILLS_PROPERTY, ObsidianVault, note_file_name
 from .resume import MaterialsWriter, ResumeSkill, insert_cv_link
@@ -67,7 +67,8 @@ class DossierBuilder:
             place = "abroad"
         else:
             return []
-        return [getattr(labels, f"{'ru' if russian else 'en'}_{place}")]
+        label = getattr(labels, f"{'ru' if russian else 'en'}_{place}")
+        return [label] if label else []  # an empty label in apply.yaml = leave «👾где» empty
 
     def labels(self, category: str) -> list[str]:
         rule = self._config.rules.categories.get(category)
@@ -202,8 +203,14 @@ class FinalizeStep(Step):
         updates: dict[str, Any] = {"letter": letter}
         note = ctx.vault.find(app.vacancy_id, app.note_path) if ctx.vault else None
         if note is not None:
-            ctx.vault.set_block(note, "letter", ctx.vault.letter_block(letter))  # type: ignore[union-attr]
-            ctx.vault.set_block(note, "folder", ctx.vault.folder_block(app.folder_url, app.pdf_url))  # type: ignore[union-attr]
+            mine = ctx.vault.mine_section(app.folder_url, letter)  # type: ignore[union-attr]
+            written = ctx.out_dir / str(app.vacancy_id) / "note_mine.md"  # what the app wrote there last time
+            previous = written.read_text(encoding="utf-8") if written.exists() else None
+            if ctx.vault.set_mine(note, mine, previous):  # type: ignore[union-attr]
+                written.parent.mkdir(parents=True, exist_ok=True)
+                written.write_text(mine, encoding="utf-8")
+            else:
+                ctx.warnings.append("«### моё» in the note was edited by hand — not changed")
             if app.skills:
                 ctx.vault.fill_property(note, SKILLS_PROPERTY, app.skills)  # type: ignore[union-attr]
             updates["note_path"] = str(note)
@@ -253,7 +260,7 @@ class ApplicationPipeline:
         warnings = list(ctx.warnings)
         if ctx.vault is None:
             warnings.append("Obsidian vault not found (config/apply.yaml → obsidian.vault_dir)")
-        if not ctx.drive.available:
+        if not ctx.drive.available or isinstance(ctx.drive, StubDrive):
             warnings.append(ctx.drive.reason or "Google Drive is not connected")
         return warnings
 

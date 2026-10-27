@@ -7,11 +7,13 @@ import threading
 import time
 from collections.abc import Awaitable, Callable
 from dataclasses import dataclass
+from datetime import UTC, datetime
+from pathlib import Path
 from typing import Any
 
 from ..collectors.base import RunCancelled
 from ..config import AppConfig
-from ..llm.base import LlmError, LlmProvider, LlmResponse
+from ..llm.base import LlmError, LlmProvider, LlmResponse, LlmUsage
 from ..scoring.facts import VacancyFacts
 from ..storage.items import StoredRawItem
 from ..storage.llm_calls import LlmCallRecord, LlmCallRepository
@@ -42,11 +44,13 @@ HINT_KEYS = ("required_languages", "company", "location", "city", "country", "wo
 class LlmCaller:
     """One LLM call with retries, token accounting and cancellation."""
 
-    def __init__(self, provider: LlmProvider, calls: LlmCallRepository, run_id: int | None, retries: int):
+    def __init__(self, provider: LlmProvider, calls: LlmCallRepository, run_id: int | None, retries: int,
+                 failures_dir: Path | None = None):
         self._provider = provider
         self._calls = calls
         self._run_id = run_id
         self._retries = retries
+        self._failures_dir = failures_dir
         self.last_error: LlmError | None = None
 
     async def call(self, stage: str, system: str, user: str, model: str, n_items: int) -> LlmResponse:
@@ -59,19 +63,38 @@ class LlmCaller:
                 self._record(stage, model, n_items, started, None, ok=False, error="cancelled", unknown=True)
                 raise
             except LlmError as exc:
-                self._record(stage, model, n_items, started, None, ok=False, error=str(exc), unknown=True)
+                self._record(stage, model, n_items, started, None, ok=False, error=str(exc), unknown=exc.usage is None,
+                             usage=exc.usage)
+                self._keep_reply(stage, exc)
                 self.last_error = exc
-                if not exc.retryable or attempt >= self._retries:
+                # A reply that is not JSON comes back the same for the same input: one more try, then the caller
+                # splits the batch (VacancyScorer.score) instead of repeating it.
+                limit = min(self._retries, 1) if exc.kind == "parse" else self._retries
+                if not exc.retryable or attempt >= limit:
                     raise
                 attempt += 1
-                await asyncio.sleep(5 * 2**attempt)
+                if exc.kind != "parse":  # a bad reply is not a busy server: no reason to wait
+                    await asyncio.sleep(5 * 2**attempt)
                 continue
             self._record(stage, model, n_items, started, response, ok=True)
             return response
 
+    def _keep_reply(self, stage: str, exc: LlmError) -> None:
+        """Unparsable replies are kept in data/llm_failures/ (the newest 20) to see what the model got wrong."""
+        if not self._failures_dir or not exc.raw_text:
+            return
+        try:
+            self._failures_dir.mkdir(parents=True, exist_ok=True)
+            name = f"{datetime.now():%Y%m%d-%H%M%S-%f}-{stage}.txt"
+            (self._failures_dir / name).write_text(f"{exc}\n\n{exc.raw_text}", encoding="utf-8")
+            for old in sorted(self._failures_dir.glob("*.txt"))[:-20]:
+                old.unlink(missing_ok=True)
+        except OSError:
+            pass
+
     def _record(self, stage: str, model: str, n_items: int, started: float, response: LlmResponse | None,
-                ok: bool, error: str | None = None, unknown: bool = False) -> None:
-        usage = response.usage if response else None
+                ok: bool, error: str | None = None, unknown: bool = False, usage: LlmUsage | None = None) -> None:
+        usage = response.usage if response else usage
         self._calls.record(
             LlmCallRecord(
                 run_id=self._run_id,
@@ -147,7 +170,10 @@ class VacancyScorer:
         self._system = config.prompt("scoring") + "\n" + config.profile
 
     def batches(self, items: list[StoredRawItem]) -> list[tuple[str, list[StoredRawItem]]]:
+        """Oldest posts first, and batches in that order too: if the Claude limit ends a run half-way, what stays
+        unevaluated is the newest end, so the evaluated days form one unbroken stretch (P2, 28.10.2026)."""
         size = self._config.llm.batch_size
+        items = sorted(items, key=_published_key)
         email = [i for i in items if i.meta.get("email")]
         other = [i for i in items if not i.meta.get("email")]
         result: list[tuple[str, list[StoredRawItem]]] = []
@@ -157,7 +183,7 @@ class VacancyScorer:
             for chunk_source, chunk_size in ((single, size), (multi, max(1, size // 2))):
                 for start in range(0, len(chunk_source), chunk_size):
                     result.append((stage, chunk_source[start : start + chunk_size]))
-        return result
+        return sorted(result, key=lambda entry: _published_key(entry[1][0]))
 
     def user_prompt(self, batch: list[StoredRawItem]) -> str:
         llm = self._config.llm
@@ -180,10 +206,37 @@ class VacancyScorer:
         return json.dumps(payload, ensure_ascii=False)
 
     async def score(self, stage: str, batch: list[StoredRawItem]) -> list[ScoredItem]:
-        response = await self._caller.call(
-            stage, self._system, self.user_prompt(batch), self._config.llm.stage_models.scoring, len(batch)
-        )
+        try:
+            response = await self._caller.call(
+                stage, self._system, self.user_prompt(batch), self._config.llm.stage_models.scoring, len(batch)
+            )
+        except LlmError as exc:
+            if exc.kind != "parse" or len(batch) == 1:
+                raise
+            # One vacancy whose text makes the model write broken JSON must not hold back the rest (Run 27.10:
+            # 20 items stayed unevaluated): halves are scored separately, down to the single culprit.
+            half = len(batch) // 2
+            log.info("Unparsable reply for %d items: scoring them in two halves", len(batch))
+            first = await self._half(stage, batch[:half])
+            second = await self._half(stage, batch[half:])
+            if first is None and second is None:
+                raise
+            return (first or []) + (second or [])
         return parse_scoring_response(response.data, {i.id for i in batch})
+
+    async def _half(self, stage: str, batch: list[StoredRawItem]) -> list[ScoredItem] | None:
+        try:
+            return await self.score(stage, batch)
+        except LlmError as exc:
+            if exc.kind != "parse":
+                raise
+            return None  # these stay pending_llm and go first in the next run
+
+
+def _published_key(item: StoredRawItem) -> tuple[int, datetime]:
+    """Sort key: by publication time, posts without a date last."""
+    published = item.published_at
+    return (0, published) if published else (1, datetime.max.replace(tzinfo=UTC))
 
 
 def parse_scoring_response(data: dict[str, Any], expected_ids: set[int]) -> list[ScoredItem]:

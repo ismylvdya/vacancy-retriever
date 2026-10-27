@@ -314,6 +314,21 @@ class Pipeline:
     def _fetch_details(self, run_id: int) -> None:
         allowed = {d.lower() for d in self.config.sources.detail_domains}
         items = [i for i in self.storage.items.by_run(run_id, "pending_llm") if i.meta.get("detail_url")]
+        try:
+            self._fetch_detail_pages(run_id, items, allowed)
+        finally:
+            for collector in self._collectors.values():
+                collector.finish_details()  # e.g. the LinkedIn VPN tunnel is stopped whatever happened
+        for source_id, collector in self._collectors.items():
+            alert, note = collector.detail_alert(), collector.detail_note()
+            if alert:  # an error: highlighted in Statistics → Sources and counted in Runs
+                self.storage.db.execute("UPDATE source_runs SET alert = ? WHERE run_id = ? AND source_id = ?",
+                                        (alert[:500], run_id, source_id))
+            if note:
+                self.storage.db.execute("UPDATE source_runs SET note = ? WHERE run_id = ? AND source_id = ?",
+                                        (note[:500], run_id, source_id))
+
+    def _fetch_detail_pages(self, run_id: int, items: list[StoredRawItem], allowed: set[str]) -> None:
         for index, item in enumerate(items):
             self._check_cancel()
             self.progress.phase("details", f"Fetching descriptions {index + 1}/{len(items)}", index / max(len(items), 1))
@@ -333,11 +348,6 @@ class Pipeline:
                 reason = collector.detail_skip_reason(_as_raw(item), text)
                 if reason:
                     self._skip_before_llm(run_id, item, reason)
-        for source_id, collector in self._collectors.items():
-            alert = collector.detail_alert()
-            if alert:
-                self.storage.db.execute("UPDATE source_runs SET note = ? WHERE run_id = ? AND source_id = ?",
-                                        (alert[:500], run_id, source_id))
 
     def _language_filter(self, run_id: int) -> None:
         """Sources marked `serbian_needs_russian`: Serbian ads without Russian never reach the LLM."""

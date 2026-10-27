@@ -9,7 +9,10 @@ and harmless lives here, in one place (decision 2026-10-27):
   a redirect is LinkedIn asking to sign in, and the answer to that is to stop;
 - only job pages, never search, profiles or companies; at most `max_per_run` pages a run, 4–8 s apart;
 - the first 429 / 999 / redirect / sign-in wall / captcha pauses LinkedIn until the next day (data/linkedin_guest.json)
-  — no retries, no proxies, nothing that hides or changes who is asking.
+  — no retries, no switching servers or addresses after a refusal;
+- with `require_vpn` (the default) pages go only through the parser's own VPN tunnel (collectors/vpn.py), which is
+  checked before EVERY page; no tunnel or a failed check → LinkedIn is not opened at all in this run (never from the
+  home IP), and the error goes to the log and to Statistics.
 If anything goes wrong the vacancy is simply evaluated from the letter, as before.
 """
 
@@ -29,6 +32,7 @@ import httpx
 from bs4 import BeautifulSoup
 
 from .http import USER_AGENT
+from .vpn import VpnError, XrayTunnel
 
 log = logging.getLogger(__name__)
 
@@ -53,6 +57,7 @@ class GuestSettings:
     max_per_run: int = 40
     min_delay: float = 4.0
     max_delay: float = 8.0
+    require_vpn: bool = True
 
 
 def parse_job_page(html: str) -> str | None:
@@ -94,19 +99,63 @@ def parse_job_page(html: str) -> str | None:
 
 class LinkedInGuestFetcher:
     def __init__(self, settings: GuestSettings, state_path: Path, transport: httpx.BaseTransport | None = None,
-                 sleep=time.sleep, today=date.today):
+                 sleep=time.sleep, today=date.today, tunnel: XrayTunnel | None = None):
         self.settings = settings
         self._state_path = state_path
         self._sleep = sleep
         self._today = today
+        self._transport = transport
+        self._tunnel = tunnel
+        self._tunnel_up = False
+        self._vpn_failed = False
         self._fetched = 0
         self._last = 0.0
-        jar = http.cookiejar.CookieJar(policy=http.cookiejar.DefaultCookiePolicy(allowed_domains=[]))
-        self._client = httpx.Client(
-            headers={"User-Agent": USER_AGENT, "Accept": "text/html", "Accept-Language": "en"},
-            cookies=jar, follow_redirects=False, timeout=25.0, transport=transport,
-        )
-        self.alert: str | None = None  # why LinkedIn pages were not read in this run (for Statistics)
+        self._client: httpx.Client | None = None
+        self.alert: str | None = None  # a problem to show in Statistics as an error (VPN down, LinkedIn refused)
+        self.note: str | None = None   # information (limit of the run reached)
+
+    def _http(self) -> httpx.Client:
+        if self._client is None:
+            jar = http.cookiejar.CookieJar(policy=http.cookiejar.DefaultCookiePolicy(allowed_domains=[]))
+            proxy = self._tunnel.proxy_url if self._tunnel and self._tunnel_up else None
+            self._client = httpx.Client(
+                headers={"User-Agent": USER_AGENT, "Accept": "text/html", "Accept-Language": "en"},
+                cookies=jar, follow_redirects=False, timeout=25.0, transport=self._transport, proxy=proxy,
+            )
+        return self._client
+
+    def _vpn_ok(self) -> bool:
+        """With require_vpn: the tunnel is up and passes its checks right now — otherwise LinkedIn stays closed."""
+        if not self.settings.require_vpn:
+            return True
+        if self._vpn_failed:
+            return False
+        if self._tunnel is None:
+            return self._vpn_down("no VPN configured (mail.yaml → linkedin_public_pages.vpn, LINKEDIN_VPN_SUBSCRIPTION)")
+        try:
+            if not self._tunnel_up:
+                self._tunnel.start()
+                self._tunnel_up = True
+            else:
+                self._tunnel.verify()
+        except VpnError as exc:
+            return self._vpn_down(str(exc))
+        return True
+
+    def _vpn_down(self, reason: str) -> bool:
+        self._vpn_failed = True
+        self.alert = f"LinkedIn not opened — VPN problem: {reason}"
+        log.error("LinkedIn pages are not opened in this run: VPN problem: %s", reason)
+        self.close()
+        return False
+
+    def close(self) -> None:
+        if self._client is not None:
+            self._client.close()
+            self._client = None
+        if self._tunnel is not None and self._tunnel_up:
+            self._tunnel.stop()
+            self._tunnel_up = False
 
     # ---- the pause until tomorrow after any refusal
     def paused_until(self) -> date | None:
@@ -125,14 +174,14 @@ class LinkedInGuestFetcher:
         log.warning("LinkedIn guest pages paused until %s: %s", until, reason)
 
     def available(self) -> bool:
-        if not self.settings.enabled:
+        if not self.settings.enabled or self._vpn_failed:
             return False
         paused = self.paused_until()
         if paused and paused > self._today():
             self.alert = self.alert or f"LinkedIn public pages paused until {paused:%-d %b}"
             return False
         if self._fetched >= self.settings.max_per_run:
-            self.alert = self.alert or f"LinkedIn public pages: limit of {self.settings.max_per_run} per run reached"
+            self.note = f"LinkedIn public pages: limit of {self.settings.max_per_run} per run reached"
             return False
         return True
 
@@ -143,9 +192,11 @@ class LinkedInGuestFetcher:
         wait = self._last + random.uniform(self.settings.min_delay, self.settings.max_delay) - time.monotonic()
         if self._last and wait > 0:
             self._sleep(wait)
+        if not self._vpn_ok():  # checked right before the page, after the pause
+            return None
         self._fetched += 1
         try:
-            response = self._client.get(url)
+            response = self._http().get(url)
         except httpx.HTTPError as exc:
             log.info("LinkedIn guest page %s failed: %s", url, exc)
             return None

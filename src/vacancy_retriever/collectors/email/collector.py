@@ -12,6 +12,7 @@ from ...config import AppConfig, MailboxConfig, SenderRule
 from ...notices import add_once
 from ..linkedin_guest import JOB_URL as LINKEDIN_JOB_URL
 from ..linkedin_guest import GuestSettings, LinkedInGuestFetcher
+from ..vpn import XrayTunnel
 from ..base import CollectContext, Collector, CollectResult, RawItem, SourceError, SourceNotConfigured
 from ..registry import register
 from .generic import decoded_header, message_date, parse_generic
@@ -96,8 +97,11 @@ class EmailCollector(Collector):
         if self._guest is None:
             config = AppConfig()
             pages = config.mail.linkedin_public_pages
-            self._guest = LinkedInGuestFetcher(GuestSettings(pages.enabled, pages.max_per_run, pages.min_delay,
-                                                             pages.max_delay), config.paths.data / "linkedin_guest.json")
+            subscription = config.secrets.get(pages.vpn.subscription_env) or ""
+            tunnel = XrayTunnel(subscription, pages.vpn.server, config.paths.data / "xray") if pages.vpn.server else None
+            self._guest = LinkedInGuestFetcher(
+                GuestSettings(pages.enabled, pages.max_per_run, pages.min_delay, pages.max_delay, pages.vpn.required),
+                config.paths.data / "linkedin_guest.json", tunnel=tunnel)
         return self._guest
 
     def can_fetch_detail(self, url: str, allowed_domains: set[str]) -> bool:
@@ -108,6 +112,13 @@ class EmailCollector(Collector):
 
     def detail_alert(self) -> str | None:
         return self._guest.alert if self._guest else None
+
+    def detail_note(self) -> str | None:
+        return self._guest.note if self._guest else None
+
+    def finish_details(self) -> None:
+        if self._guest is not None:
+            self._guest.close()
 
     def _settings(self) -> tuple[AppConfig, MailboxConfig, str, str]:
         config = AppConfig()

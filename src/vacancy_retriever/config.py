@@ -192,8 +192,15 @@ class MailboxConfig(_Strict):
     folder: str = "INBOX"
 
 
+class LinkedInVpn(_Strict):
+    required: bool = True
+    server: str = ""
+    subscription_env: str = "LINKEDIN_VPN_SUBSCRIPTION"
+
+
 class LinkedInPublicPages(_Strict):
     enabled: bool = False
+    vpn: LinkedInVpn = Field(default_factory=LinkedInVpn)
     max_per_run: int = 40
     min_delay: float = 4.0
     max_delay: float = 8.0

@@ -108,8 +108,15 @@ class Collector(ABC):
         return not is_forbidden(url) and any(host == d or host.endswith("." + d) for d in allowed_domains)
 
     def detail_alert(self) -> str | None:
-        """Why detail pages of this source were not read in this run (shown in Statistics); None = nothing to say."""
+        """A problem with detail pages of this source in this run, shown in Statistics as an error; None = none."""
         return None
+
+    def detail_note(self) -> str | None:
+        """Information about detail pages of this run (shown in Statistics, not an error)."""
+        return None
+
+    def finish_details(self) -> None:
+        """After the details stage, whatever happened (e.g. stop the LinkedIn VPN tunnel)."""
 
     def detail_skip_reason(self, item: RawItem, text: str) -> str | None:
         """After the detail page is fetched: a reason to drop the vacancy before the LLM (recruitment closed,

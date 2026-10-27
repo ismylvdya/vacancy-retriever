@@ -25,7 +25,7 @@ linkedin_public_pages:
   # LinkedIn в этом прогоне не открывается вовсе (никогда с домашнего IP), ошибка — в логе и в Statistics.
   vpn:
     required: true                              # false = разрешить без VPN (не включать)
-    server: "Сербия · мир"                      # часть названия сервера из подписки; всегда этот, без замены
+    server: "Нидерланды · мир"                  # часть названия сервера из подписки; всегда этот, без замены (27.10: Сербия получила 429)
     subscription_env: LINKEDIN_VPN_SUBSCRIPTION # ссылка подписки — в config/.env
 
 # Почтовые ящики. id ящика = id источника в config/sources.yaml (type: email).

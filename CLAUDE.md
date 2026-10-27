@@ -19,7 +19,9 @@ scripts/start.sh / scripts/stop.sh
 - linkedin.com через общий HTTP-клиент не открывать никогда (он это запрещает). Единственное исключение —
   `collectors/linkedin_guest.py`: публичные страницы вакансий из писем, анонимно (адрес только из номера вакансии,
   без cookies / Referer / редиректов), с паузами и остановкой до завтра на первом отказе; включается
-  `mail.yaml → linkedin_public_pages.enabled`. Ссылки из писем LinkedIn (токены входа) не открывать никогда.
+  `mail.yaml → linkedin_public_pages.enabled` — **выключено, включать только по прямой просьбе пользователя**.
+  Основной способ получить описания LinkedIn — `collectors/job_search.py` (Google for Jobs через JSearch/SerpApi, без
+  запросов к LinkedIn). Ссылки из писем LinkedIn (токены входа) не открывать никогда.
 - Всё внутри папки проекта: зависимости только в `.venv` через `uv` (`UV_CACHE_DIR=./.cache/uv`), данные в
   `data/`, логи в `logs/`. Никаких глобальных установок, правок `~/.zshrc`, `~/Library`.
 - Настройки — в `config/*.yaml` (с комментариями по-русски), не хардкодом. Конфиги валидируются в `config.py`.

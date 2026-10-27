@@ -12,6 +12,7 @@ from ...config import AppConfig, MailboxConfig, SenderRule
 from ...notices import add_once
 from ..linkedin_guest import JOB_URL as LINKEDIN_JOB_URL
 from ..linkedin_guest import GuestSettings, LinkedInGuestFetcher
+from ..job_search import JobSearchLookup, ProviderSettings
 from ..vpn import XrayTunnel
 from ..base import CollectContext, Collector, CollectResult, RawItem, SourceError, SourceNotConfigured
 from ..registry import register
@@ -92,6 +93,19 @@ class EmailCollector(Collector):
         super().__init__(*args, **kwargs)
         self._detail_cache: dict[str, DetailResult] = {}
         self._guest: LinkedInGuestFetcher | None = None
+        self._search: JobSearchLookup | None = None
+
+    def _job_search(self) -> JobSearchLookup | None:
+        """Google for Jobs lookup (no LinkedIn requests) — the main way to describe LinkedIn vacancies."""
+        if self._search is None:
+            config = AppConfig()
+            wanted = config.mail.linkedin_descriptions
+            if not wanted.enabled:
+                return None
+            providers = [ProviderSettings(p.id, config.secrets.get(p.key_env), p.max_per_month) for p in wanted.providers]
+            self._search = JobSearchLookup(providers, config.paths.data / "job_search.json", wanted.max_per_run,
+                                           second_query=wanted.second_query)
+        return self._search
 
     def _linkedin(self) -> LinkedInGuestFetcher:
         if self._guest is None:
@@ -107,18 +121,22 @@ class EmailCollector(Collector):
     def can_fetch_detail(self, url: str, allowed_domains: set[str]) -> bool:
         # LinkedIn job pages go only through the guest fetcher (its own anonymous client), never the shared one.
         if LINKEDIN_JOB_URL.match(url):
-            return self._linkedin().available()
+            search = self._job_search()
+            if search is not None:
+                return search.available()
+            return self._linkedin().available()  # public pages: off unless the user asked for them
         return super().can_fetch_detail(url, allowed_domains)
 
     def detail_alert(self) -> str | None:
-        return self._guest.alert if self._guest else None
+        return "; ".join(filter(None, [x.alert for x in (self._search, self._guest) if x])) or None
 
     def detail_note(self) -> str | None:
-        return self._guest.note if self._guest else None
+        return "; ".join(filter(None, [x.note for x in (self._search, self._guest) if x])) or None
 
     def finish_details(self) -> None:
-        if self._guest is not None:
-            self._guest.close()
+        for helper in (self._search, self._guest):
+            if helper is not None:
+                helper.close()
 
     def _settings(self) -> tuple[AppConfig, MailboxConfig, str, str]:
         config = AppConfig()
@@ -203,7 +221,12 @@ class EmailCollector(Collector):
                 log.info("Notice: first %s letter (%s)", template, subject)
 
     def fetch_detail(self, item: RawItem) -> str | None:
-        if item.detail_url and LINKEDIN_JOB_URL.match(item.detail_url):
+        match = LINKEDIN_JOB_URL.match(item.detail_url or "")
+        if match:
+            search = self._job_search()
+            if search is not None:
+                return search.lookup(item.title, item.meta.get("company") or "", item.meta.get("location") or "",
+                                     match.group(1))
             return self._linkedin().fetch(item.detail_url)
         result = self._detail(item)
         return result.text if result else None

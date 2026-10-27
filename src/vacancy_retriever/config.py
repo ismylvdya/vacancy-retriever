@@ -206,9 +206,23 @@ class LinkedInPublicPages(_Strict):
     max_delay: float = 8.0
 
 
+class JobSearchProvider(_Strict):
+    id: Literal["jsearch", "serpapi"]
+    key_env: str
+    max_per_month: int = 50
+
+
+class LinkedInDescriptions(_Strict):
+    enabled: bool = False
+    max_per_run: int = 40
+    second_query: bool = True
+    providers: list[JobSearchProvider] = Field(default_factory=list)
+
+
 class MailConfig(_Strict):
     processed_label: str = "🦆 retrievered"
     max_age_days: int = 30
+    linkedin_descriptions: LinkedInDescriptions = Field(default_factory=LinkedInDescriptions)
     linkedin_public_pages: LinkedInPublicPages = Field(default_factory=LinkedInPublicPages)
     mailboxes: list[MailboxConfig] = Field(default_factory=list)
     senders: list[SenderRule] = Field(default_factory=list)

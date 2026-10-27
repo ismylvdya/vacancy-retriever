@@ -5,7 +5,7 @@
 
 {% macro role(c) -%}
 <div class="role">
-  <div class="title"><span class="debug-only vac-id">#{{ c.id }}</span>{% if c.reports %}<span class="debug-only flag reported" title="{{ c.reports | length }} report(s)">Reported</span>{% endif %}{% if c.is_new %}<span class="new" title="New in the last run"></span>{% endif %}{{ c.title }}{% for f in c.flags %}<span class="flag">{{ f }}</span>{% endfor %}</div>
+  <div class="title"><span class="debug-only vac-id">#{{ c.id }}</span>{% if c.reports %}<span class="debug-only flag reported" title="{{ c.reports | length }} report(s)">Reported</span>{% endif %}{% if c.is_new %}<span class="new" title="New in the last run"></span>{% endif %}{{ c.title }}{% for f in c.flags %}<span class="flag"{% if f == 'E-mail only' %} title="Evaluated from the job-alert letter only (title, company, city): the LinkedIn page was not read — less reliable"{% endif %}>{{ f }}</span>{% endfor %}</div>
   {% if c.employer %}<div class="sub">{{ c.employer }}</div>{% endif %}
 </div>
 {%- endmacro %}

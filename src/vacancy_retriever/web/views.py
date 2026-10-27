@@ -121,6 +121,9 @@ class CardBuilder:
             flags.append("English team")
         if record.informal_flag:
             flags.append("Informal")
+        if raw and (raw.meta.get("email") or {}).get("parser") == "linkedin" and not raw.detail_text and record.facts:
+            # LinkedIn page not read (off / paused / limit): evaluated from the 1–2 lines of the letter only.
+            flags.append("E-mail only")
         return Card(
             id=record.id,
             title=record.title,

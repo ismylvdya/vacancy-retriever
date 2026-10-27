@@ -2,7 +2,8 @@
 
 Every vacancy is a link to /jobs/view/<id>/ with the title, then a "Company · City (Format)" line and optional
 flags ("Easy Apply", "Actively recruiting"). linkedin.com is never opened: no detail page, the LLM gets
-exactly what the letter says. Notifications and Premium promos are known non-vacancy templates.
+what the letter says, unless public pages are on (mail.yaml → linkedin_public_pages, see linkedin_guest.py).
+Notifications and Premium promos are known non-vacancy templates.
 """
 
 from __future__ import annotations
@@ -97,8 +98,10 @@ def parse(message: Message) -> list[ParsedVacancy]:
         url = f"https://www.linkedin.com/jobs/view/{job_id}/"
         text = "\n".join(filter(None, [title, f"{company} · {location}", ", ".join(flags),
                                        f"LinkedIn — {alert}" if alert else "LinkedIn job alert"]))
+        # detail_url is the bare public page built from the id: links of the letter (with sign-in tokens) are never used.
         vacancies.append(ParsedVacancy(title=title, url=url, company=company.strip(), location=location.strip(),
-                                       text=text, key=f"linkedin:{job_id}", extra=location_hints(location)))
+                                       text=text, key=f"linkedin:{job_id}", detail_url=url,
+                                       extra=location_hints(location)))
     if not vacancies:
         raise UnknownLetter("LinkedIn letter without jobs")
     return vacancies

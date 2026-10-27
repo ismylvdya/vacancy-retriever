@@ -192,9 +192,17 @@ class MailboxConfig(_Strict):
     folder: str = "INBOX"
 
 
+class LinkedInPublicPages(_Strict):
+    enabled: bool = False
+    max_per_run: int = 40
+    min_delay: float = 4.0
+    max_delay: float = 8.0
+
+
 class MailConfig(_Strict):
     processed_label: str = "🦆 retrievered"
     max_age_days: int = 30
+    linkedin_public_pages: LinkedInPublicPages = Field(default_factory=LinkedInPublicPages)
     mailboxes: list[MailboxConfig] = Field(default_factory=list)
     senders: list[SenderRule] = Field(default_factory=list)
 

@@ -10,6 +10,8 @@ from typing import Any, ClassVar
 
 from ...config import AppConfig, MailboxConfig, SenderRule
 from ...notices import add_once
+from ..linkedin_guest import JOB_URL as LINKEDIN_JOB_URL
+from ..linkedin_guest import GuestSettings, LinkedInGuestFetcher
 from ..base import CollectContext, Collector, CollectResult, RawItem, SourceError, SourceNotConfigured
 from ..registry import register
 from .generic import decoded_header, message_date, parse_generic
@@ -88,6 +90,24 @@ class EmailCollector(Collector):
     def __init__(self, *args: Any, **kwargs: Any) -> None:
         super().__init__(*args, **kwargs)
         self._detail_cache: dict[str, DetailResult] = {}
+        self._guest: LinkedInGuestFetcher | None = None
+
+    def _linkedin(self) -> LinkedInGuestFetcher:
+        if self._guest is None:
+            config = AppConfig()
+            pages = config.mail.linkedin_public_pages
+            self._guest = LinkedInGuestFetcher(GuestSettings(pages.enabled, pages.max_per_run, pages.min_delay,
+                                                             pages.max_delay), config.paths.data / "linkedin_guest.json")
+        return self._guest
+
+    def can_fetch_detail(self, url: str, allowed_domains: set[str]) -> bool:
+        # LinkedIn job pages go only through the guest fetcher (its own anonymous client), never the shared one.
+        if LINKEDIN_JOB_URL.match(url):
+            return self._linkedin().available()
+        return super().can_fetch_detail(url, allowed_domains)
+
+    def detail_alert(self) -> str | None:
+        return self._guest.alert if self._guest else None
 
     def _settings(self) -> tuple[AppConfig, MailboxConfig, str, str]:
         config = AppConfig()
@@ -172,6 +192,8 @@ class EmailCollector(Collector):
                 log.info("Notice: first %s letter (%s)", template, subject)
 
     def fetch_detail(self, item: RawItem) -> str | None:
+        if item.detail_url and LINKEDIN_JOB_URL.match(item.detail_url):
+            return self._linkedin().fetch(item.detail_url)
         result = self._detail(item)
         return result.text if result else None
 

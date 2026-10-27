@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import hashlib
 import re
+from urllib.parse import urlparse
 import threading
 from abc import ABC, abstractmethod
 from collections.abc import Callable
@@ -97,6 +98,17 @@ class Collector(ABC):
 
     def fetch_detail(self, item: RawItem) -> str | None:
         """Full vacancy description for site cards. Default: nothing to fetch."""
+        return None
+
+    def can_fetch_detail(self, url: str, allowed_domains: set[str]) -> bool:
+        """The detail page may be opened: a domain from sources.yaml → detail_domains, never a forbidden one."""
+        from .http import is_forbidden
+
+        host = (urlparse(url).hostname or "").lower()
+        return not is_forbidden(url) and any(host == d or host.endswith("." + d) for d in allowed_domains)
+
+    def detail_alert(self) -> str | None:
+        """Why detail pages of this source were not read in this run (shown in Statistics); None = nothing to say."""
         return None
 
     def detail_skip_reason(self, item: RawItem, text: str) -> str | None:

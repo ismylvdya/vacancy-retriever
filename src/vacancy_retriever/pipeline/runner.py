@@ -10,7 +10,6 @@ from collections.abc import Callable
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta
 from typing import Any
-from urllib.parse import urlparse
 
 from ..collectors.base import (
     CollectContext,
@@ -319,9 +318,8 @@ class Pipeline:
             self._check_cancel()
             self.progress.phase("details", f"Fetching descriptions {index + 1}/{len(items)}", index / max(len(items), 1))
             url = item.meta["detail_url"]
-            host = (urlparse(url).hostname or "").lower()
             collector = self._collectors.get(item.source_id)
-            if not collector or is_forbidden(url) or not any(host == d or host.endswith("." + d) for d in allowed):
+            if not collector or not collector.can_fetch_detail(url, allowed):
                 continue
             try:
                 text = collector.fetch_detail(_as_raw(item))
@@ -335,6 +333,11 @@ class Pipeline:
                 reason = collector.detail_skip_reason(_as_raw(item), text)
                 if reason:
                     self._skip_before_llm(run_id, item, reason)
+        for source_id, collector in self._collectors.items():
+            alert = collector.detail_alert()
+            if alert:
+                self.storage.db.execute("UPDATE source_runs SET note = ? WHERE run_id = ? AND source_id = ?",
+                                        (alert[:500], run_id, source_id))
 
     def _language_filter(self, run_id: int) -> None:
         """Sources marked `serbian_needs_russian`: Serbian ads without Russian never reach the LLM."""

@@ -178,7 +178,8 @@ class Database:
     @staticmethod
     def _migrate(conn: sqlite3.Connection) -> None:
         """Columns added after v0 databases were created. Add new ones here, never drop."""
-        added = {("source_runs", "seen", "INTEGER"), ("vacancies", "user_note", "TEXT")}
+        added = {("source_runs", "seen", "INTEGER"), ("vacancies", "user_note", "TEXT"),
+                 ("runs", "real_limit_pct", "REAL")}
         for table, column, kind in added:
             columns = {row[1] for row in conn.execute(f"PRAGMA table_info({table})")}
             if column not in columns:

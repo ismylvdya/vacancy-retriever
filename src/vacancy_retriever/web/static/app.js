@@ -363,6 +363,28 @@ document.querySelectorAll("[data-notice]").forEach((box) => {
   });
 });
 
+/* ---------- Statistics → Runs: real share of the 5-hour limit, typed by hand ---------- */
+document.querySelectorAll(".real-limit").forEach((field) => {
+  // The field sits inside <summary>: clicks and keys must not open / close the run details.
+  ["click", "keydown", "keyup"].forEach((type) => field.addEventListener(type, (event) => {
+    event.stopPropagation();
+    if (type === "click") event.preventDefault();
+  }));
+  let saved = field.value;
+  const save = async () => {
+    if (field.value === saved) return;
+    const percent = field.value === "" ? null : parseFloat(field.value);
+    try {
+      await api("POST", `/api/runs/${field.dataset.run}/real-limit`, { percent });
+      saved = field.value;
+      field.classList.add("saved");
+      setTimeout(() => field.classList.remove("saved"), 1200);
+    } catch (e) { toast(e.message); }
+  };
+  field.addEventListener("change", save);
+  field.addEventListener("keydown", (event) => { if (event.key === "Enter") { event.preventDefault(); field.blur(); save(); } });
+});
+
 /* ---------- debug mode: Skip with a reason (Enter in the field), Report a wrong evaluation ---------- */
 document.addEventListener("keydown", (event) => {
   const field = event.target.closest && event.target.closest(".skip-note");

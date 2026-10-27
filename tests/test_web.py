@@ -264,3 +264,14 @@ def test_skip_with_a_reason_and_reports_in_debug_mode(client):
     assert "Skip reason (user): офис в Москве" in debug and "User report" in debug
     client.post(f"/api/vacancies/{vacancy_id}/status", json={"status": "new"}, headers=ORIGIN)
     assert "“офис в Москве”" not in client.get("/processed?filter=reported").text, "a status change clears the note"
+
+
+def test_real_share_of_the_limit_is_typed_by_hand(client):
+    page = client.get("/statistics?view=runs").text
+    assert "real % of 5h Pro Limit" in page and 'class="real-limit"' in page and 'value=""' in page
+    run_id = client.storage.runs.history(1)[0]["id"]
+    assert client.post(f"/api/runs/{run_id}/real-limit", json={"percent": 4}, headers=ORIGIN).status_code == 200
+    assert 'value="4"' in client.get("/statistics?view=runs").text
+    assert client.post(f"/api/runs/{run_id}/real-limit", json={"percent": 140}, headers=ORIGIN).status_code == 400
+    assert client.post("/api/runs/99999/real-limit", json={"percent": 1}, headers=ORIGIN).status_code == 404
+    assert client.post(f"/api/runs/{run_id}/real-limit", json={"percent": None}, headers=ORIGIN).status_code == 200

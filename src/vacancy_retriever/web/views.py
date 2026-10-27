@@ -253,6 +253,7 @@ class HealthRun:
     summary: dict[str, Any]
     rows: list[HealthRow] = field(default_factory=list)
     problems: int = 0
+    real_limit_pct: float | None = None  # typed by the user from claude.ai → Usage
 
 
 def health(config: AppConfig, storage: Storage, limit: int = 60) -> list[HealthRun]:
@@ -264,7 +265,7 @@ def health(config: AppConfig, storage: Storage, limit: int = 60) -> list[HealthR
         started, finished = from_iso(run["started_at"]), from_iso(run["finished_at"])
         minutes = f"{(finished - started).total_seconds() / 60:.1f}" if started and finished else "…"
         health_run = HealthRun(run["id"], format_local(started), minutes, run["status"],
-                               json.loads(run["summary_json"] or "{}"))
+                               json.loads(run["summary_json"] or "{}"), real_limit_pct=run.get("real_limit_pct"))
         for row in storage.runs.source_runs(run["id"]):
             source_id = row["source_id"]
             usual = history[source_id][-5:]

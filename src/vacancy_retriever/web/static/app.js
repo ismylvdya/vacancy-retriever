@@ -186,7 +186,7 @@ function updateCounts(row, delta) {
   if (counter) counter.textContent = Math.max(0, Number(counter.textContent) + delta);
 }
 
-const LABELS = { applied: "Applied", not_now: "Moved to Not now", skipped: "Skipped", new: "Returned to feed",
+const LABELS = { applied: "Applied — sent to the sidebar", not_now: "Moved to Not now", skipped: "Skipped", new: "Returned to feed",
   auto_skipped: "Auto-skipped" };
 
 /* ---------- status changes with undo / redo history (kept per browser tab across pages) ---------- */
@@ -216,6 +216,7 @@ function rowTitle(row) {
 async function postStatus(id, status, note) {
   const data = await api("POST", `/api/vacancies/${id}/status`, note ? { status, note } : { status });
   if (typeof data.feed_count === "number") $("feed-count").textContent = data.feed_count;
+  refreshApplications();
 }
 
 function belongsHere(status) {
@@ -529,6 +530,84 @@ if (filterForm) {
   window.addEventListener("scroll", () => { if (!document.querySelector(".fsel[open]")) return; closeAll(); },
     { passive: true });
   fade();
+}
+
+/* ---------- Apply sidebar: ▶ sends a vacancy here; the server makes the note, CV, letter and Drive folder ---------- */
+const applySidebar = $("apply-sidebar");
+let applyTimer = null;
+
+function el(tag, className, text) {
+  const node = document.createElement(tag);
+  if (className) node.className = className;
+  if (text) node.textContent = text;
+  return node;
+}
+
+function applicationRow(item) {
+  const li = el("li", `app-item app-${item.state}`);
+  li.dataset.id = item.id;
+  const head = el("div", "app-head");
+  if (item.active) head.append(el("span", "spinner"));
+  head.append(el("b", "app-title", item.title));
+  const dismiss = el("button", "link quiet app-dismiss", "×");
+  Object.assign(dismiss, { title: "Remove from the sidebar (files stay)", ariaLabel: "Remove from the sidebar" });
+  dismiss.dataset.app = "dismiss";
+  head.append(dismiss);
+  li.append(head);
+  if (item.employer) li.append(el("div", "muted small", item.employer));
+  li.append(el("div", "app-status small", item.status));
+  if (item.error) li.append(el("div", "app-error small", item.error));
+  if (item.warning) li.append(el("div", "app-warning small", item.warning));
+  const actions = el("div", "app-actions");
+  const button = (action, label) => { const b = el("button", "btn", label); b.dataset.app = action; actions.append(b); };
+  const link = (url, label, newTab) => {
+    const a = el("a", "btn", label);
+    a.href = url;
+    if (newTab) { a.target = "_blank"; a.rel = "noopener"; }
+    actions.append(a);
+  };
+  if (item.has_pdf) button("reveal", "Show PDF");
+  if (item.has_letter) button("letter", "Copy letter");
+  if (item.note_url) link(item.note_url, "Note", false);
+  if (item.folder_url) link(item.folder_url, "Drive", true);
+  if (["failed", "waiting", "cancelled"].includes(item.state)) button("retry", "Retry");
+  if (actions.children.length) li.append(actions);
+  return li;
+}
+
+async function refreshApplications() {
+  if (!applySidebar) return;
+  clearTimeout(applyTimer);
+  try {
+    const data = await api("GET", "/api/applications");
+    applySidebar.hidden = !data.items.length;
+    document.body.classList.toggle("with-sidebar", data.items.length > 0);
+    $("apply-list").replaceChildren(...data.items.map(applicationRow));
+    applyTimer = setTimeout(refreshApplications, data.items.some((item) => item.active) ? 2500 : 30000);
+  } catch (e) {
+    applyTimer = setTimeout(refreshApplications, 15000);
+  }
+}
+
+if (applySidebar) {
+  $("apply-list").addEventListener("click", async (event) => {
+    const control = event.target.closest("[data-app]");
+    if (!control) return;
+    const id = control.closest(".app-item").dataset.id;
+    const action = control.dataset.app;
+    try {
+      if (action === "letter") {
+        const data = await api("GET", `/api/applications/${id}/letter`);
+        await writeClipboard(data.text);
+        toast("Cover letter copied");
+        return;
+      }
+      await api("POST", `/api/applications/${id}/${action}`);
+      if (action === "retry") toast("Continuing from where it stopped");
+    } catch (e) { toast(e.message); }
+    refreshApplications();
+  });
+  refreshApplications();
 }
 
 if (tab === "feed") focusRow(visibleRows()[0], { scroll: false });

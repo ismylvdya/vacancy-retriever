@@ -14,6 +14,7 @@ from fastapi.templating import Jinja2Templates
 from pydantic import BaseModel
 
 from ..app_info import APP_NAME, APP_VERSION
+from ..apply.service import ApplicationService, create_application_service, reveal_in_finder
 from ..config import AppConfig, SourceConfig
 from .. import notices
 from ..icons import IconStore
@@ -90,9 +91,12 @@ def _allowed_hosts(port: int) -> set[str]:
     return {f"127.0.0.1:{port}", f"localhost:{port}"}
 
 
-def create_app(config: AppConfig, storage: Storage, port: int, manager: RunManager | None = None) -> FastAPI:
+def create_app(config: AppConfig, storage: Storage, port: int, manager: RunManager | None = None,
+               applications: ApplicationService | None = None) -> FastAPI:
     app = FastAPI(title=APP_NAME, version=APP_VERSION, docs_url=None, redoc_url=None, openapi_url=None)
     manager = manager or RunManager(config, storage)
+    applications = applications or create_application_service(config, storage)
+    app.state.applications = applications
     manager.recover()
     templates = Jinja2Templates(directory=str(WEB_DIR / "templates"))
     templates.env.globals.update(app_name=APP_NAME, version=_static_version())
@@ -221,7 +225,48 @@ def create_app(config: AppConfig, storage: Storage, port: int, manager: RunManag
             raise HTTPException(400, str(exc)) from exc
         if not changed:
             raise HTTPException(404, "Vacancy not found")
+        if change.status == "applied":
+            applications.enqueue(vacancy_id)
+        else:
+            applications.withdraw(vacancy_id)
         return {"ok": True, "feed_count": storage.vacancies.processed_counts().get("new", 0)}
+
+    @app.get("/api/applications")
+    def list_applications() -> dict[str, Any]:
+        return {"enabled": applications.enabled,
+                "items": [views.application_item(storage, a) for a in applications.visible()]}
+
+    def _application(application_id: int) -> Any:
+        found = applications.get(application_id)
+        if found is None:
+            raise HTTPException(404, "Application not found")
+        return found
+
+    @app.post("/api/applications/{application_id}/retry")
+    def retry_application(application_id: int) -> dict[str, Any]:
+        _application(application_id)
+        if not applications.retry(application_id):
+            raise HTTPException(409, "It is being processed right now")
+        return {"ok": True}
+
+    @app.post("/api/applications/{application_id}/dismiss")
+    def dismiss_application(application_id: int) -> dict[str, Any]:
+        applications.dismiss(_application(application_id).id)
+        return {"ok": True}
+
+    @app.post("/api/applications/{application_id}/reveal")
+    def reveal_pdf(application_id: int) -> dict[str, Any]:
+        found = _application(application_id)
+        if not found.pdf_path or not reveal_in_finder(Path(found.pdf_path)):
+            raise HTTPException(404, "The PDF is not there")
+        return {"ok": True}
+
+    @app.get("/api/applications/{application_id}/letter")
+    def application_letter(application_id: int) -> dict[str, str]:
+        found = _application(application_id)
+        if not found.letter:
+            raise HTTPException(404, "The letter is not ready yet")
+        return {"text": found.letter}
 
     @app.post("/api/vacancies/{vacancy_id}/report")
     def report_vacancy(vacancy_id: int, report: Report) -> dict[str, Any]:

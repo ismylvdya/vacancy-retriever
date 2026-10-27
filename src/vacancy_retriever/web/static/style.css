@@ -339,3 +339,31 @@ body.debug .debug-toggle { color: var(--accent); }
   .stats-row > :nth-child(3), .stats-row > :nth-child(6), .stats-row > :nth-child(7) { display: none; }
   .app-title { font-size: 22px; margin-top: 16px; }
 }
+
+/* Apply sidebar (▶): CV, cover letter, Obsidian note and Drive folder per vacancy */
+.apply-sidebar { position: fixed; top: 0; right: 0; width: 300px; height: 100vh; overflow-y: auto; z-index: 30;
+  background: var(--panel); border-left: 1px solid var(--line); padding: 16px 14px 32px; }
+body.with-sidebar { padding-right: 300px; }
+body.with-sidebar .debug-toggle { right: 316px; }
+.apply-head { font-size: 15px; margin: 0 0 12px; display: flex; gap: 8px; align-items: baseline; }
+.apply-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 10px; }
+.app-item { border: 1px solid var(--line); border-radius: var(--radius); padding: 10px 10px 8px; }
+.app-head { display: flex; gap: 8px; align-items: center; }
+.app-title { flex: 1; font-size: 13px; line-height: 1.3; }
+.app-dismiss { color: var(--faint); font-size: 16px; line-height: 1; }
+.app-status { margin-top: 4px; color: var(--muted); }
+.app-done .app-status { color: var(--ok); }
+.app-error, .app-failed .app-status { color: var(--danger); }
+.app-error { margin-top: 2px; overflow-wrap: anywhere; }
+.app-warning { margin-top: 2px; color: var(--likely); }
+.app-actions { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
+.app-actions .btn { font-size: 12px; padding: 3px 8px; text-decoration: none; }
+.spinner { width: 12px; height: 12px; flex: none; border-radius: 50%; border: 2px solid var(--line-strong);
+  border-top-color: var(--accent); animation: spin .8s linear infinite; }
+.app-waiting .spinner { animation: none; border-top-color: var(--likely); }
+@keyframes spin { to { transform: rotate(360deg); } }
+@media (max-width: 1000px) {
+  body.with-sidebar { padding-right: 0; }
+  body.with-sidebar .debug-toggle { right: 16px; }
+  .apply-sidebar { position: static; width: auto; height: auto; border-left: 0; border-bottom: 1px solid var(--line); }
+}

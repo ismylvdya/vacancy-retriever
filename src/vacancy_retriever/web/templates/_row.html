@@ -52,7 +52,7 @@
       {% if processed %}
         <button class="btn" data-action="status" data-status="new">Return to feed<kbd>R</kbd></button>
       {% else %}
-        <button class="btn" data-action="status" data-status="applied">Applied<kbd>▶</kbd></button>
+        <button class="btn" data-action="status" data-status="applied" title="Applied: CV, cover letter, Obsidian note and Drive folder are made in the sidebar">Apply<kbd>▶</kbd></button>
         <button class="btn" data-action="status" data-status="not_now">Not now<kbd>N</kbd></button>
         <span class="skip-group"><button class="btn" data-action="status" data-status="skipped">Skip<kbd>◀</kbd></button><input class="debug-only skip-note" type="text" placeholder="why skip? (optional)" aria-label="Reason of the skip"></span>
       {% endif %}

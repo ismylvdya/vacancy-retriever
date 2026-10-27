@@ -125,6 +125,7 @@ class ModelPrice(_Strict):
 class StageModels(_Strict):
     scoring: str
     dedup: str
+    resume: str | None = None  # CV + cover letter for the Apply sidebar; empty = the scoring model
 
 
 class ClaudeSdkSettings(_Strict):
@@ -291,6 +292,47 @@ class UiConfig(_Strict):
     browser: BrowserSettings = Field(default_factory=BrowserSettings)
 
 
+class WhereLabels(_Strict):
+    ru_remote: str = "🇷🇺яз: удаленка"
+    ru_serbia: str = "🇷🇺яз: в Сербии очно"
+    ru_abroad: str = "🇷🇺яз: очно в 3-ей стране"
+    en_remote: str = "🇺🇸: удаленка"
+    en_serbia: str = "🇺🇸: в Сербии очно"
+    en_abroad: str = "🇺🇸: очно в 3-ей стране"
+
+
+class ObsidianSettings(_Strict):
+    vault_dir: str | None = None
+    folder: str = ""
+    tags: list[str] = Field(default_factory=lambda: ["👾травля", "👾retrieved"])
+    what: str = "📋 вакансия"
+    label_non_it: str = "📋не IT"
+    where: WhereLabels = Field(default_factory=WhereLabels)
+    employer_what: str = "🧔🏻‍♂️ работодатель"
+
+
+class ResumeSettings(_Strict):
+    skill_dir: str = "~/.claude/skills/resume-tailor"
+    tex_bin_dir: str | None = None
+    max_skills: int = Field(default=10, ge=1, le=30)
+    effort: Literal["low", "medium", "high"] | None = "medium"
+
+
+class DriveSettings(_Strict):
+    enabled: bool = True
+    root_folder: str = "Vacancy Retriever"
+    share_with_link: bool = True
+
+
+class ApplyConfig(_Strict):
+    enabled: bool = False
+    start_delay_seconds: int = Field(default=8, ge=0)
+    retry_minutes: int = Field(default=30, ge=1)
+    obsidian: ObsidianSettings = Field(default_factory=ObsidianSettings)
+    resume: ResumeSettings = Field(default_factory=ResumeSettings)
+    drive: DriveSettings = Field(default_factory=DriveSettings)
+
+
 class AppConfig:
     """Lazy access to every file in config/. Each file is validated on first use."""
 
@@ -319,6 +361,16 @@ class AppConfig:
         return _parse(UiConfig, path) if path.exists() else UiConfig()
 
     @cached_property
+    def apply(self) -> ApplyConfig:
+        path = self.paths.config / "apply.yaml"
+        return _parse(ApplyConfig, path) if path.exists() else ApplyConfig()
+
+    def resolve_path(self, value: str) -> Path:
+        """A path from a config file: absolute, ~/…, or relative to the project folder."""
+        path = Path(value).expanduser()
+        return path if path.is_absolute() else self.paths.root / path
+
+    @cached_property
     def secrets(self) -> Secrets:
         return Secrets.load(self.paths.config / ".env")
 
@@ -336,4 +388,4 @@ class AppConfig:
         raise ConfigError(f"Unknown source id '{source_id}'")
 
     def validate_all(self) -> None:
-        _ = self.sources, self.rules, self.llm, self.mail, self.ui, self.profile
+        _ = self.sources, self.rules, self.llm, self.mail, self.ui, self.apply, self.profile

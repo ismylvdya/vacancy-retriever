@@ -3,6 +3,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from pathlib import Path
 
+from .applications import ApplicationRepository
 from .db import Database
 from .items import RawItemRepository
 from .llm_calls import LlmCallRepository
@@ -17,8 +18,10 @@ class Storage:
     items: RawItemRepository
     vacancies: VacancyRepository
     llm_calls: LlmCallRepository
+    applications: ApplicationRepository
 
     @classmethod
     def open(cls, path: Path, token_log: Path | None = None) -> Storage:
         db = Database(path)
-        return cls(db, RunRepository(db), RawItemRepository(db), VacancyRepository(db), LlmCallRepository(db, token_log))
+        return cls(db, RunRepository(db), RawItemRepository(db), VacancyRepository(db), LlmCallRepository(db, token_log),
+                   ApplicationRepository(db))

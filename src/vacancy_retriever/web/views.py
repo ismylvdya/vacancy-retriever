@@ -4,7 +4,9 @@ import json
 from collections import defaultdict
 from dataclasses import dataclass, field
 from typing import Any
+from urllib.parse import quote
 
+from ..apply.models import Application
 from ..config import AppConfig, SourceConfig
 from ..storage import Storage
 from ..storage.vacancies import VacancyRecord
@@ -510,3 +512,41 @@ def hidden_items(config: AppConfig, storage: Storage) -> list[dict[str, Any]]:
                                     "published": format_local(item.published_at, "%-d %b") if item.published_at else ""})
     return [{"run_id": run_id, "started": format_local(runs[run_id]["started_at"]) if run_id in runs else "—",
              "rows": rows} for run_id, rows in sorted(by_run.items(), reverse=True)]
+
+
+STEP_LABELS = {
+    "note": "Writing the Obsidian note…",
+    "folder": "Creating the Drive folder…",
+    "materials": "Tailoring CV & cover letter (Claude)…",
+    "pdf": "Building the PDF…",
+    "upload": "Uploading the CV to Drive…",
+    "finalize": "Finishing…",
+}
+
+
+def application_item(storage: Storage, application: Application) -> dict[str, Any]:
+    """One row of the Apply sidebar."""
+    record = storage.vacancies.get(application.vacancy_id)
+    state = application.state.value
+    if state == "queued":
+        status = "Queued" if not application.started else "Continuing…"
+    elif state == "working":
+        status = STEP_LABELS.get(application.step or "", "Working…")
+    elif state == "waiting":
+        status = f"Claude limit — retry at {format_local(application.due_at, '%H:%M')}"
+    elif state == "failed":
+        status = f"Stopped at “{application.step}”"
+    elif state == "cancelled":
+        status = "Cancelled"
+    else:
+        status = "Ready"
+    return {
+        "id": application.id, "vacancy_id": application.vacancy_id,
+        "title": (record.facts.display_title if record and record.facts else "") or (record.title if record else "?"),
+        "employer": record.employer if record else "",
+        "state": state, "active": application.state.active, "status": status,
+        "error": application.error, "warning": application.warning,
+        "has_pdf": bool(application.pdf_path), "has_letter": bool(application.letter),
+        "note_url": f"obsidian://open?path={quote(application.note_path)}" if application.note_path else None,
+        "folder_url": application.folder_url, "pdf_url": application.pdf_url,
+    }

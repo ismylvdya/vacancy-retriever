@@ -22,6 +22,7 @@ from collections.abc import Callable
 from dataclasses import dataclass, field
 from datetime import date
 from pathlib import Path
+from urllib.parse import urlparse
 
 import httpx
 
@@ -121,6 +122,17 @@ def _clean(text: str) -> str:
 
 
 SOURCE_LINE = "Description source: Google for Jobs"
+_JOB_BOARDS = re.compile(r"(^|\.)(linkedin|indeed|glassdoor|google|ziprecruiter|jooble|talent|bebee)\.", re.I)
+
+
+def employer_links(links: list[str], limit: int = 2) -> list[str]:
+    """Apply links that lead to the employer's own page (kept for the vacancy note; never opened by the app)."""
+    result = []
+    for link in links:
+        host = urlparse(link).hostname or ""
+        if link.startswith("https://") and host and not _JOB_BOARDS.search(host) and link not in result:
+            result.append(link.split("?utm_")[0])
+    return result[:limit]
 
 
 def format_found(found: Found) -> str:
@@ -128,6 +140,7 @@ def format_found(found: Found) -> str:
     if found.location:
         lines.append(f"Location: {found.location}")
     lines.append(f"{SOURCE_LINE}{f' (via {found.via})' if found.via else ''}")
+    lines += [f"Apply: {link}" for link in employer_links(found.links)]
     return _clean("\n".join([*lines, "", found.description.strip()]).strip()[:8000])
 
 

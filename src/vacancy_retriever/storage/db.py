@@ -158,6 +158,31 @@ CREATE TABLE IF NOT EXISTS reports (
     created_at TEXT NOT NULL
 );
 CREATE INDEX IF NOT EXISTS ix_reports_vacancy ON reports(vacancy_id);
+
+-- Apply sidebar: one row per vacancy sent with ▶. Each step stores its result; a stored result = the step is done.
+CREATE TABLE IF NOT EXISTS applications (
+    id INTEGER PRIMARY KEY,
+    vacancy_id INTEGER NOT NULL UNIQUE REFERENCES vacancies(id) ON DELETE CASCADE,
+    state TEXT NOT NULL,               -- queued | working | waiting | failed | done | cancelled
+    step TEXT,                         -- the step being done (or that failed)
+    due_at TEXT NOT NULL,              -- not before this time (Undo window, retry after a Claude limit)
+    note_path TEXT,
+    folder_id TEXT,
+    folder_url TEXT,
+    materials_json TEXT,
+    pdf_path TEXT,
+    pdf_file_id TEXT,
+    pdf_url TEXT,
+    letter TEXT,
+    skills TEXT,
+    error TEXT,
+    warning TEXT,
+    cancel_requested INTEGER NOT NULL DEFAULT 0,
+    dismissed INTEGER NOT NULL DEFAULT 0,
+    created_at TEXT NOT NULL,
+    updated_at TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS ix_applications_state ON applications(state, due_at);
 """
 
 

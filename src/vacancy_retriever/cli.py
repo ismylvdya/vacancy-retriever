@@ -90,7 +90,27 @@ def cmd_serve(args: argparse.Namespace) -> int:
     config = AppConfig()
     config.validate_all()
     app = create_app(config, _storage(config, args.db), port=args.port)
-    uvicorn.run(app, host="127.0.0.1", port=args.port, log_level="warning")
+    app.state.applications.start_worker()
+    try:
+        uvicorn.run(app, host="127.0.0.1", port=args.port, log_level="warning")
+    finally:
+        app.state.applications.stop_worker()
+    return 0
+
+
+def cmd_drive_login(args: argparse.Namespace) -> int:
+    from .apply.drive import GoogleToken
+    from .apply.google_auth import login
+    from .apply.service import TOKEN_FILE
+
+    config = AppConfig()
+    client_id, secret = config.secrets.get("GOOGLE_OAUTH_CLIENT_ID"), config.secrets.get("GOOGLE_OAUTH_CLIENT_SECRET")
+    if not client_id or not secret:
+        print("Put GOOGLE_OAUTH_CLIENT_ID and GOOGLE_OAUTH_CLIENT_SECRET into config/.env (see docs/APPLY.md)")
+        return 2
+    print("A browser tab opens: allow Vacancy Retriever to manage the files it creates in Google Drive.")
+    login(GoogleToken(config.paths.data / TOKEN_FILE, client_id, secret))
+    print("Google Drive connected. Restart the app (scripts/stop.sh && scripts/start.sh).")
     return 0
 
 
@@ -195,6 +215,9 @@ def build_parser() -> argparse.ArgumentParser:
     recalc = sub.add_parser("recalculate", help="re-apply config/rules.yaml to stored facts (no LLM)")
     recalc.add_argument("--db")
     recalc.set_defaults(func=cmd_recalculate)
+
+    drive = sub.add_parser("drive-login", help="connect Google Drive for the Apply sidebar (one-time, opens a browser)")
+    drive.set_defaults(func=cmd_drive_login)
     return parser
 
 

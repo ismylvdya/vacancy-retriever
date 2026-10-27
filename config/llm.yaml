@@ -10,11 +10,12 @@ provider: claude_sdk
 # Модели по этапам для каждого провайдера.
 #   scoring — извлечение фактов из вакансий (основной расход токенов)
 #   dedup   — "это одна и та же вакансия?" для похожих пар
+#   resume  — резюме и сопроводительное по кнопке ▶ (один вызов на вакансию, docs/APPLY.md); пусто = как scoring
 # Для claude_sdk можно писать алиасы: haiku, sonnet, opus.
 # Рекомендация по модели — в EVAL.md.
 models:
-  claude_sdk:    {scoring: haiku, dedup: haiku}
-  anthropic_api: {scoring: claude-haiku-5-5, dedup: claude-haiku-5-5}
+  claude_sdk:    {scoring: haiku, dedup: haiku, resume: sonnet}
+  anthropic_api: {scoring: claude-haiku-5-5, dedup: claude-haiku-5-5, resume: claude-sonnet-5-5}
   openai_api:    {scoring: gpt-5.4-nano, dedup: gpt-5.4-nano}
 
 # Проверять похожие (не одинаковые) пары вакансий через LLM. false — не тратить на это токены: такие пары остаются

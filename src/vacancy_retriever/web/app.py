@@ -14,8 +14,10 @@ from fastapi.templating import Jinja2Templates
 from pydantic import BaseModel
 
 from ..app_info import APP_NAME, APP_VERSION
-from ..apply.service import ApplicationService, create_application_service, reveal_in_finder
-from ..config import AppConfig, SourceConfig
+from ..apply.drive import DriveParent, GoogleDrive
+from ..apply.models import ApplyError
+from ..apply.service import PARENT_FILE, ApplicationService, create_application_service, create_drive, reveal_in_finder
+from ..config import Secrets, AppConfig, SourceConfig
 from .. import notices
 from ..icons import IconStore
 from ..pipeline.manager import AlreadyRunning, RunManager
@@ -37,6 +39,10 @@ class StatusChange(BaseModel):
 
 class Report(BaseModel):
     text: str
+
+
+class DriveChoice(BaseModel):
+    id: str
 
 
 class RealLimit(BaseModel):
@@ -253,6 +259,41 @@ def create_app(config: AppConfig, storage: Storage, port: int, manager: RunManag
         else:
             applications.withdraw(vacancy_id)
         return {"ok": True, "feed_count": storage.vacancies.processed_counts().get("new", 0)}
+
+    # ---- the user's Drive folder for vacancy folders (Google Picker, once)
+    parent = DriveParent(config.paths.data / PARENT_FILE)
+
+    def google_drive() -> GoogleDrive:
+        drive = create_drive(config, f"http://127.0.0.1:{port}/drive/pick")
+        if not isinstance(drive, GoogleDrive):
+            raise HTTPException(409, drive.reason or "Google Drive is not connected")
+        return drive
+
+    @app.get("/drive/pick", response_class=HTMLResponse)
+    def drive_pick(request: Request) -> HTMLResponse:
+        return templates.TemplateResponse(request, "drive_pick.html", {"current": parent.get()})
+
+    @app.post("/api/drive/picker")
+    def drive_picker() -> dict[str, Any]:
+        """For the picker page only (POST: the origin check applies). The OAuth client id starts with the project number."""
+        secrets = Secrets.load(config.paths.config / ".env")  # read now: a key typed in after the start counts
+        key = secrets.get(config.apply.drive.picker_key_env)
+        if not key:
+            raise HTTPException(409, f"Set {config.apply.drive.picker_key_env} in config/.env (docs/APPLY.md)")
+        client_id = secrets.get("GOOGLE_OAUTH_CLIENT_ID") or ""
+        try:
+            token = google_drive().access_token()
+        except ApplyError as exc:
+            raise HTTPException(409, str(exc)) from exc
+        return {"token": token, "key": key, "app_id": client_id.split("-", 1)[0]}
+
+    @app.post("/api/drive/parent")
+    def drive_parent(choice: DriveChoice) -> dict[str, Any]:
+        name = google_drive().folder_name(choice.id)
+        if name is None:
+            raise HTTPException(400, "The app cannot open this folder — pick it again")
+        parent.save(choice.id, name)
+        return {"ok": True, "name": name}
 
     @app.get("/api/applications")
     def list_applications() -> dict[str, Any]:

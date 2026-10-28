@@ -121,15 +121,38 @@ def _quote(value: str) -> str:
     return value.replace("\\", "\\\\").replace("'", "\\'")
 
 
+class DriveParent:
+    """The user's own folder for vacancy folders («👾 травля»), chosen once in the Google Picker (/drive/pick).
+    With the drive.file scope the app may use a folder of the user's only after the user picked it there."""
+
+    def __init__(self, path: Path):
+        self.path = path
+
+    def get(self) -> dict[str, str] | None:
+        try:
+            data = json.loads(self.path.read_text(encoding="utf-8"))
+        except (OSError, ValueError):
+            return None
+        return data if data.get("id") else None
+
+    def save(self, folder_id: str, name: str) -> None:
+        self.path.parent.mkdir(parents=True, exist_ok=True)
+        self.path.write_text(json.dumps({"id": folder_id, "name": name}, ensure_ascii=False), encoding="utf-8")
+
+
 class GoogleDrive(CloudFolders):
-    """Drive API v3 with the drive.file scope: the app sees only folders and files it created itself.
+    """Drive API v3 with the drive.file scope: the app sees only folders and files it created itself, plus the
+    parent folder the user picked (DriveParent).
 
     Every folder / file carries appProperties (vr_root, vr_vacancy, vr_pdf), so after a crash between "created"
     and "saved to the database" the same item is found again instead of being created twice."""
 
-    def __init__(self, token: GoogleToken, settings: DriveSettings, transport: httpx.BaseTransport | None = None):
+    def __init__(self, token: GoogleToken, settings: DriveSettings, transport: httpx.BaseTransport | None = None,
+                 parent: DriveParent | None = None, pick_url: str = ""):
         self._token = token
         self._settings = settings
+        self._parent = parent
+        self._pick_url = pick_url
         self._client = httpx.Client(timeout=60, transport=transport, follow_redirects=False)
 
     @property
@@ -161,7 +184,24 @@ class GoogleDrive(CloudFolders):
             body["parents"] = [parent]
         return self._call("POST", f"{API}/files", params={"fields": "id"}, json=body)["id"]
 
+    def access_token(self) -> str:
+        return self._token.access_token(self._client)
+
+    def folder_name(self, file_id: str) -> str | None:
+        """Name of a folder the app may see (to confirm the pick); None if it cannot."""
+        try:
+            data = self._call("GET", f"{API}/files/{_quote(file_id)}", params={"fields": "id,name,mimeType"})
+        except ApplyError:
+            return None
+        return data.get("name") if data.get("mimeType") == FOLDER_MIME else None
+
     def _root(self) -> str:
+        """The picked folder («👾 травля»). Without it nothing is created (a stray folder would land in My Drive)."""
+        if self._settings.parent_required:
+            chosen = self._parent.get() if self._parent else None
+            if not chosen:
+                raise ApplyError(f"Choose the Google Drive folder for vacancies once: {self._pick_url}", kind="setup")
+            return chosen["id"]
         found = self._find(f"appProperties has {{ key='vr_root' and value='1' }} and mimeType = '{FOLDER_MIME}'")
         return found or self._create_folder(self._settings.root_folder, None, {"vr_root": "1"})
 

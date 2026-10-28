@@ -11,7 +11,7 @@ from ..config import AppConfig
 from ..storage import Storage
 from ..storage.applications import ApplicationRepository
 from ..timeutil import utcnow
-from .drive import CloudFolders, GoogleDrive, GoogleToken, NoDrive, StubDrive
+from .drive import CloudFolders, DriveParent, GoogleDrive, GoogleToken, NoDrive, StubDrive
 from .models import Application, ApplicationState
 from .obsidian import ObsidianVault
 from .pipeline import ApplicationPipeline, ApplyServices, DossierBuilder
@@ -168,7 +168,10 @@ def reveal_in_finder(path: Path) -> bool:
     return True
 
 
-def create_drive(config: AppConfig) -> CloudFolders:
+PARENT_FILE = "google_drive_parent.json"
+
+
+def create_drive(config: AppConfig, pick_url: str = "http://127.0.0.1:18765/drive/pick") -> CloudFolders:
     settings = config.apply.drive
     if settings.stub:
         return StubDrive()
@@ -180,7 +183,7 @@ def create_drive(config: AppConfig) -> CloudFolders:
     token = GoogleToken(config.paths.data / TOKEN_FILE, client_id, secret)
     if not token.exists:
         return NoDrive("Google Drive not connected: run `vacancy-retriever drive-login`")
-    return GoogleDrive(token, settings)
+    return GoogleDrive(token, settings, parent=DriveParent(config.paths.data / PARENT_FILE), pick_url=pick_url)
 
 
 def create_application_service(config: AppConfig, storage: Storage) -> ApplicationService:
@@ -199,7 +202,7 @@ def create_application_service(config: AppConfig, storage: Storage) -> Applicati
     model = llm.stage_models.resume or llm.stage_models.scoring
     writer = MaterialsWriter(create_provider(config, sdk), model, skill, storage.llm_calls, resume.max_skills)
     services = ApplyServices(DossierBuilder(config, storage), vault, create_drive(config), writer, skill,
-                             config.paths.data / "applications")
+                             config.paths.data / "applications", apply.drive.folder_name)
     pipeline = ApplicationPipeline(storage, services, apply.retry_minutes)
     worker = ApplicationWorker(storage.applications, pipeline)
     return ApplicationService(storage.applications, apply.enabled, apply.start_delay_seconds, worker)

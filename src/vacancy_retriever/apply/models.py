@@ -100,7 +100,7 @@ class VacancyDossier:
     title: str
     employer: str
     text: str
-    links: list[str]
+    links: list[tuple[str, str]]  # (label, url): «эта вакансия на сайте LinkedIn» / «… на сайте <работодателя>»
     where: list[str]
     labels: list[str]
     company_hint: str = ""  # e.g. the country, helps the LLM choose photo / language

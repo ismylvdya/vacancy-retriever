@@ -3,9 +3,10 @@ from __future__ import annotations
 import asyncio
 import logging
 import re
+from urllib.parse import urlparse
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
-from datetime import timedelta
+from datetime import date, timedelta
 from functools import cached_property
 from pathlib import Path
 from typing import Any
@@ -15,7 +16,7 @@ from ..storage import Storage
 from ..timeutil import utcnow
 from .drive import CloudFolders, StubDrive
 from .models import Application, ApplicationState, ApplyError, VacancyDossier
-from .obsidian import SKILLS_PROPERTY, ObsidianVault, note_file_name
+from .obsidian import SKILLS_PROPERTY, ObsidianVault
 from .resume import MaterialsWriter, ResumeSkill, insert_cv_link
 
 log = logging.getLogger(__name__)
@@ -39,18 +40,36 @@ class DossierBuilder:
         raw = self._storage.items.get(record.primary_raw_id)
         text = raw.full_text.strip() if raw else record.title
         facts = record.facts
-        links = [s.url for s in record.sources if s.url]
+        employer_name = record.employer or (facts.employer_name if facts and facts.employer_name != "unknown" else "")
+        sources = {s.id: s for s in self._config.sources.sources}
+        links = [(self._source_label(sources.get(s.source_id), s.url), s.url) for s in record.sources if s.url]
+        employer_label = f"эта вакансия на сайте {employer_name}" if employer_name else "эта вакансия на сайте работодателя"
         if facts and facts.link:
-            links.append(facts.link)
-        links += _APPLY_LINE.findall(text)
+            links.append((self._source_label(None, facts.link), facts.link))
+        links += [(employer_label, url) for url in _APPLY_LINE.findall(text)]  # employer pages from Google for Jobs
+        unique: dict[str, str] = {}
+        for label, url in links:
+            unique.setdefault(url, label)
         employer = record.employer or (facts.employer_name if facts and facts.employer_name != "unknown" else "")
         hint = ""
         if facts:
             hint = (f"Location: {facts.city}, {facts.country}; format: {facts.work_format}; "
                     f"employer type: {facts.employer_type}; ad language: {facts.ad_language}")
         return VacancyDossier(vacancy_id=record.id, title=(facts.display_title if facts else "") or record.title,
-                              employer=employer, text=text, links=list(dict.fromkeys(links)),
+                              employer=employer, text=text, links=[(label, url) for url, label in unique.items()],
                               where=self.where(record.facts), labels=self.labels(record.category), company_hint=hint)
+
+    @staticmethod
+    def _source_label(source: Any, url: str) -> str:
+        """«эта вакансия на сайте LinkedIn» / «… на сайте Infostud» / «эта вакансия в Telegram-канале Serbia Work»."""
+        if source is not None and source.type == "telegram":
+            return f"эта вакансия в Telegram-канале {source.name}"
+        if source is not None and source.type not in ("email",):
+            return f"эта вакансия на сайте {source.name}"
+        host = (urlparse(url).hostname or "").removeprefix("www.")
+        known = {"linkedin.com": "LinkedIn", "hh.ru": "hh.ru", "superjob.ru": "SuperJob", "career.habr.com": "Хабр Карьера"}
+        name = next((v for k, v in known.items() if host == k or host.endswith("." + k)), host or "источника")
+        return f"эта вакансия на сайте {name}"
 
     def where(self, facts: Any) -> list[str]:
         labels = self._config.apply.obsidian.where
@@ -71,8 +90,11 @@ class DossierBuilder:
         return [label] if label else []  # an empty label in apply.yaml = leave «👾где» empty
 
     def labels(self, category: str) -> list[str]:
+        """«🦆 retrieved» always (made by the app), «📋не IT» for categories worked by hand (kind: manual)."""
+        obsidian = self._config.apply.obsidian
         rule = self._config.rules.categories.get(category)
-        return [self._config.apply.obsidian.label_non_it] if rule and rule.kind == "manual" else []
+        return [label for label in (obsidian.label_retrieved, obsidian.label_non_it if rule and rule.kind == "manual"
+                                    else "") if label]
 
 
 @dataclass
@@ -85,6 +107,7 @@ class ApplyServices:
     writer: MaterialsWriter
     skill: ResumeSkill
     out_dir: Path
+    folder_name: str = "🦆 {title} - {employer} {date}"  # apply.yaml → drive.folder_name; date = the day of ▶
 
 
 @dataclass
@@ -148,7 +171,9 @@ class FolderStep(Step):
         return ctx.drive.available and not app.folder_id
 
     def run(self, app: Application, ctx: StepContext) -> dict[str, Any]:
-        item = ctx.drive.ensure_folder(app.vacancy_id, note_file_name(ctx.dossier.title, ctx.dossier.employer))
+        name = ctx.services.folder_name.format(title=ctx.dossier.title, employer=ctx.dossier.employer,
+                                               date=date.today().strftime("%d-%m-%Y"))
+        item = ctx.drive.ensure_folder(app.vacancy_id, " ".join(name.replace("/", "∕").split()))
         return {"folder_id": item.id, "folder_url": item.url}
 
 

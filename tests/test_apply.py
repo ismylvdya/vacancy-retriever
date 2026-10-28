@@ -1,10 +1,12 @@
 from __future__ import annotations
 
+import json
 import time
 from datetime import date, timedelta
 from pathlib import Path
 from typing import Any
 
+import httpx
 import pytest
 from fastapi.testclient import TestClient
 
@@ -95,6 +97,7 @@ class FakeDrive(NoDrive):
 
     def ensure_folder(self, key: int, name: str) -> DriveItem:
         self.folders += 1
+        self.names = [*getattr(self, "names", []), name]
         return DriveItem("F1", folder_url("F1"))
 
     def upload_pdf(self, key: int, folder_id: str, path: Path) -> DriveItem:
@@ -142,10 +145,11 @@ def test_full_pipeline_makes_note_cv_letter_and_folder(env):
     assert app.letter.endswith(f"Резюме: {file_url('P1')}\nGitHub: https://github.com/x")
     assert Path(app.pdf_path).exists() and app.folder_url == folder_url("F1")
     note = Path(app.note_path)
-    assert note.name == "Junior Data Scientist Acme d.o.o..md"
+    assert note.name == "Junior Data Scientist - Acme d.o.o..md"
     text = note.read_text(encoding="utf-8")
     meta = frontmatter(text)
-    assert meta["tags"] == ["👾травля", "👾retrieved"] and meta["👾что_это"] == ["📋 вакансия"]
+    assert meta["tags"] == ["👾травля"] and meta["👾что_это"] == ["📋 вакансия"]
+    assert meta["👾лэйблы"] == ["🦆 retrieved"], "made by the app: a label, not a tag"
     assert meta["👾где"] == ["🇷🇺яз: в Сербии очно"] and meta["retriever_id"] == env.vacancy_id
     assert meta["👾FK"] == "[[Acme (IT)]]", "employer note found by its name without the legal suffix"
     assert meta["👾необходимые скилы"] == "Python, SQL, A/B testing"
@@ -153,8 +157,12 @@ def test_full_pipeline_makes_note_cv_letter_and_folder(env):
     assert "%%" not in text, "no service markers in the note"
     assert text.index("### описание вакансии") < text.index("https://telegram.me/serbiawork/1") < text.index("### моё")
     assert "https://telegram.me/serbiawork/1" in text and "Полный текст вакансии про Data Science" in text
-    assert f"[Папка на Google Drive]({folder_url('F1')})" in text and file_url("P1") in text
+    assert f"### моё\n[папка Google Drive]({folder_url('F1')})\n\n**cover letter:**\n```" in text
+    assert file_url("P1") in text
+    assert "### описание вакансии\n[эта вакансия в Telegram-канале " in text
+    assert "](https://telegram.me/serbiawork/1)" in text and "\n\n**описание вакансии:**\n```" in text
     assert "ВСТАВИТЬ" not in text
+    assert env.drive.names == [f"🦆 Junior Data Scientist - Acme d.o.o. {date.today():%d-%m-%Y}"]
     calls = env.storage.llm_calls.all()
     assert [c["stage"] for c in calls] == ["resume"] and calls[0]["input_tokens"] == 1000
 
@@ -182,6 +190,15 @@ def test_restart_continues_interrupted_work(env):
     assert app.state == ApplicationState.DONE and env.provider.calls == 0, "the LLM result was already stored"
 
 
+def test_a_taken_note_name_gets_a_number(env):
+    taken = env.vault.root / "Junior Data Scientist - Acme d.o.o..md"
+    taken.write_text("my own note", encoding="utf-8")
+    env.service.enqueue(env.vacancy_id)
+    app = run_all(env)
+    assert Path(app.note_path).name == "Junior Data Scientist - Acme d.o.o. 2.md"
+    assert taken.read_text(encoding="utf-8") == "my own note"
+
+
 def test_user_edits_in_the_note_are_kept(env):
     env.service.enqueue(env.vacancy_id)
     app = run_all(env)
@@ -190,7 +207,7 @@ def test_user_edits_in_the_note_are_kept(env):
     note.rename(renamed)
     text = renamed.read_text(encoding="utf-8").replace("👾необходимые скилы: \"Python, SQL, A/B testing\"",
                                                        "👾необходимые скилы: мои")
-    text = text.replace("### моё\n\n", "### моё\n\nМои мысли\n")
+    text = text.replace("### моё\n", "### моё\nМои мысли\n")
     renamed.write_text(text, encoding="utf-8")
     env.storage.applications.update(app.id, skills="Go", pdf_url="https://drive/new")
     env.service.retry(app.id)
@@ -224,7 +241,7 @@ def test_mine_section_follows_the_app_until_the_user_edits_it(env):
     env.service.retry(app.id)
     app = run_all(env)
     text = note.read_text(encoding="utf-8")
-    assert f"[Папка на Google Drive]({folder_url('F1')})" in text and file_url("P1") in text
+    assert f"[папка Google Drive]({folder_url('F1')})" in text and file_url("P1") in text
     assert "Google Drive не подключён" not in text and text.count("### моё") == 1
 
 
@@ -284,7 +301,7 @@ def test_property_is_filled_only_when_empty(tmp_path):
 
 
 def test_names_and_links():
-    assert note_file_name("Data Analyst / BI", "Citrus: iGaming") == "Data Analyst BI Citrus iGaming"
+    assert note_file_name("Data Analyst / BI", "Citrus: iGaming") == "Data Analyst BI - Citrus iGaming"
     assert normalize_company("Linea Milanovic d.o.o.") == normalize_company("LINEA MILANOVIC") == "linea milanovic"
     assert insert_cv_link(LETTER, "https://drive/x").count("https://drive/x") == 1
     assert employer_links(["https://www.linkedin.com/jobs/view/1", "https://citrus.careers-page.com/jobs/1?utm_x=1",
@@ -330,3 +347,55 @@ def test_apply_from_the_feed_and_sidebar_api(env):
 def test_obsidian_settings_defaults_match_the_vault_format():
     settings = ObsidianSettings()
     assert settings.tags[0] == "👾травля" and settings.what == "📋 вакансия"
+
+
+def test_google_drive_needs_the_picked_folder(tmp_path):
+    from vacancy_retriever.apply.drive import DriveParent, GoogleDrive, GoogleToken
+    from vacancy_retriever.config import DriveSettings
+
+    token = GoogleToken(tmp_path / "t.json", "1234-x.apps.googleusercontent.com", "s")
+    token.save({"refresh_token": "r", "access_token": "a", "expires_at": time.time() + 3600})
+    calls = []
+
+    def handler(request):
+        calls.append(request)
+        if request.method == "GET":
+            return httpx.Response(200, json={"files": []})
+        return httpx.Response(200, json={"id": "NEW"})
+
+    parent = DriveParent(tmp_path / "parent.json")
+    drive = GoogleDrive(token, DriveSettings(), transport=httpx.MockTransport(handler), parent=parent,
+                        pick_url="http://127.0.0.1:18765/drive/pick")
+    with pytest.raises(ApplyError, match="drive/pick"):
+        drive.ensure_folder(7, "🦆 X Y 28-10-2026")
+    assert not [c for c in calls if c.method == "POST"], "nothing is created in My Drive without the pick"
+    parent.save("TRAVLYA", "👾 травля")
+    drive.ensure_folder(7, "🦆 X Y 28-10-2026")
+    created = json.loads([c for c in calls if c.method == "POST"][0].content)
+    assert created["parents"] == ["TRAVLYA"] and created["name"] == "🦆 X Y 28-10-2026"
+
+
+def test_unknown_employer_is_never_called_unknown(tmp_path):
+    from vacancy_retriever.apply.models import VacancyDossier
+    from vacancy_retriever.apply.resume import ResumeSkill
+
+    writer = MaterialsWriter(FakeProvider(), "sonnet", FakeSkill(), None)  # type: ignore[arg-type]
+    dossier = VacancyDossier(vacancy_id=1, title="Data Analyst", employer="", text="text", links=[], where=[], labels=[])
+    assert "unknown" not in writer.user_prompt(dossier).casefold()
+    assert 'never write "Unknown"' in writer.system_prompt()
+
+    skill_dir = tmp_path / "skill"
+    (skill_dir / "scripts").mkdir(parents=True)
+    # a stand-in build.py: prints the PDF line the way the real one does, with the empty company
+    (skill_dir / "scripts" / "build.py").write_text(
+        "import json, sys, pathlib\n"
+        "sel = json.loads(pathlib.Path(sys.argv[2]).read_text())\n"
+        "out = pathlib.Path(sys.argv[4]); stem = f\"Ismailov_CV_{sel['company']}_{sel['role_abbr']}\"\n"
+        "(out / f'{stem}.pdf').write_bytes(b'%PDF'); (out / f'{stem}.tex').write_text('x')\n"
+        "print(f'PDF: {out / (stem + \".pdf\")}  pages=1')\n", encoding="utf-8")
+    tex = tmp_path / "bin"
+    tex.mkdir()
+    (tex / "tectonic").write_text("#!/bin/sh\n", encoding="utf-8")
+    (tex / "tectonic").chmod(0o755)
+    pdf, _ = ResumeSkill(skill_dir, tex).build({"lang": "en", "company": "Unknown", "role_abbr": "DA"}, tmp_path / "o")
+    assert pdf.name == "Ismailov_CV_DA.pdf" and pdf.exists() and (pdf.parent / "Ismailov_CV_DA.tex").exists()

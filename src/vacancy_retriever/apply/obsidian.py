@@ -24,12 +24,18 @@ _MINE = re.compile(rf"^{re.escape(MINE_HEADING)}[ \t]*\n(.*?)(?=^#{{1,3}} |\Z)",
 
 
 def note_file_name(title: str, employer: str) -> str:
-    name = " ".join(_FORBIDDEN.sub(" ", f"{title} {employer}".strip()).split()).lstrip(".")
+    """«<вакансия> - <работодатель>» (user, 28.10.2026)."""
+    raw = f"{title} - {employer}" if employer else title
+    name = " ".join(_FORBIDDEN.sub(" ", raw.strip()).split()).lstrip(".")
     return (name[:120].rstrip() or "Vacancy")
 
 
 def normalize_company(name: str) -> str:
     return " ".join(re.sub(r"[^\w ]+", " ", _LEGAL.sub(" ", name.casefold())).split())
+
+
+def _label(text: str) -> str:
+    return text.replace("[", "(").replace("]", ")")
 
 
 def _fence(text: str) -> str:
@@ -67,8 +73,9 @@ class NoteRenderer:
                  *[f"  - {_yaml_value(label)}" for label in dossier.labels],
                  f"👾FK: {_yaml_value(employer_link) if employer_link else ''}".rstrip(),
                  f"{SKILLS_PROPERTY}:", f"{ID_PROPERTY}: {dossier.vacancy_id}", "---", ""]
-        body = [DESCRIPTION_HEADING, "", *dossier.links, "", _fence(dossier.text), "",
-                MINE_HEADING, "", _PLACEHOLDER, ""]
+        sources = [f"[{_label(label)}]({url})" for label, url in dossier.links]
+        body = [DESCRIPTION_HEADING, *sources, "", "**описание вакансии:**", _fence(dossier.text), "",
+                MINE_HEADING, _PLACEHOLDER, ""]
         return "\n".join(lines + body)
 
 
@@ -113,8 +120,8 @@ class ObsidianVault:
         folder.mkdir(parents=True, exist_ok=True)
         base = note_file_name(dossier.title, dossier.employer)
         path, n = folder / f"{base}.md", 2
-        while path.exists():
-            path, n = folder / f"{base} ({n}).md", n + 1
+        while path.exists():  # a name taken by another note: «… 2», «… 3» (the user's choice, 28.10.2026)
+            path, n = folder / f"{base} {n}.md", n + 1
         path.write_text(self.renderer.render(dossier, self.employer_link(dossier.employer)), encoding="utf-8")
         return path
 
@@ -144,7 +151,7 @@ class ObsidianVault:
         current = match.group(1).strip()
         if current not in {_PLACEHOLDER, (previous or "").strip()} or current == content.strip():
             return current == content.strip()
-        new = f"{text[:match.start(1)]}\n{content.strip()}\n\n{text[match.end(1):].lstrip()}".rstrip() + "\n"
+        new = f"{text[:match.start(1)]}{content.strip()}\n\n{text[match.end(1):].lstrip()}".rstrip() + "\n"
         path.write_text(new, encoding="utf-8")
         return True
 
@@ -165,5 +172,5 @@ class ObsidianVault:
     @staticmethod
     def mine_section(folder_url: str | None, letter: str) -> str:
         """«### моё»: the Drive folder, then the letter (with the link to the CV file) in a code block."""
-        folder = f"[Папка на Google Drive]({folder_url})" if folder_url else "_Google Drive не подключён — папки нет._"
-        return f"{folder}\n\n{_fence(letter)}"
+        folder = f"[папка Google Drive]({folder_url})" if folder_url else "_Google Drive не подключён — папки нет._"
+        return f"{folder}\n\n**cover letter:**\n{_fence(letter)}"

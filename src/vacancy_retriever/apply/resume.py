@@ -25,6 +25,10 @@ The user has explicitly asked for BOTH the tailored resume and a cover letter fo
 (the short cover-letter type, unless the vacancy is an internship with a selection process). Follow the skill's
 decisions and honesty rules exactly.
 
+If the company is not stated, never write "Unknown" (or "unknown", «Неизвестно») anywhere: leave "company" empty
+("") in the selection, greet neutrally (RU «Добрый день!», EN «Dear Hiring Team,») and do not name a company in the
+letter or the CV title.
+
 Reply with ONE JSON object and nothing else:
 {"selection": <selection.json exactly as in the skill's schema, valid JSON without comments>,
  "letter": "<the letter as plain text without a code fence, ending with the verbatim Резюме/CV ❗️ВСТАВИТЬ❗️ and GitHub lines>",
@@ -85,12 +89,21 @@ class ResumeSkill:
         out_dir.mkdir(parents=True, exist_ok=True)
         # The skill's own schema shows "section_order": null, but build.py fails on a null: optional keys are dropped.
         selection = {key: value for key, value in selection.items() if value is not None}
+        if str(selection.get("company", "")).strip().casefold() in {"unknown", "неизвестно", "n/a", "na", "-"}:
+            selection["company"] = ""  # never «Unknown» in the file name
         selection_path = out_dir / "selection.json"
         selection_path.write_text(json.dumps(selection, ensure_ascii=False, indent=1), encoding="utf-8")
         output = self._run("build", str(selection_path), "--out", str(out_dir), timeout=300)
         match = _PDF_LINE.search(output)
         if not match or not Path(match.group(1)).exists():
             raise ApplyError(f"build.py produced no PDF: {output.strip()[-400:]}")
+        pdf = Path(match.group(1))
+        if "__" in pdf.stem:  # no company: Ismailov_CV__DA.pdf → Ismailov_CV_DA.pdf
+            tidy = pdf.with_name(re.sub(r"_{2,}", "_", pdf.stem).strip("_") + pdf.suffix)
+            pdf.replace(tidy)
+            for other in pdf.parent.glob(f"{pdf.stem}.*"):
+                other.replace(other.with_name(tidy.stem + other.suffix))
+            return tidy, "The CV does not fit one page" if int(match.group(2)) > 1 else None
         warning = "The CV does not fit one page" if int(match.group(2)) > 1 else None
         return Path(match.group(1)), warning
 
@@ -112,7 +125,11 @@ class MaterialsWriter:
                             f"===== build.py catalog =====\n{self._skill.catalog()}"])
 
     def user_prompt(self, dossier: VacancyDossier) -> str:
-        head = [f"Vacancy: {dossier.title}", f"Company: {dossier.employer or 'unknown'}"]
+        head = [f"Vacancy: {dossier.title}"]
+        if dossier.employer:  # an unknown employer is simply not mentioned (never «Unknown»)
+            head.append(f"Company: {dossier.employer}")
+        else:
+            head.append("Company: not stated in the vacancy")
         if dossier.company_hint:
             head.append(dossier.company_hint)
         return "\n".join([*head, "", dossier.text[: self._max_input_chars]])

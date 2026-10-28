@@ -1,0 +1,52 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Google Drive folder · {{ app_name }}</title>
+  <link rel="stylesheet" href="/static/style.css?v={{ version }}">
+</head>
+<body>
+<main class="main drive-pick">
+  <h1>Google Drive folder for vacancies</h1>
+  <p class="muted">Pick the folder where a folder per vacancy is made (for you: <b>👾 травля</b>). The app gets access to
+    this folder and to the files it creates there — the rest of your Drive stays closed to it.</p>
+  <p id="current" class="note">{% if current %}Now: <b>{{ current.name }}</b>{% else %}No folder chosen yet.{% endif %}</p>
+  <button class="btn primary" id="pick" type="button">Choose a folder in Google Drive</button>
+  <p id="message" class="note"></p>
+</main>
+<script>
+/* Google Picker: choosing a folder here is what grants the drive.file app access to it (docs/APPLY.md). */
+const message = (text) => { document.getElementById("message").textContent = text; };
+async function post(url, body) {
+  const response = await fetch(url, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body || {}) });
+  const data = await response.json().catch(() => ({}));
+  if (!response.ok) throw new Error(data.detail || `HTTP ${response.status}`);
+  return data;
+}
+document.getElementById("pick").addEventListener("click", async () => {
+  let config;
+  try { config = await post("/api/drive/picker"); } catch (e) { message(e.message); return; }
+  const script = document.createElement("script");
+  script.src = "https://apis.google.com/js/api.js";
+  script.onload = () => gapi.load("picker", () => {
+    const view = new google.picker.DocsView(google.picker.ViewId.FOLDERS)
+      .setIncludeFolders(true).setSelectFolderEnabled(true).setMimeTypes("application/vnd.google-apps.folder");
+    new google.picker.PickerBuilder().setAppId(config.app_id).setOAuthToken(config.token)
+      .setDeveloperKey(config.key).addView(view).setTitle("Folder for vacancy folders")
+      .setCallback(async (data) => {
+        if (data.action !== google.picker.Action.PICKED) return;
+        try {
+          const saved = await post("/api/drive/parent", { id: data.docs[0].id });
+          document.getElementById("current").innerHTML = "";
+          document.getElementById("current").append("Now: ", Object.assign(document.createElement("b"), { textContent: saved.name }));
+          message("Saved. New vacancy folders will be made there; press Retry in the sidebar for stopped ones.");
+        } catch (e) { message(e.message); }
+      }).build().setVisible(true);
+  });
+  script.onerror = () => message("Could not load Google Picker (no internet?)");
+  document.head.append(script);
+});
+</script>
+</body>
+</html>

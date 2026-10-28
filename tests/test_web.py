@@ -295,3 +295,10 @@ def test_missed_period_banner_include_and_dismiss(client, tmp_paths, monkeypatch
     assert started[-1].backfill is None, "a Telegram hole is not collected by a sites-only run"
     assert client.post("/api/missed/dismiss", headers=ORIGIN).status_code == 200
     assert 'id="missed"' not in client.get("/").text
+
+
+def test_drive_folder_picker_page(client):
+    page = client.get("/drive/pick")
+    assert page.status_code == 200 and "Choose a folder in Google Drive" in page.text
+    assert client.post("/api/drive/picker", headers=ORIGIN).status_code == 409  # Drive / key not set up in tests
+    assert client.post("/api/drive/parent", json={"id": "x"}, headers={"origin": "http://evil.example"}).status_code == 403

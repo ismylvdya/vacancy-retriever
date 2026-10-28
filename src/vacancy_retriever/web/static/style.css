@@ -424,3 +424,6 @@ body.with-sidebar { padding-right: 300px; }
 }
 /* a folded group is all heading: the frame goes round the whole card */
 .group.collapsed > .group-head::after { inset: -1px; border-bottom: 1px solid var(--line); border-radius: 13px; }
+/* /drive/pick — choosing the Google Drive folder for vacancy folders */
+.drive-pick { max-width: 640px; padding-top: 64px; }
+.drive-pick h1 { font-size: 22px; margin: 0 0 10px; }

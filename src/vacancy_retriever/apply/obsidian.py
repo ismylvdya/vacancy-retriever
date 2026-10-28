@@ -118,7 +118,7 @@ class ObsidianVault:
             return existing
         folder = self.root / self.settings.folder if self.settings.folder else self.root
         folder.mkdir(parents=True, exist_ok=True)
-        base = note_file_name(dossier.title, dossier.employer)
+        base = note_file_name(dossier.name_title or dossier.title, dossier.employer)
         path, n = folder / f"{base}.md", 2
         while path.exists():  # a name taken by another note: «… 2», «… 3» (the user's choice, 28.10.2026)
             path, n = folder / f"{base} {n}.md", n + 1

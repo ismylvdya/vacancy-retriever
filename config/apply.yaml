@@ -8,6 +8,11 @@ start_delay_seconds: 8
 # Через сколько минут повторить заявку, остановленную лимитом Claude.
 retry_minutes: 30
 
+# Должность в имени заметки и папки на Drive: с грейдом (решение пользователя 28.10.2026).
+names:
+  grade: true              # грейд intern / junior → «Intern …» / «Junior …», если в названии его ещё нет
+  ru_intern_suffix: "стажа"  # стажировка у российского работодателя → «<должность> стажа» (вместо «Intern»)
+
 obsidian:
   # Папка vault (абсолютный путь или относительно папки проекта). Пусто = заметки не создаются.
   vault_dir: ~/Library/Mobile Documents/iCloud~md~obsidian/Documents/chumbulev

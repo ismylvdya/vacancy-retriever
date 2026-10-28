@@ -331,8 +331,16 @@ class DriveSettings(_Strict):
     share_with_link: bool = True
 
 
+class NameSettings(_Strict):
+    """How the vacancy is named in the Obsidian note and the Drive folder (user, 28.10.2026)."""
+
+    grade: bool = True              # «Junior …» / «Intern …» when the grade is intern / junior and the title lacks it
+    ru_intern_suffix: str = "стажа"  # an internship at a Russian employer: «<должность> стажа» instead of «Intern»
+
+
 class ApplyConfig(_Strict):
     enabled: bool = False
+    names: NameSettings = Field(default_factory=NameSettings)
     start_delay_seconds: int = Field(default=8, ge=0)
     retry_minutes: int = Field(default=30, ge=1)
     obsidian: ObsidianSettings = Field(default_factory=ObsidianSettings)

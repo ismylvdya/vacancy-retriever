@@ -23,6 +23,7 @@ log = logging.getLogger(__name__)
 
 RUSSIAN_EMPLOYERS = {"russian", "ru_with_serbian_entity", "intl_russian_speaking"}
 SERBIA = {"serbia", "srbija", "rs", "сербия"}
+_GRADE_IN_TITLE = re.compile(r"\b(intern|internship|junior|jr|trainee|graduate|entry[- ]level)\b|стаж|младш", re.I)
 _APPLY_LINE = re.compile(r"^Apply: (https?://\S+)$", re.M)
 
 
@@ -55,9 +56,22 @@ class DossierBuilder:
         if facts:
             hint = (f"Location: {facts.city}, {facts.country}; format: {facts.work_format}; "
                     f"employer type: {facts.employer_type}; ad language: {facts.ad_language}")
-        return VacancyDossier(vacancy_id=record.id, title=(facts.display_title if facts else "") or record.title,
+        title = (facts.display_title if facts else "") or record.title
+        return VacancyDossier(vacancy_id=record.id, title=title, name_title=self.name_title(title, facts),
                               employer=employer, text=text, links=[(label, url) for url, label in unique.items()],
                               where=self.where(record.facts), labels=self.labels(record.category), company_hint=hint)
+
+    def name_title(self, title: str, facts: Any) -> str:
+        """«Junior Data Analyst», «Intern ML Engineer»; an internship at a Russian employer — «Аналитик данных стажа».
+        Nothing is added when the title already says it (Junior, Intern, Trainee, стаж…, младш…)."""
+        names = self._config.apply.names
+        if not names.grade or facts is None or facts.seniority not in ("intern", "junior"):
+            return title
+        if facts.seniority == "intern" and facts.employer_type in RUSSIAN_EMPLOYERS and names.ru_intern_suffix:
+            return title if re.search(r"стаж", title, re.I) else f"{title} {names.ru_intern_suffix}"
+        if _GRADE_IN_TITLE.search(title):
+            return title
+        return f"{'Intern' if facts.seniority == 'intern' else 'Junior'} {title}"
 
     @staticmethod
     def _source_label(source: Any, url: str) -> str:
@@ -171,8 +185,11 @@ class FolderStep(Step):
         return ctx.drive.available and not app.folder_id
 
     def run(self, app: Application, ctx: StepContext) -> dict[str, Any]:
-        name = ctx.services.folder_name.format(title=ctx.dossier.title, employer=ctx.dossier.employer,
-                                               date=date.today().strftime("%d-%m-%Y"))
+        title = ctx.dossier.name_title or ctx.dossier.title
+        template = ctx.services.folder_name
+        if not ctx.dossier.employer:  # no employer: no dangling « - »
+            template = template.replace(" - {employer}", "").replace("{employer}", "")
+        name = template.format(title=title, employer=ctx.dossier.employer, date=date.today().strftime("%d-%m-%Y"))
         item = ctx.drive.ensure_folder(app.vacancy_id, " ".join(name.replace("/", "∕").split()))
         return {"folder_id": item.id, "folder_url": item.url}
 

@@ -108,8 +108,12 @@ def cmd_drive_login(args: argparse.Namespace) -> int:
     if not client_id or not secret:
         print("Put GOOGLE_OAUTH_CLIENT_ID and GOOGLE_OAUTH_CLIENT_SECRET into config/.env (see docs/APPLY.md)")
         return 2
-    print("A browser tab opens: allow Vacancy Retriever to manage the files it creates in Google Drive.")
-    login(GoogleToken(config.paths.data / TOKEN_FILE, client_id, secret))
+    if args.metadata:
+        print("A browser tab opens: also allow READ-ONLY names and dates of your Drive files (for the import of old"
+              " applications). Run plain `drive-login` afterwards to go back to the minimal access.")
+    else:
+        print("A browser tab opens: allow Vacancy Retriever to manage the files it creates in Google Drive.")
+    login(GoogleToken(config.paths.data / TOKEN_FILE, client_id, secret), metadata=args.metadata)
     print("Google Drive connected. Restart the app (scripts/stop.sh && scripts/start.sh).")
     return 0
 
@@ -217,6 +221,8 @@ def build_parser() -> argparse.ArgumentParser:
     recalc.set_defaults(func=cmd_recalculate)
 
     drive = sub.add_parser("drive-login", help="connect Google Drive for the Apply sidebar (one-time, opens a browser)")
+    drive.add_argument("--metadata", action="store_true",
+                       help="also read-only names / dates of all Drive files (one-off import of old applications)")
     drive.set_defaults(func=cmd_drive_login)
     return parser
 

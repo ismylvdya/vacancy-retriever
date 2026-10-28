@@ -399,3 +399,20 @@ def test_unknown_employer_is_never_called_unknown(tmp_path):
     (tex / "tectonic").chmod(0o755)
     pdf, _ = ResumeSkill(skill_dir, tex).build({"lang": "en", "company": "Unknown", "role_abbr": "DA"}, tmp_path / "o")
     assert pdf.name == "Ismailov_CV_DA.pdf" and pdf.exists() and (pdf.parent / "Ismailov_CV_DA.tex").exists()
+
+
+def test_grade_in_note_and_folder_names(env):
+    builder = DossierBuilder(env.config, env.storage)
+
+    def facts(**kw):
+        return VacancyFacts.model_validate({"employer_type": "serbian", **kw})
+
+    assert builder.name_title("Data Analyst", facts(seniority="junior")) == "Junior Data Analyst"
+    assert builder.name_title("Data Analyst", facts(seniority="intern")) == "Intern Data Analyst"
+    assert builder.name_title("Junior Data Analyst", facts(seniority="junior")) == "Junior Data Analyst"
+    assert builder.name_title("ML Trainee", facts(seniority="intern")) == "ML Trainee"
+    assert builder.name_title("Data Analyst", facts(seniority="middle")) == "Data Analyst"
+    russian = facts(seniority="intern", employer_type="russian")
+    assert builder.name_title("Аналитик данных", russian) == "Аналитик данных стажа"
+    assert builder.name_title("Стажёр-аналитик", russian) == "Стажёр-аналитик"
+    assert builder.name_title("Data Analyst", None) == "Data Analyst"

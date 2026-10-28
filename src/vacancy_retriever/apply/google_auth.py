@@ -15,9 +15,13 @@ from .drive import TOKEN_URL, GoogleToken
 
 AUTH_URL = "https://accounts.google.com/o/oauth2/v2/auth"
 SCOPE = "https://www.googleapis.com/auth/drive.file"
+# Read-only names / dates / types of all Drive files, never their content — only for a one-off import of the old
+# applications (`drive-login --metadata`); a plain `drive-login` gives the minimal access back.
+METADATA_SCOPE = "https://www.googleapis.com/auth/drive.metadata.readonly"
 
 
-def login(token: GoogleToken, open_browser: Callable[[str], object] = webbrowser.open, timeout: int = 300) -> None:
+def login(token: GoogleToken, open_browser: Callable[[str], object] = webbrowser.open, timeout: int = 300,
+          metadata: bool = False) -> None:
     """One-time consent in the browser (loopback redirect + PKCE); the refresh token is saved next to the data."""
     verifier = secrets.token_urlsafe(64)
     challenge = base64.urlsafe_b64encode(hashlib.sha256(verifier.encode()).digest()).rstrip(b"=").decode()
@@ -41,7 +45,8 @@ def login(token: GoogleToken, open_browser: Callable[[str], object] = webbrowser
     server.timeout = 5
     redirect = f"http://127.0.0.1:{server.server_port}"
     open_browser(f"{AUTH_URL}?" + urlencode({
-        "client_id": token.client_id, "redirect_uri": redirect, "response_type": "code", "scope": SCOPE,
+        "client_id": token.client_id, "redirect_uri": redirect, "response_type": "code",
+        "scope": f"{SCOPE} {METADATA_SCOPE}" if metadata else SCOPE,
         "access_type": "offline", "prompt": "consent", "state": state,
         "code_challenge": challenge, "code_challenge_method": "S256"}))
     deadline = time.monotonic() + timeout

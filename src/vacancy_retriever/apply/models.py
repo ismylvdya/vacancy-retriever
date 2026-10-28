@@ -103,4 +103,5 @@ class VacancyDossier:
     links: list[tuple[str, str]]  # (label, url): «эта вакансия на сайте LinkedIn» / «… на сайте <работодателя>»
     where: list[str]
     labels: list[str]
-    company_hint: str = ""  # e.g. the country, helps the LLM choose photo / language
+    company_hint: str = ""
+    name_title: str = ""  # the title for the note / folder names: with the grade (DossierBuilder.name_title)  # e.g. the country, helps the LLM choose photo / language

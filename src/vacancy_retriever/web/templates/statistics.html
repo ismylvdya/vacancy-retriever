@@ -20,33 +20,41 @@
 </div>
 </div>
 
+{#- Wide tables: the column titles and the rows are two boxes that scroll sideways together (data-hsync, app.js), so
+    the titles can stick with plain position: sticky like every other heading (28.10.2026). -#}
+{% macro sources_table(rows, key, icons) -%}
+<div class="col-head hsync" data-hsync="{{ key }}"><table class="table src-table">{{ src_cols() }}
+  <thead><tr><th>Source</th><th>Status</th><th class="r" title="Fresh posts collected">New</th><th class="r" title="Posts looked through, including old ones">Seen</th><th class="r">To feed</th><th class="r">Time</th><th>Problem</th></tr></thead>
+</table></div>
+<div class="hsync hsync-body" data-hsync="{{ key }}"><table class="table src-table">{{ src_cols() }}
+  <tbody>
+  {% for r in rows %}
+    <tr class="{{ 'warn' if r.warn }}">
+      <td class="nw">{% if icons %}<span class="src-name"><img src="/icons/{{ r.source_id }}" alt="" loading="lazy">{{ r.name }}</span>{% else %}{{ r.name }}{% endif %}</td>
+      <td class="nw"><span class="status s-{{ r.status }}">{{ r.status | replace('_', ' ') }}</span></td>
+      <td class="r">{{ r.collected }}</td><td class="r">{{ r.seen if r.seen is not none else '' }}</td><td class="r">{{ r.to_feed }}</td>
+      <td class="r muted">{{ r.duration }}</td>
+      <td class="problem">{% if r.alert %}<span class="alert">{{ r.alert }}</span>{% endif %}{% if r.error %}<span class="muted">{{ r.error }}</span>{% endif %}</td>
+    </tr>
+  {% else %}<tr><td colspan="7" class="muted">No runs yet.</td></tr>{% endfor %}
+  </tbody>
+</table></div>
+{%- endmacro %}
+{% macro src_cols() %}<colgroup><col class="c-src"><col class="c-status"><col class="c-num"><col class="c-num"><col class="c-num"><col class="c-num"><col></colgroup>{% endmacro %}
+
 {% if view == 'sources' %}
 <section class="group">
   <div class="section-head"><h2>Sources</h2><span class="sub">State after the latest run</span></div>
-  <div class="hscroll"><table class="table">
-    <thead data-stick="0"><tr><th>Source</th><th>Status</th><th class="r" title="Fresh posts collected">New</th><th class="r" title="Posts looked through, including old ones">Seen</th><th class="r">To feed</th><th class="r">Time</th><th>Problem</th></tr></thead>
-    <tbody>
-    {% for r in latest %}
-      <tr class="{{ 'warn' if r.warn }}">
-        <td class="nw"><span class="src-name"><img src="/icons/{{ r.source_id }}" alt="" loading="lazy">{{ r.name }}</span></td>
-        <td class="nw"><span class="status s-{{ r.status }}">{{ r.status | replace('_', ' ') }}</span></td>
-        <td class="r">{{ r.collected }}</td><td class="r">{{ r.seen if r.seen is not none else '' }}</td><td class="r">{{ r.to_feed }}</td>
-        <td class="r muted">{{ r.duration }}</td>
-        <td class="problem">{% if r.alert %}<span class="alert">{{ r.alert }}</span>{% endif %}{% if r.error %}<span class="muted">{{ r.error }}</span>{% endif %}</td>
-      </tr>
-    {% else %}<tr><td colspan="7" class="muted">No runs yet.</td></tr>{% endfor %}
-    </tbody>
-  </table></div>
+  {{ sources_table(latest, "sources", True) }}
 </section>
 {% else %}
 <section class="group">
-  <div class="hscroll"><div class="runs-block">
-  <div class="cells run-row stats-row runs-head" data-stick="0"><span>Started</span><span>Status</span><span class="r">Duration</span><span class="r" title="New posts, letters and cards collected by all sources">Parsed</span><span class="r" title="Vacancies of this run that went to the feed">To feed</span><span class="r" title="Downloaded by the app itself: sites, Telegram previews, mail, job API (Claude CLI traffic is not visible to the app)">Network, MB</span><span class="r">Tokens (sdk-python)</span><span class="r">±% of 5h Pro Limit</span><span class="r" title="Typed by hand from claude.ai → Settings → Usage">real % of 5h Pro Limit</span><span>Problems</span></div>
+  <div class="table-head"><div class="hsync" data-hsync="runs"><div class="cells run-row stats-row runs-head"><span>Started</span><span>Status</span><span class="r">Duration</span><span class="r" title="New posts, letters and cards collected by all sources">Parsed</span><span class="r" title="Vacancies of this run that went to the feed">To feed</span><span class="r" title="Downloaded by the app itself: sites, Telegram previews, mail, job API (Claude CLI traffic is not visible to the app)">Network, MB</span><span class="r">Tokens (sdk-python)</span><span class="r">±% of 5h Pro Limit</span><span class="r" title="Typed by hand from claude.ai → Settings → Usage">real % of 5h Pro Limit</span><span>Problems</span></div></div></div>
   <div class="runs">
   {% for run in runs %}
     {% set t = data.per_run.get(run.id) %}
     <details class="run">
-      <summary class="cells run-row stats-row">
+      <summary><div class="hsync" data-hsync="runs"><div class="cells run-row stats-row">
         <span class="run-time">{{ run.started }}</span>
         <span class="status s-{{ run.status }}">{{ run.status }}</span>
         <span class="r muted">{{ run.duration_min }} min</span>
@@ -59,24 +67,11 @@
           value="{{ '%g' | format(run.real_limit_pct) if run.real_limit_pct is not none else '' }}" placeholder="—"
           aria-label="Real share of the 5-hour limit, %" title="From claude.ai → Settings → Usage; Enter to save">%</span>
         <span class="problem">{% if run.problems %}<span class="alert">{{ run.problems }} source problems</span>{% endif %}{% if t and t.failed %}<span class="alert">{{ t.failed }} LLM calls failed</span>{% endif %}{% if run.summary.llm_error %}<span class="alert">LLM: {{ run.summary.llm_error[:90] }}</span>{% endif %}</span>
-      </summary>
-      <table class="table inner">
-        <thead data-stick="1"><tr><th>Source</th><th>Status</th><th class="r">New</th><th class="r">Seen</th><th class="r">To feed</th><th class="r">Time</th><th>Problem</th></tr></thead>
-        <tbody>
-        {% for r in run.rows %}
-          <tr class="{{ 'warn' if r.warn }}">
-            <td class="nw">{{ r.name }}</td><td class="nw"><span class="status s-{{ r.status }}">{{ r.status | replace('_', ' ') }}</span></td>
-            <td class="r">{{ r.collected }}</td><td class="r">{{ r.seen if r.seen is not none else '' }}</td><td class="r">{{ r.to_feed }}</td>
-            <td class="r muted">{{ r.duration }}</td>
-            <td class="problem">{% if r.alert %}<span class="alert">{{ r.alert }}</span>{% endif %}{% if r.error %}<span class="muted">{{ r.error }}</span>{% endif %}</td>
-          </tr>
-        {% endfor %}
-        </tbody>
-      </table>
+      </div></div></summary>
+      <div class="run-sources">{{ sources_table(run.rows, "run-" ~ run.id, False) }}</div>
     </details>
   {% else %}<p class="muted pad">No runs yet.</p>{% endfor %}
   </div>
-  </div></div>
 </section>
 {% endif %}
 {% endblock %}

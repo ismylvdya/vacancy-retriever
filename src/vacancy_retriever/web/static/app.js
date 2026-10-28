@@ -20,37 +20,22 @@ async function api(method, url, body) {
 function measureSticky() {
   const top = document.querySelector(".top");
   const sub = document.querySelector(".subbar");
-  const groupHead = document.querySelector(".group > .group-head, .group > .section-head");
+  const groupHead = document.querySelector(".group > .group-head, .group > .section-head, .group > .table-head");
   // exact (fractional) heights: offsetHeight rounds, and the rounded-off fraction of a pixel let rows show through
   const height = (el) => (el ? el.getBoundingClientRect().height : 0);
   document.documentElement.style.setProperty("--top-h", `${height(top)}px`);
   document.documentElement.style.setProperty("--sub-h", `${height(sub)}px`);
   document.documentElement.style.setProperty("--gh-h", `${height(groupHead)}px`);
-  stickInScrollers();
 }
 
-/* Wide tables scroll sideways in .hscroll, and position: sticky does not work inside a scroll box — so their headers
-   ([data-stick]) follow the page with a transform instead. data-stick="1" stays under the data-stick="0" of its box. */
-function stickInScrollers() {
-  const height = (el) => (el ? el.getBoundingClientRect().height : 0);
-  const base = height(document.querySelector(".top")) + height(document.querySelector(".subbar")) + 1;  // + --frame
-  document.querySelectorAll(".hscroll").forEach((box) => {
-    const first = box.querySelector('[data-stick="0"]');
-    // the heading of the card the table is in («Sources · State after the latest run») sticks too: go under it
-    const card = box.closest(".group")?.querySelector(":scope > .section-head, :scope > .group-head");
-    box.querySelectorAll("[data-stick]").forEach((head) => {
-      head.style.transform = "";
-      const level = (head.dataset.stick === "1" && first ? height(first) : 0) + height(card);
-      const owner = head.closest("table, .runs-block") || box;
-      const rect = head.getBoundingClientRect(), area = owner.getBoundingClientRect();
-      const shift = Math.min(base + level - rect.top, area.bottom - rect.bottom - rect.height);
-      if (shift > 0) head.style.transform = `translateY(${shift}px)`;
+/* Wide tables: titles and rows are separate boxes (so the titles stick with plain CSS); they scroll sideways together. */
+document.querySelectorAll("[data-hsync]").forEach((box) => {
+  box.addEventListener("scroll", () => {
+    document.querySelectorAll(`[data-hsync="${box.dataset.hsync}"]`).forEach((other) => {
+      if (other !== box && other.scrollLeft !== box.scrollLeft) other.scrollLeft = box.scrollLeft;
     });
-  });
-}
-window.addEventListener("scroll", stickInScrollers, { passive: true });
-window.addEventListener("resize", stickInScrollers);
-document.addEventListener("toggle", stickInScrollers, true);  // a run opened or closed in Statistics → Runs
+  }, { passive: true });
+});
 if (window.ResizeObserver) {
   const observer = new ResizeObserver(measureSticky);
   document.querySelectorAll(".top, .subbar").forEach((el) => observer.observe(el));

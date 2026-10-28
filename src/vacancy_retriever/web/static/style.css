@@ -90,26 +90,38 @@ kbd { display: inline-block; min-width: 16px; padding: 0 3px; margin-left: 6px; 
 /* --frame: the card's 1px frame lies OUTSIDE its box, so every stuck heading stops 1px below the bars above it —
    flush against them, the opaque bars would cover the frame (28.10.2026: the top line was always cut off). */
 :root { --frame: 1px; }
-.group > .group-head, .group > .section-head { position: sticky;
+.group > .group-head, .group > .section-head, .group > .table-head { position: sticky;
   top: calc(var(--top-h, 0px) + var(--sub-h, 0px) + var(--frame)); z-index: 5; background: none; }
 /* A stuck heading carries the card's top with it: its own rounded corners and frame (::after), and the page
    background behind them (::before) so nothing scrolled shows in the corners or in a sliver above. */
-.group > .group-head::before, .group > .section-head::before, .group > .group-head::after, .group > .section-head::after {
+.group > .group-head::before, .group > .section-head::before, .group > .table-head::before,
+.group > .group-head::after, .group > .section-head::after, .group > .table-head::after {
   content: ""; position: absolute; z-index: -1; pointer-events: none; }
-.group > .group-head::before, .group > .section-head::before { left: -2px; right: -2px; top: -3px; height: 16px;
+.group > .group-head::before, .group > .section-head::before, .group > .table-head::before { left: -2px; right: -2px; top: -3px; height: 16px;
   background: var(--bg); }
-.group > .group-head::after, .group > .section-head::after { inset: -1px -1px 0 -1px; background: var(--panel);
+.group > .group-head::after, .group > .section-head::after, .group > .table-head::after { inset: -1px -1px 0 -1px; background: var(--panel);
   border: 1px solid var(--line); border-bottom: 0; border-radius: 13px 13px 0 0; }  /* = the card's 1px ring */
 /* column titles stick right under the group / run heading */
-/* anything wider than the content scrolls sideways inside its card (wide tables, LLM facts, long code) */
-.hscroll { overflow-x: auto; overflow-y: hidden; }
-.runs-block { min-width: 1250px; }   /* every column stays; a narrow window scrolls the runs sideways */
-.hscroll > .table { min-width: 640px; }
-.hscroll [data-stick] { position: relative; z-index: 4; background: var(--panel); will-change: transform;
-  box-shadow: 0 -2px 0 var(--panel); }
-.hscroll thead[data-stick] th { background: var(--panel); }
+/* Anything wider than the content scrolls sideways inside its card. A wide table is two boxes — titles and rows —
+   scrolled together by app.js (data-hsync), so the titles stick with plain CSS like every other heading.
+   The line under the titles belongs to them, so it stays while rows go under it. */
+.hsync { overflow-x: auto; overflow-y: hidden; scrollbar-width: none; }
+.hsync::-webkit-scrollbar { display: none; }
+.hsync.hsync-body { scrollbar-width: thin; }                 /* one visible scrollbar per table: under its rows */
+.hsync.hsync-body::-webkit-scrollbar { display: block; height: 8px; }
+.hsync > .run-row, .hsync > .runs-head { min-width: 1250px; }  /* every Runs column stays; a narrow window scrolls */
+.src-table { table-layout: fixed; min-width: 720px; }
+.src-table .c-src { width: 220px; } .src-table .c-status { width: 120px; } .src-table .c-num { width: 72px; }
+/* The line under a heading belongs to the heading (it stays when rows scroll under it); the first row has none. */
+.col-head, .table-head, .group-body > .cells.head { border-bottom: 1px solid var(--line); }
+.group-body > .cells.head + .vac, .group-body > .hidden-item:first-child { border-top: 0; }
+.group > .section-head:has(+ .group-body > .hidden-item:first-child) { border-bottom: 1px solid var(--line); }
+.hsync-body .table tbody tr:first-child td { border-top: 0; }
+.col-head th { padding-top: 10px; }
+.run-sources .table { font-size: 12px; }
+.run-sources .table td:first-child, .run-sources .table th:first-child { padding-left: 32px; }
 pre { max-width: 100%; overflow-x: auto; }
-.group-body > .cells.head, .group > .cells-processed.head { position: sticky; z-index: 4; background: var(--panel);
+.group-body > .cells.head, .group > .cells-processed.head, .col-head { position: sticky; z-index: 4; background: var(--panel);
   box-shadow: 0 -2px 0 var(--panel);
   top: calc(var(--top-h, 0px) + var(--sub-h, 0px) + var(--frame) + var(--gh-h, 0px)); }
 /* Each feed group is its own card with an empty gap between them, so it is obvious where a group ends. */
@@ -332,7 +344,6 @@ body.debug .debug-toggle { color: var(--accent); }
 .problem { width: 100%; min-width: 180px; }
 .problem > span { display: block; }
 .alert { color: var(--danger); }
-.runs { border-top: 1px solid var(--line); }
 .run + .run { border-top: 1px solid var(--line); }
 .run > summary { list-style: none; cursor: pointer; }
 .run > summary::-webkit-details-marker { display: none; }

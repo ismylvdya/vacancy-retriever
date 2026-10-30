@@ -294,15 +294,13 @@ def test_reports_and_a_reported_vacancy_leaves_the_feed_outside_debug(client):
     assert client.get("/api/status").json()["feed_count"] == 0
 
 
-def test_real_share_of_the_limit_is_typed_by_hand(client):
-    page = client.get("/statistics?view=runs").text
-    assert "real % of 5h Pro Limit" in page and 'class="real-limit"' in page and 'value=""' in page
+def test_runs_columns_by_coef_and_from_claude(client):
     run_id = client.storage.runs.history(1)[0]["id"]
-    assert client.post(f"/api/runs/{run_id}/real-limit", json={"percent": 4}, headers=ORIGIN).status_code == 200
-    assert 'value="4"' in client.get("/statistics?view=runs").text
-    assert client.post(f"/api/runs/{run_id}/real-limit", json={"percent": 140}, headers=ORIGIN).status_code == 400
-    assert client.post("/api/runs/99999/real-limit", json={"percent": 1}, headers=ORIGIN).status_code == 404
-    assert client.post(f"/api/runs/{run_id}/real-limit", json={"percent": None}, headers=ORIGIN).status_code == 200
+    client.storage.db.execute("UPDATE runs SET real_limit_pct = 4 WHERE id = ?", (run_id,))  # typed before 31.10
+    page = client.get("/statistics?view=runs").text
+    assert "±% of 5h Pro Limit by COEF" in page and "% of 5h from CLAUDE" in page and ">4%</span>" in page
+    assert "real % of 5h Pro Limit" not in page and 'class="real-limit"' not in page
+    assert client.post(f"/api/runs/{run_id}/real-limit", json={"percent": 4}, headers=ORIGIN).status_code in (404, 405)
 
 
 def test_missed_period_banner_include_and_dismiss(client, tmp_paths, monkeypatch):

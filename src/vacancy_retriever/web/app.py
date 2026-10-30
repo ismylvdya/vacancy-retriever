@@ -48,10 +48,6 @@ class DriveChoice(BaseModel):
     id: str
 
 
-class RealLimit(BaseModel):
-    percent: float | None = None
-
-
 class RunRequest(BaseModel):
     """Run panel: days = how far back (None = since the last run); groups = telegram / sites / email (None = all)."""
 
@@ -280,14 +276,6 @@ def create_app(config: AppConfig, storage: Storage, port: int, manager: RunManag
     @app.post("/api/missed/dismiss")
     def dismiss_missed() -> dict[str, Any]:
         storage.runs.clear_missed()
-        return {"ok": True}
-
-    @app.post("/api/runs/{run_id}/real-limit")
-    def set_real_limit(run_id: int, value: RealLimit) -> dict[str, Any]:
-        if value.percent is not None and not 0 <= value.percent <= 100:
-            raise HTTPException(400, "Percent must be 0–100")
-        if not storage.runs.set_real_limit(run_id, value.percent):
-            raise HTTPException(404, "Run not found")
         return {"ok": True}
 
     @app.post("/api/cancel")

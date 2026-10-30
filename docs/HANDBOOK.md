@@ -399,7 +399,8 @@ sqlite3 data/vacancy_retriever.sqlite ".backup 'data/backup-$(date +%Y%m%d).sqli
 - В карточке кнопки в порядке их клавиш: Skip ◀ · Not now N · Apply ▶. Новая иконка Gmail.
 - **Лимит Claude в данных (31.10.2026):** каждый вызов Claude пишет в `llm_calls` долю 5-часового и недельного лимита
   после себя (`five_hour`, `seven_day`, 0–1) и время сброса окна (`five_hour_resets_at`) — рядом с четырьмя видами
-  токенов (`input`, `output`, `cache_read`, `cache_creation`). Statistics → Runs, колонка «measured % of 5h»:
+  токенов (`input`, `output`, `cache_read`, `cache_creation`). Statistics → Runs, колонка «% of 5h from CLAUDE» (ручная колонка «real %» удалена; введённые
+  руками значения прогонов до 31.10 показываются в ней же), «±% of 5h Pro Limit by COEF» — токены / коэффициент:
   значение в конце прогона минус значение перед ним (по окнам; «≥» — начало окна неизвестно). Готовые данные для
   регрессии «токены → реальный %». Запрос по ↻ тоже пишется (stage `limits`) и даёт точку «до прогона».
 

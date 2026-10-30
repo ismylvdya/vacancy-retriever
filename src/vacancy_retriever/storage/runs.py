@@ -92,11 +92,6 @@ class RunRepository:
         periods = self.missed()
         self._save_missed({} if source_ids is None else {s: p for s, p in periods.items() if s not in source_ids})
 
-    def set_real_limit(self, run_id: int, percent: float | None) -> bool:
-        """The share of the 5-hour Claude Pro limit the run really took (claude.ai → Settings → Usage), typed by hand."""
-        cursor = self.db.execute("UPDATE runs SET real_limit_pct = ? WHERE id = ?", (percent, run_id))
-        return cursor.rowcount > 0
-
     def record_source(self, run_id: int, record: SourceRunRecord) -> None:
         self.db.execute(
             "INSERT INTO source_runs(run_id, source_id, status, collected, seen, passed, to_feed, duration_s, error,"

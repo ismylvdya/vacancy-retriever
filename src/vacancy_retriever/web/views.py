@@ -281,7 +281,7 @@ class HealthRun:
     summary: dict[str, Any]
     rows: list[HealthRow] = field(default_factory=list)
     problems: int = 0
-    real_limit_pct: float | None = None  # typed by the user from claude.ai → Usage
+    real_limit_pct: float | None = None  # typed by hand before 31.10.2026; shown in «% of 5h from CLAUDE»
     collected: int = 0  # new posts / letters / cards collected by all sources
     to_feed: int = 0    # of them, vacancies that went to the feed
 

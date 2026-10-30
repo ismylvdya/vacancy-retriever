@@ -186,7 +186,9 @@ class MaterialsWriter:
             cache_creation_tokens=usage.cache_creation_tokens if usage else None,
             ok=error is None, duration_s=time.monotonic() - started, error=error,
             tokens_unknown=not (usage and usage.known), auth_source=response.auth_source if response else None,
-            application_id=application_id))
+            application_id=application_id, five_hour=usage.five_hour if usage else None,
+            seven_day=usage.seven_day if usage else None,
+            five_hour_resets_at=usage.five_hour_resets_at if usage else None))
 
 
 def insert_cv_link(letter: str, pdf_url: str | None) -> str:

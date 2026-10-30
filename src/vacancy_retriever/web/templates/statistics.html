@@ -76,7 +76,7 @@
 </section>
 {% else %}
 <section class="group">
-  <div class="table-head"><div class="hsync" data-hsync="runs"><div class="cells run-row stats-row runs-head"><span>Started</span><span>Status</span><span class="r">Duration</span><span class="r" title="New posts, letters and cards collected by all sources">Parsed</span><span class="r" title="Vacancies of this run that went to the feed">To feed</span><span class="r" title="Downloaded by the app itself: sites, Telegram previews, mail, job API (Claude CLI traffic is not visible to the app)">Network, MB</span><span class="r">Tokens (sdk-python)</span><span class="r">±% of 5h Pro Limit</span><span class="r" title="Typed by hand from claude.ai → Settings → Usage">real % of 5h Pro Limit</span><span>Problems</span></div></div></div>
+  <div class="table-head"><div class="hsync" data-hsync="runs"><div class="cells run-row stats-row runs-head"><span>Started</span><span>Status</span><span class="r">Duration</span><span class="r" title="New posts, letters and cards collected by all sources">Parsed</span><span class="r" title="Vacancies of this run that went to the feed">To feed</span><span class="r" title="Downloaded by the app itself: sites, Telegram previews, mail, job API (Claude CLI traffic is not visible to the app)">Network, MB</span><span class="r">Tokens (sdk-python)</span><span class="r">±% of 5h Pro Limit</span><span class="r" title="Typed by hand from claude.ai → Settings → Usage">real % of 5h Pro Limit</span><span class="r" title="From what Claude reports after every call: the 5-hour limit used at the end of the run minus just before it (≥ — the start is not known)">measured % of 5h</span><span>Problems</span></div></div></div>
   <div class="runs">
   {% for run in runs %}
     {% set t = data.per_run.get(run.id) %}
@@ -93,6 +93,7 @@
         <span class="r"><input class="real-limit" type="number" min="0" max="100" step="0.1" data-run="{{ run.id }}"
           value="{{ '%g' | format(run.real_limit_pct) if run.real_limit_pct is not none else '' }}" placeholder="—"
           aria-label="Real share of the 5-hour limit, %" title="From claude.ai → Settings → Usage; Enter to save">%</span>
+        <span class="r">{% if t and t.measured %}{{ '≥ ' if t.measured[1] }}{{ t.measured[0] }}%{% else %}—{% endif %}</span>
         <span class="problem">{% if run.problems %}<span class="alert">{{ run.problems }} source problems</span>{% endif %}{% if t and t.failed %}<span class="alert">{{ t.failed }} LLM calls failed</span>{% endif %}{% if run.summary.llm_error %}<span class="alert">LLM: {{ run.summary.llm_error[:90] }}</span>{% endif %}</span>
       </div></div></summary>
       <div class="run-sources">{{ sources_table(run.rows, "run-" ~ run.id, False) }}</div>

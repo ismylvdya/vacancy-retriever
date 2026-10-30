@@ -4,6 +4,7 @@ import asyncio
 import hashlib
 import logging
 import threading
+import time
 from datetime import timedelta
 from urllib.parse import urlencode
 from pathlib import Path
@@ -26,6 +27,7 @@ from ..pipeline.manager import AlreadyRunning, RunManager
 from ..pipeline.recalculate import recalculate
 from ..pipeline.runner import RunOptions
 from ..storage import Storage
+from ..storage.llm_calls import LlmCallRecord
 from ..timeutil import format_local, from_iso, local, utcnow
 from . import views
 
@@ -259,10 +261,18 @@ def create_app(config: AppConfig, storage: Storage, port: int, manager: RunManag
         from ..llm.factory import create_provider
 
         def probe() -> None:
+            started = time.monotonic()
             try:
-                asyncio.run(create_provider(config).complete_json('Reply with exactly {"ok": true}', "{}", "haiku"))
+                response = asyncio.run(create_provider(config).complete_json('Reply with exactly {"ok": true}', "{}",
+                                                                              "haiku"))
             except Exception as exc:  # noqa: BLE001 - the bars just stay as they were
                 log.info("Claude limits refresh failed: %s", exc)
+                return
+            usage = response.usage  # recorded like any call: real tokens, and a «before» point for measured %
+            storage.llm_calls.record(LlmCallRecord(
+                None, "limits", "claude_sdk", usage.model or "haiku", 0, usage.input_tokens, usage.output_tokens,
+                usage.cache_read_tokens, usage.cache_creation_tokens, True, time.monotonic() - started,
+                five_hour=usage.five_hour, seven_day=usage.seven_day, five_hour_resets_at=usage.five_hour_resets_at))
 
         threading.Thread(target=probe, name="claude-limits", daemon=True).start()
         return {"ok": True}

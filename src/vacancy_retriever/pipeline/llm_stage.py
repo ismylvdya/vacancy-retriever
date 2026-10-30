@@ -111,6 +111,8 @@ class LlmCaller:
                 error=error,
                 tokens_unknown=unknown,
                 auth_source=response.auth_source if response else None,
+                five_hour=usage.five_hour if usage else None, seven_day=usage.seven_day if usage else None,
+                five_hour_resets_at=usage.five_hour_resets_at if usage else None,
             )
         )
 

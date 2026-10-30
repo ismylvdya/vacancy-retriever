@@ -122,6 +122,7 @@ class ClaudeSdkProvider(LlmProvider):
         from claude_agent_sdk import AssistantMessage, RateLimitEvent, ResultMessage, SystemMessage, TextBlock, query
 
         auth_source: str | None = None
+        windows: Any = None  # the subscription limits Claude reports with this reply
         text_parts: list[str] = []
         result: Any = None
         try:
@@ -134,8 +135,10 @@ class ClaudeSdkProvider(LlmProvider):
                     text_parts.extend(b.text for b in message.content if isinstance(b, TextBlock))
                 elif isinstance(message, ResultMessage):
                     result = message
-                elif isinstance(message, RateLimitEvent) and self._limits_path:
-                    limits.save(self._limits_path, message.rate_limit_info.raw)
+                elif isinstance(message, RateLimitEvent):
+                    windows = message.rate_limit_info.raw.get("unifiedWindows") or windows
+                    if self._limits_path:
+                        limits.save(self._limits_path, message.rate_limit_info.raw)
         except LlmError:
             raise
         except Exception as exc:
@@ -143,6 +146,10 @@ class ClaudeSdkProvider(LlmProvider):
         if result is None:
             raise LlmError("Claude CLI returned no result", kind="other")
         usage = self._usage(result)
+        if isinstance(windows, dict):
+            five, week = windows.get("five_hour") or {}, windows.get("seven_day") or {}
+            usage.five_hour, usage.seven_day = five.get("utilization"), week.get("utilization")
+            usage.five_hour_resets_at = five.get("resetsAt")
         if result.is_error:
             raise _classify(str(result.result or result.subtype))
         if result.structured_output is not None and isinstance(result.structured_output, dict):

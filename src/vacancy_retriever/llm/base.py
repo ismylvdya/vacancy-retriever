@@ -25,6 +25,11 @@ class LlmUsage:
     cache_read_tokens: int | None = None
     cache_creation_tokens: int | None = None
     model: str | None = None
+    # Claude subscription after this call (claude_sdk only): share of the 5-hour / weekly limit used, 0–1, and when
+    # the 5-hour window resets (unix time) — the ground truth for "how much of the limit a run takes"
+    five_hour: float | None = None
+    seven_day: float | None = None
+    five_hour_resets_at: int | None = None
 
     @property
     def known(self) -> bool:

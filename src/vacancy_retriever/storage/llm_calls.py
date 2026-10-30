@@ -26,6 +26,9 @@ class LlmCallRecord:
     tokens_unknown: bool = False
     auth_source: str | None = None
     application_id: int | None = None  # Apply / Not now calls (Statistics → Applies)
+    five_hour: float | None = None     # share of the Claude 5-hour limit after this call (0–1)
+    seven_day: float | None = None     # … of the weekly limit
+    five_hour_resets_at: int | None = None
 
 
 class LlmCallRepository:
@@ -38,10 +41,11 @@ class LlmCallRepository:
         self.db.execute(
             "INSERT INTO llm_calls(run_id, stage, provider, model, n_items, input_tokens, output_tokens,"
             " cache_read_tokens, cache_creation_tokens, tokens_unknown, ok, error, duration_s, auth_source, created_at,"
-            " application_id) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
+            " application_id, five_hour, seven_day, five_hour_resets_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
             (call.run_id, call.stage, call.provider, call.model, call.n_items, call.input_tokens, call.output_tokens,
              call.cache_read_tokens, call.cache_creation_tokens, int(call.tokens_unknown), int(call.ok), call.error,
-             round(call.duration_s, 2), call.auth_source, created, call.application_id),
+             round(call.duration_s, 2), call.auth_source, created, call.application_id, call.five_hour, call.seven_day,
+             call.five_hour_resets_at),
         )
         if self.token_log:
             self.token_log.parent.mkdir(parents=True, exist_ok=True)

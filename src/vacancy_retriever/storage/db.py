@@ -147,7 +147,10 @@ CREATE TABLE IF NOT EXISTS llm_calls (
     duration_s REAL,
     auth_source TEXT,
     created_at TEXT NOT NULL,
-    application_id INTEGER             -- the Apply / Not now call (Statistics → Applies)
+    application_id INTEGER,            -- the Apply / Not now call (Statistics → Applies)
+    five_hour REAL,                    -- Claude subscription after the call: 5-hour limit used, 0–1
+    seven_day REAL,                    -- … weekly limit used, 0–1
+    five_hour_resets_at INTEGER        -- when that 5-hour window resets (unix time)
 );
 CREATE INDEX IF NOT EXISTS ix_llm_run ON llm_calls(run_id);
 
@@ -209,6 +212,8 @@ class Database:
         """Columns added after v0 databases were created. Add new ones here, never drop."""
         added = {("source_runs", "seen", "INTEGER"), ("vacancies", "user_note", "TEXT"),
                  ("runs", "real_limit_pct", "REAL"), ("llm_calls", "application_id", "INTEGER"),
+                 ("llm_calls", "five_hour", "REAL"), ("llm_calls", "seven_day", "REAL"),
+                 ("llm_calls", "five_hour_resets_at", "INTEGER"),
                  ("applications", "kind", "TEXT NOT NULL DEFAULT 'apply'"), ("applications", "note_mine", "TEXT"),
                  ("applications", "stats_json", "TEXT")}
         for table, column, kind in added:

@@ -513,12 +513,45 @@ def _call_tokens(call: dict[str, Any]) -> int:
     return sum(call[k] or 0 for k in ("input_tokens", "output_tokens", "cache_read_tokens", "cache_creation_tokens"))
 
 
+FIVE_HOURS = 5 * 3600
+
+
+def measured_limit_share(calls: list[dict[str, Any]], earlier: list[dict[str, Any]], started: datetime | None
+                         ) -> tuple[float, bool] | None:
+    """How much of the 5-hour limit a run took, from what Claude reports after every call (llm_calls.five_hour).
+    Per 5-hour window: the last value in the run minus the value just before the run (the latest earlier call in
+    the same window; 0 if the window began during the run). Unknown start → the run's first call is the base and the
+    result is a lower bound (second value True). None — no call of the run carried the limits."""
+    seen = [c for c in calls if c.get("five_hour") is not None and c.get("five_hour_resets_at")]
+    if not seen:
+        return None
+    total, lower_bound = 0.0, False
+    for resets in dict.fromkeys(c["five_hour_resets_at"] for c in seen):
+        window = [c for c in seen if c["five_hour_resets_at"] == resets]
+        before = [c for c in earlier if c.get("five_hour_resets_at") == resets and c.get("five_hour") is not None]
+        if before:
+            base = before[-1]["five_hour"]
+        elif started and resets - FIVE_HOURS >= started.timestamp() - 60:
+            base = 0.0  # the window opened with this run
+        else:
+            base, lower_bound = window[0]["five_hour"], True
+        total += max(0.0, window[-1]["five_hour"] - base)
+    return round(100 * total, 1), lower_bound
+
+
 def tokens(config: AppConfig, storage: Storage) -> dict[str, Any]:
     """Totals for the Statistics header and tokens per run for the Runs table."""
     limit = config.llm.claude_sdk.pro_5h_limit_tokens if config.llm.provider == "claude_sdk" else None
     per_run: dict[int | None, int] = defaultdict(int)
     failed: dict[int | None, int] = defaultdict(int)
     calls = storage.llm_calls.all()
+    runs = {r["id"]: r for r in storage.runs.history(1000)}
+    measured: dict[int, tuple[float, bool] | None] = {}
+    for run_id in {c["run_id"] for c in calls if c["run_id"] is not None}:
+        own = [c for c in calls if c["run_id"] == run_id]
+        first_id = own[0]["id"]
+        measured[run_id] = measured_limit_share(own, [c for c in calls if c["id"] < first_id],
+                                                from_iso(runs[run_id]["started_at"]) if run_id in runs else None)
     for call in calls:
         per_run[call["run_id"]] += _call_tokens(call)
         failed[call["run_id"]] += 0 if call["ok"] else 1
@@ -527,7 +560,8 @@ def tokens(config: AppConfig, storage: Storage) -> dict[str, Any]:
         "total": total, "calls": len(calls), "pro_limit": limit, "provider": config.llm.provider,
         "auth_source": storage.llm_calls.last_auth_source(),
         "per_run": {run_id: {"tokens": n, "failed": failed[run_id],
-                             "limit_share": round(100 * n / limit, 1) if limit else None}
+                             "limit_share": round(100 * n / limit, 1) if limit else None,
+                             "measured": measured.get(run_id)}
                     for run_id, n in per_run.items()},
     }
 

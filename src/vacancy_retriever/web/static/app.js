@@ -520,8 +520,10 @@ document.addEventListener("click", (event) => {
     if (action === "fulltext") toggleFullText(row);
     return;
   }
-  // A click elsewhere on a card does nothing (user, 30.10.2026): ↑ / ↓ open the next card, Esc closes it —
-  // so text can be selected and links clicked without the card folding.
+  // A click on a closed card opens it; on an open card it does nothing (user, 31.10.2026) — text can be selected
+  // and links clicked without the card folding. Esc closes, ↑ / ↓ move.
+  if (event.target.closest("a, input, textarea")) return;
+  if (!row.classList.contains("open")) focusRow(row, { scroll: false });
 });
 
 document.addEventListener("keydown", (event) => {

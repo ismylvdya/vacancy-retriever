@@ -53,9 +53,10 @@
       {% if processed %}
         <button class="btn" data-action="status" data-status="new">Return to feed<kbd>R</kbd></button>
       {% else %}
-        <button class="btn" data-action="status" data-status="applied" title="Applied: CV, cover letter, Obsidian note and Drive folder are made in the sidebar">Apply<kbd>▶</kbd></button>
-        <button class="btn" data-action="status" data-status="not_now">Not now<kbd>N</kbd></button>
+        {#- Skip on the left, Apply on the right — like their keys ◀ / ▶ (user, 30.10.2026) -#}
         <button class="btn" data-action="status" data-status="skipped">Skip<kbd>◀</kbd></button>
+        <button class="btn" data-action="status" data-status="not_now" title="Not now: an Obsidian note «не сейчас» with the vacancy's skills">Not now<kbd>N</kbd></button>
+        <button class="btn" data-action="status" data-status="applied" title="Applied: CV, cover letter, Obsidian note and Drive folder are made in the sidebar">Apply<kbd>▶</kbd></button>
       {% endif %}
       <span class="spacer"></span>
       <button class="btn btn-quiet debug-only" data-action="report">Report</button>

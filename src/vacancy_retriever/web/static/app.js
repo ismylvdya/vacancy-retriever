@@ -79,7 +79,33 @@ function renderSources(s) {
     span.className = failed.has(id) ? "err" : done.has(id) ? "ok" : id === s.current_id ? "now" : "";
   }
 }
+/* Footer: Claude's 5-hour and weekly limits (updated with every Claude call the app makes; ↻ makes one tiny call). */
+function renderLimits(limits) {
+  const box = $("limits-bars");
+  if (!box || !limits) return;
+  $("limits-updated").textContent = limits.updated;
+  box.replaceChildren(...limits.bars.map((b) => {
+    const bar = el("div", "limit");
+    const row = el("div", "limit-row");
+    row.append(el("span", "", b.label), el("span", "muted", b.note), el("span", "limit-pct", `${b.percent}%`));
+    const track = el("div", "limit-track");
+    const fill = el("div", "limit-fill");
+    fill.style.width = `${b.percent}%`;
+    track.append(fill);
+    bar.append(row, track);
+    return bar;
+  }));
+}
+if ($("limits-refresh")) {
+  $("limits-refresh").addEventListener("click", async () => {
+    try { await api("POST", "/api/claude-limits/refresh"); toast("Asking Claude… the bars update in a few seconds"); }
+    catch (e) { toast(e.message); }
+    setTimeout(poll, 6000);
+  });
+}
+
 function renderStatus(s) {
+  renderLimits(s.limits);
   const running = !!s.running;
   document.body.classList.toggle("running", running);
   $("run-group").hidden = running;

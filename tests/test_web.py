@@ -370,3 +370,16 @@ def test_linkedin_description_share_in_statistics(client):
     storage.runs.commit(run_id, {"new_total": 0}, 30)
     page = client.get("/statistics").text
     assert "LinkedIn descriptions: 1 of 2 found via the job API (50%)" in page and "All time: 1 of 2" in page
+
+
+def test_claude_limit_bars_in_the_footer(client, tmp_paths):
+    import json
+    import time
+
+    assert "never — press ↻" in client.get("/").text
+    later = time.time() + 2 * 3600 + 600
+    (tmp_paths.data / "claude_limits.json").write_text(json.dumps({"observed_at": time.time(), "windows": {
+        "five_hour": {"utilization": 0.58, "resetsAt": later}, "seven_day": {"utilization": 0.37, "resetsAt": later}}}))
+    page = client.get("/").text
+    assert "5-hour limit" in page and "58%" in page and "Resets in 2 h" in page and "Weekly · all models" in page
+    assert client.get("/api/status").json()["limits"]["bars"][1]["percent"] == 37

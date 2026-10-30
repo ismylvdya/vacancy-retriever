@@ -8,6 +8,7 @@ from pathlib import Path
 from typing import Any
 
 from ..config import ClaudeSdkSettings
+from . import limits
 from .base import LlmError, LlmProvider, LlmResponse, LlmUsage, parse_json_object
 
 log = logging.getLogger(__name__)
@@ -64,9 +65,10 @@ class ClaudeSdkProvider(LlmProvider):
 
     name = "claude_sdk"
 
-    def __init__(self, settings: ClaudeSdkSettings, cwd: Path):
+    def __init__(self, settings: ClaudeSdkSettings, cwd: Path, limits_path: Path | None = None):
         self._settings = settings
         self._cwd = cwd
+        self._limits_path = limits_path  # the subscription limits seen with every reply (llm/limits.py)
         self._cli = resolve_cli_path(settings.cli_path)
 
     @property
@@ -117,7 +119,7 @@ class ClaudeSdkProvider(LlmProvider):
             raise LlmError(f"Claude CLI timed out after {self._settings.timeout_seconds}s", kind="network") from exc
 
     async def _run(self, system: str, user: str, model: str, schema: dict[str, Any] | None) -> LlmResponse:
-        from claude_agent_sdk import AssistantMessage, ResultMessage, SystemMessage, TextBlock, query
+        from claude_agent_sdk import AssistantMessage, RateLimitEvent, ResultMessage, SystemMessage, TextBlock, query
 
         auth_source: str | None = None
         text_parts: list[str] = []
@@ -132,6 +134,8 @@ class ClaudeSdkProvider(LlmProvider):
                     text_parts.extend(b.text for b in message.content if isinstance(b, TextBlock))
                 elif isinstance(message, ResultMessage):
                     result = message
+                elif isinstance(message, RateLimitEvent) and self._limits_path:
+                    limits.save(self._limits_path, message.rate_limit_info.raw)
         except LlmError:
             raise
         except Exception as exc:

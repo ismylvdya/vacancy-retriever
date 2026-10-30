@@ -1,7 +1,9 @@
 from __future__ import annotations
 
+import asyncio
 import hashlib
 import logging
+import threading
 from datetime import timedelta
 from urllib.parse import urlencode
 from pathlib import Path
@@ -127,7 +129,8 @@ def create_app(config: AppConfig, storage: Storage, port: int, manager: RunManag
         return templates.TemplateResponse(request, template, {
             "tab": tab, "feed_count": storage.vacancies.feed_count(), "status": full_status(),
             "health_problems": health_problems(), "notices": notices.active(config.paths.notices),
-            "max_days": config.rules.max_age_days, "missed": missed_summary(), **context,
+            "max_days": config.rules.max_age_days, "missed": missed_summary(),
+            "limits": views.claude_limits(config), **context,
         })
 
     def missed_summary() -> dict[str, Any] | None:
@@ -222,6 +225,7 @@ def create_app(config: AppConfig, storage: Storage, port: int, manager: RunManag
     def status() -> dict[str, Any]:
         state = full_status()
         state["feed_count"] = storage.vacancies.feed_count()
+        state["limits"] = views.claude_limits(config)
         return state
 
     @app.post("/api/run")
@@ -246,6 +250,22 @@ def create_app(config: AppConfig, storage: Storage, port: int, manager: RunManag
         except AlreadyRunning as exc:
             raise HTTPException(409, str(exc)) from exc
         return {"started": True}
+
+    @app.post("/api/claude-limits/refresh")
+    def refresh_claude_limits() -> dict[str, Any]:
+        """One tiny Claude call (Haiku): the subscription limits come back with every reply (llm/limits.py)."""
+        if config.llm.provider != "claude_sdk":
+            raise HTTPException(409, "Limits are shown only for the Claude subscription (llm.yaml → provider)")
+        from ..llm.factory import create_provider
+
+        def probe() -> None:
+            try:
+                asyncio.run(create_provider(config).complete_json('Reply with exactly {"ok": true}', "{}", "haiku"))
+            except Exception as exc:  # noqa: BLE001 - the bars just stay as they were
+                log.info("Claude limits refresh failed: %s", exc)
+
+        threading.Thread(target=probe, name="claude-limits", daemon=True).start()
+        return {"ok": True}
 
     @app.post("/api/missed/dismiss")
     def dismiss_missed() -> dict[str, Any]:

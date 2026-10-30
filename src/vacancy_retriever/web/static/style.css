@@ -436,3 +436,14 @@ body.with-sidebar { padding-right: 300px; }
 /* /drive/pick — choosing the Google Drive folder for vacancy folders */
 .drive-pick { max-width: 640px; padding-top: 64px; }
 .drive-pick h1 { font-size: 22px; margin: 0 0 10px; }
+
+/* ---------- footer: Claude subscription limits, drawn like Claude's own Usage bars ---------- */
+.limits { max-width: var(--content); margin: 8px auto 32px; padding: 0 20px; font-size: 13px; }
+.limits-bars { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 14px 28px; }
+.limit-row { display: flex; gap: 10px; align-items: baseline; margin-bottom: 6px; }
+.limit-row > :first-child { font-weight: 500; }
+.limit-row .muted { margin-left: auto; }
+.limit-pct { min-width: 34px; text-align: right; font-variant-numeric: tabular-nums; color: var(--muted); }
+.limit-track { height: 5px; border-radius: 3px; background: var(--line); overflow: hidden; }
+.limit-fill { height: 100%; border-radius: 3px; background: var(--accent); }
+.limits-meta { margin-top: 8px; }

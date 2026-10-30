@@ -72,6 +72,17 @@
 <main class="main">
 {% block content %}{% endblock %}
 </main>
+{% if limits %}
+<footer class="limits" id="limits" title="Claude subscription limits, as Claude reports them with every reply">
+  <div class="limits-bars" id="limits-bars">
+  {% for b in limits.bars %}
+    <div class="limit"><div class="limit-row"><span>{{ b.label }}</span><span class="muted">{{ b.note }}</span><span class="limit-pct">{{ b.percent }}%</span></div>
+      <div class="limit-track"><div class="limit-fill" style="width: {{ b.percent }}%"></div></div></div>
+  {% endfor %}
+  </div>
+  <div class="limits-meta muted small">Updated <span id="limits-updated">{{ limits.updated }}</span> · <button class="link quiet" id="limits-refresh" type="button" title="One tiny Claude call (Haiku) — the limits come with every reply">↻ refresh</button></div>
+</footer>
+{% endif %}
 <dialog class="report-dialog" id="report-dialog">
   <form method="dialog" id="report-form">
     <h3>Report this evaluation</h3>

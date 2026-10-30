@@ -393,4 +393,8 @@ sqlite3 data/vacancy_retriever.sqlite ".backup 'data/backup-$(date +%Y%m%d).sqli
   без Drive; Not now (N) — заметка «не сейчас» с навыками (docs/APPLY.md); Statistics → Applies.
 - Statistics → Sources / Runs: у почтовых источников — доля вакансий LinkedIn из писем, для которых описание нашлось
   через Google for Jobs (за прогон и за всё время).
+- Внизу каждой страницы — шкалы Claude «5-hour limit» и «Weekly · all models» (как в Claude → Usage). Claude отдаёт
+  их только вместе с ответом, поэтому они обновляются при каждом вызове Claude из приложения (Run, ▶, N) и по ↻
+  (один крошечный запрос к Haiku); хранятся в `data/claude_limits.json` (`llm/limits.py`).
+- В карточке кнопки в порядке их клавиш: Skip ◀ · Not now N · Apply ▶. Новая иконка Gmail.
 

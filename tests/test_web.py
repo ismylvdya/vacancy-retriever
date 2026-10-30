@@ -159,6 +159,37 @@ def test_processed_filters_and_run_groups(client):
     assert 'href="/processed?filter=applied&amp;country=Serbia"' in page, "sub-tabs keep the filters"
 
 
+def test_processed_search_fields_and_filters(client):
+    client.post(f"/api/vacancies/{client.vacancy_id}/status", json={"status": "skipped"}, headers=ORIGIN)
+    assert "Junior Data Scientist" in client.get("/processed?q=data+SCIENTIST").text
+    assert "Nothing matches" in client.get("/processed?q=nonexistent").text
+    assert "Junior Data Scientist" in client.get("/processed?q=acme&in=employer").text
+    assert "Nothing matches" in client.get("/processed?q=acme&in=title").text
+    assert "Junior Data Scientist" in client.get("/processed?q=%D0%B4%D0%B0%D1%88%D0%B1%D0%BE%D1%80%D0%B4%D1%8B").text  # summary
+    assert "Junior Data Scientist" in client.get("/processed?q=%D0%BF%D1%80%D0%BE+data+science&in=text").text
+    assert "Nothing matches" in client.get("/processed?q=sql&in=text").text
+    assert "Junior Data Scientist" in client.get("/processed?q=acme&country=Serbia").text
+    assert "Nothing matches" in client.get("/processed?q=acme&country=Cyprus").text
+    page = client.get("/processed?filter=skipped&q=acme&in=employer").text
+    assert 'href="/processed?filter=applied&amp;q=acme&amp;in=employer"' in page, "sub-tabs keep the search"
+    assert 'name="q" value="acme"' in page and '<option value="employer" selected>' in page
+
+
+def test_source_options_are_alphabetical(config=None):
+    from vacancy_retriever.web.views import apply_filters
+    from vacancy_retriever.storage.vacancies import VacancySource
+    import types
+    names = {"b": "Beta", "a": "alpha", "c": "Charlie"}
+    fake = types.SimpleNamespace(sources=types.SimpleNamespace(sources=[
+        types.SimpleNamespace(id=i, name=n) for i, n in names.items()]))
+    records = [types.SimpleNamespace(sources=[types.SimpleNamespace(source_id=i, sender=None)], skip_reason=None,
+                                     group_no=None, stars=None, residence_permit=None, facts=None)
+               for i in ["c", "c", "b", "a"]]
+    _, filters = apply_filters(fake, records, {})
+    source = next(f for f in filters if f.key == "source")
+    assert [o.label for o in source.options] == ["alpha", "Beta", "Charlie"]
+
+
 def test_debug_report_explains_the_verdict(client):
     info = client.get(f"/api/vacancies/{client.vacancy_id}/debug").json()
     assert info["id"] == client.vacancy_id

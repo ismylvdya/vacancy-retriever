@@ -297,6 +297,11 @@ body.debug .debug-toggle { color: var(--accent); }
 
 /* ---------- processed filters ---------- */
 .filters { display: flex; align-items: center; gap: 10px; margin: 0 0 14px; }
+.search { display: inline-flex; gap: 6px; flex: none; }
+.search-box, .search-in { font: inherit; font-size: 13px; color: var(--text); background: transparent; border: 1px solid var(--line-strong);
+  border-radius: var(--radius); padding: 3px 9px; }
+.search-box { width: 170px; }
+.search-box:focus-visible, .search-in:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
 .filters-label { color: var(--muted); font-size: 13px; flex: none; }
 .filters-scroll { position: relative; flex: 1; min-width: 0; }
 .filters-scroll::after { content: ""; position: absolute; top: 0; right: 0; bottom: 0; width: 40px; pointer-events: none;

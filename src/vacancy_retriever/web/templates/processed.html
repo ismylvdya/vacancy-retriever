@@ -11,9 +11,16 @@
   <a href="/processed?filter=hidden" class="seg debug-only {{ 'on' if current == 'hidden' }}" title="Debug mode: ads and posts the LLM called “not a vacancy”">Hidden{% if hidden is defined %}<span class="count">{{ hidden | sum(attribute='rows', start=[]) | length }}</span>{% endif %}</a>
 </div>
 
-{% if facets %}
+{% if facets or active %}
 <form class="filters" id="filters" method="get" action="/processed">
   {% if current != 'all' %}<input type="hidden" name="filter" value="{{ current }}">{% endif %}
+  <span class="filters-label">Search:</span>
+  <span class="search">
+    <input class="search-box" type="search" name="q" value="{{ search }}" placeholder="Search…" aria-label="Search" autocomplete="off">
+    <select class="search-in" name="in" aria-label="Search in">
+      {% for key, label in search_fields %}<option value="{{ key }}" {% if key == where %}selected{% endif %}>{{ label }}</option>{% endfor %}
+    </select>
+  </span>
   <span class="filters-label">Filters:</span>
   <div class="filters-scroll" id="filters-scroll">
     <div class="filters-row">

@@ -25,6 +25,7 @@ class LlmCallRecord:
     error: str | None = None
     tokens_unknown: bool = False
     auth_source: str | None = None
+    application_id: int | None = None  # Apply / Not now calls (Statistics → Applies)
 
 
 class LlmCallRepository:
@@ -36,11 +37,11 @@ class LlmCallRepository:
         created = to_iso(utcnow())
         self.db.execute(
             "INSERT INTO llm_calls(run_id, stage, provider, model, n_items, input_tokens, output_tokens,"
-            " cache_read_tokens, cache_creation_tokens, tokens_unknown, ok, error, duration_s, auth_source, created_at)"
-            " VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
+            " cache_read_tokens, cache_creation_tokens, tokens_unknown, ok, error, duration_s, auth_source, created_at,"
+            " application_id) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
             (call.run_id, call.stage, call.provider, call.model, call.n_items, call.input_tokens, call.output_tokens,
              call.cache_read_tokens, call.cache_creation_tokens, int(call.tokens_unknown), int(call.ok), call.error,
-             round(call.duration_s, 2), call.auth_source, created),
+             round(call.duration_s, 2), call.auth_source, created, call.application_id),
         )
         if self.token_log:
             self.token_log.parent.mkdir(parents=True, exist_ok=True)
@@ -49,6 +50,12 @@ class LlmCallRepository:
 
     def by_run(self, run_id: int) -> list[dict[str, Any]]:
         return [dict(r) for r in self.db.query("SELECT * FROM llm_calls WHERE run_id = ? ORDER BY id", (run_id,))]
+
+    def by_application(self) -> dict[int, list[dict[str, Any]]]:
+        result: dict[int, list[dict[str, Any]]] = {}
+        for row in self.db.query("SELECT * FROM llm_calls WHERE application_id IS NOT NULL ORDER BY id"):
+            result.setdefault(row["application_id"], []).append(dict(row))
+        return result
 
     def all(self) -> list[dict[str, Any]]:
         return [dict(r) for r in self.db.query("SELECT * FROM llm_calls ORDER BY id")]

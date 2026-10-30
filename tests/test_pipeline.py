@@ -421,16 +421,6 @@ def test_missed_period_after_a_break_is_remembered_until_collected(env):
     assert storage.runs.missed() == {}
 
 
-def test_run_start_removes_cv_files_of_earlier_applications(env):
-    config, storage, paths = env
-    folder = paths.data / "applications" / "5"
-    folder.mkdir(parents=True)
-    (folder / "Ismailov_CV_Acme_DA.pdf").write_bytes(b"%PDF")
-    (folder / "note_mine.md").write_text("kept", encoding="utf-8")
-    run(config, storage, paths, FakeProvider())
-    assert not (folder / "Ismailov_CV_Acme_DA.pdf").exists() and (folder / "note_mine.md").exists()
-
-
 def test_llm_gets_the_oldest_posts_first(env):
     config, storage, paths = env
     config.__dict__["llm"] = config.llm.model_copy(update={"batch_size": 2, "max_concurrency": 1})

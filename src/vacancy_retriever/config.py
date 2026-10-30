@@ -310,6 +310,7 @@ class ObsidianSettings(_Strict):
     what: str = "📋 вакансия"
     label_non_it: str = "📋не IT"
     status: str = "откликнулся"
+    status_not_now: str = "не сейчас"  # Not now (N): a note with this status and the vacancy's skills only
     where: WhereLabels = Field(default_factory=WhereLabels)
     employer_what: str = "🧔🏻‍♂️ работодатель"
 
@@ -319,7 +320,7 @@ class ResumeSettings(_Strict):
     tex_bin_dir: str | None = None
     max_skills: int = Field(default=10, ge=1, le=30)
     effort: Literal["low", "medium", "high"] | None = "medium"
-    clean_files_on_run: bool = True
+    output_dir: str = "~/Downloads"  # where the CV PDF goes (nothing is kept in data/; user, 30.10.2026)
 
 
 class DriveSettings(_Strict):

@@ -70,6 +70,16 @@ class Application:
     dismissed: bool = False
     created_at: datetime | None = None
     updated_at: datetime | None = None
+    kind: str = "apply"           # apply (▶) | not_now (N: the note only, with the vacancy's skills)
+    note_mine: str | None = None  # what the app last wrote into «### моё»
+    stats_json: str | None = None
+
+    @property
+    def stats(self) -> dict[str, Any]:
+        try:
+            return json.loads(self.stats_json) if self.stats_json else {}
+        except ValueError:
+            return {}
 
     @property
     def materials(self) -> Materials | None:
@@ -88,7 +98,8 @@ class Application:
             pdf_file_id=row["pdf_file_id"], pdf_url=row["pdf_url"], letter=row["letter"], skills=row["skills"],
             error=row["error"], warning=row["warning"], cancel_requested=bool(row["cancel_requested"]),
             dismissed=bool(row["dismissed"]), created_at=from_iso(row["created_at"]),
-            updated_at=from_iso(row["updated_at"]),
+            updated_at=from_iso(row["updated_at"]), kind=row["kind"] or "apply", note_mine=row["note_mine"],
+            stats_json=row["stats_json"],
         )
 
 

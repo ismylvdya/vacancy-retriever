@@ -22,28 +22,6 @@ log = logging.getLogger(__name__)
 TOKEN_FILE = "google_drive_token.json"
 
 
-KEPT_FILES = {"note_mine.md"}  # tiny, and needed to keep the user's edits in «### моё»
-
-
-def clean_cv_files(out_dir: Path, keep: set[int]) -> int:
-    """PDF / .tex / selection.json of applications are deleted when the next Run starts (user, 28.10.2026: they stay
-    in Finder until then, no CVs pile up in the project). Applications still in work (`keep`) are not touched.
-    The selection stays in the database, so «Rebuild PDF» in the sidebar makes the PDF again without LLM."""
-    if not out_dir.is_dir():
-        return 0
-    removed = 0
-    for path in out_dir.glob("*/*"):
-        if not path.parent.name.isdigit() or int(path.parent.name) in keep or path.name in KEPT_FILES:
-            continue
-        try:
-            if path.is_file():
-                path.unlink()
-                removed += 1
-        except OSError:
-            continue
-    return removed
-
-
 class ApplicationWorker:
     """Background thread in the server: one application at a time (each claude CLI call is a separate process)."""
 
@@ -112,13 +90,21 @@ class ApplicationService:
         if self._worker:
             self._worker.wake()
 
-    def enqueue(self, vacancy_id: int) -> Application | None:
+    def enqueue(self, vacancy_id: int, kind: str = "apply") -> Application | None:
+        """▶ (kind apply) or N (kind not_now: the Obsidian note with the skills). A «не сейчас» note, then ▶:
+        the same application becomes an apply and goes on from there (the note is reused)."""
         if not self.enabled:
             return None
         app = self._repo.for_vacancy(vacancy_id)
         due = self._clock() + self._delay
         if app is None:
-            app = self._repo.create(vacancy_id, due)
+            app = self._repo.create(vacancy_id, due, kind)
+        elif app.kind != kind:
+            if kind == "not_now" and app.started:  # applied earlier, now Not now: the apply stops, its files stay
+                self.stop(app.id)
+                return self._repo.get(app.id)
+            self._repo.update(app.id, kind=kind, state=ApplicationState.QUEUED, due_at=due, dismissed=0,
+                              cancel_requested=0, error=None)
         elif app.state == ApplicationState.CANCELLED:
             self._repo.update(app.id, state=ApplicationState.QUEUED, due_at=due, dismissed=0, cancel_requested=0,
                               error=None)
@@ -128,16 +114,22 @@ class ApplicationService:
         return self._repo.get(app.id)
 
     def withdraw(self, vacancy_id: int) -> None:
-        """Undo of ▶: nothing done yet — forget it; otherwise stop (what is created stays, the row can be dismissed)."""
+        """Undo of ▶: the application stops and stays in the sidebar as «Stopped» (what is created stays; Retry
+        continues, × removes the row). User, 30.10.2026: Undo and Stop end the same way."""
         app = self._repo.for_vacancy(vacancy_id)
-        if app is None or app.state == ApplicationState.DONE:
-            return
-        if app.state == ApplicationState.QUEUED and not app.started:
-            self._repo.delete(app.id)
-        elif app.state == ApplicationState.WORKING:
+        if app is not None:
+            self.stop(app.id)
+
+    def stop(self, application_id: int) -> bool:
+        """Stop button / Undo. A step in progress (a Claude call) finishes first, then nothing more is done."""
+        app = self._repo.get(application_id)
+        if app is None or app.state in (ApplicationState.DONE, ApplicationState.CANCELLED):
+            return False
+        if app.state == ApplicationState.WORKING:
             self._repo.update(app.id, cancel_requested=1)
         else:
-            self._repo.update(app.id, state=ApplicationState.CANCELLED)
+            self._repo.update(app.id, state=ApplicationState.CANCELLED, dismissed=0)
+        return True
 
     def retry(self, application_id: int) -> bool:
         app = self._repo.get(application_id)
@@ -200,9 +192,10 @@ def create_application_service(config: AppConfig, storage: Storage) -> Applicati
     llm = config.llm
     sdk = llm.claude_sdk.model_copy(update={"effort": resume.effort, "thinking": None})
     model = llm.stage_models.resume or llm.stage_models.scoring
-    writer = MaterialsWriter(create_provider(config, sdk), model, skill, storage.llm_calls, resume.max_skills)
+    writer = MaterialsWriter(create_provider(config, sdk), model, skill, storage.llm_calls, resume.max_skills,
+                             skills_model=llm.stage_models.scoring)
     services = ApplyServices(DossierBuilder(config, storage), vault, create_drive(config), writer, skill,
-                             config.paths.data / "applications", apply.drive.folder_name)
+                             config.resolve_path(resume.output_dir), apply.drive.folder_name)
     pipeline = ApplicationPipeline(storage, services, apply.retry_minutes)
     worker = ApplicationWorker(storage.applications, pipeline)
     return ApplicationService(storage.applications, apply.enabled, apply.start_delay_seconds, worker)

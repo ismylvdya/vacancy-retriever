@@ -1,8 +1,12 @@
 from __future__ import annotations
 
 import asyncio
+import json
 import logging
 import re
+import shutil
+import tempfile
+import time
 from urllib.parse import urlparse
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
@@ -20,6 +24,8 @@ from .obsidian import SKILLS_PROPERTY, ObsidianVault
 from .resume import MaterialsWriter, ResumeSkill, insert_cv_link
 
 log = logging.getLogger(__name__)
+
+APPLY, NOT_NOW = "apply", "not_now"  # applications.kind: ▶ (CV, letter, Drive) / N (the note with skills only)
 
 RUSSIAN_EMPLOYERS = {"russian", "ru_with_serbian_entity", "intl_russian_speaking"}
 SERBIA = {"serbia", "srbija", "rs", "сербия"}
@@ -120,7 +126,7 @@ class ApplyServices:
     drive: CloudFolders
     writer: MaterialsWriter
     skill: ResumeSkill
-    out_dir: Path
+    out_dir: Path  # where the CV PDF goes (apply.yaml → resume.output_dir, ~/Downloads)
     folder_name: str = "{title} • {employer} • {date} 🦆"  # apply.yaml → drive.folder_name; date of ▶, yyyy-mm-dd
 
 
@@ -131,6 +137,7 @@ class StepContext:
     vacancy_id: int
     services: ApplyServices
     warnings: list[str] = field(default_factory=list)
+    kind: str = "apply"
 
     @cached_property
     def dossier(self) -> VacancyDossier:
@@ -175,7 +182,7 @@ class NoteStep(Step):
 
     def run(self, app: Application, ctx: StepContext) -> dict[str, Any]:
         assert ctx.vault is not None
-        return {"note_path": str(ctx.vault.create(ctx.dossier))}
+        return {"note_path": str(ctx.vault.create(ctx.dossier, not_now=app.kind == NOT_NOW))}
 
 
 def drive_folder_name(template: str, title: str, employer: str, day: date) -> str:
@@ -190,7 +197,7 @@ class FolderStep(Step):
     name = "folder"
 
     def needed(self, app: Application, ctx: StepContext) -> bool:
-        return ctx.drive.available and not app.folder_id
+        return app.kind == APPLY and ctx.drive.available and not app.folder_id
 
     def run(self, app: Application, ctx: StepContext) -> dict[str, Any]:
         name = drive_folder_name(ctx.services.folder_name, ctx.dossier.name_title or ctx.dossier.title,
@@ -203,32 +210,46 @@ class MaterialsStep(Step):
     name = "materials"
 
     def needed(self, app: Application, ctx: StepContext) -> bool:
-        return not app.materials_json
+        return app.kind == APPLY and not app.materials_json
 
     def run(self, app: Application, ctx: StepContext) -> dict[str, Any]:
-        materials = asyncio.run(ctx.writer.write(ctx.dossier))
+        materials = asyncio.run(ctx.writer.write(ctx.dossier, app.id))
         return {"materials_json": materials.to_json(), "skills": ", ".join(materials.skills)}
+
+
+def downloads_path(folder: Path, name: str, own: str | None) -> Path:
+    """`name` in the folder; taken by another file (not this application's own earlier PDF) → «name 2.pdf» …"""
+    path, n = folder / name, 2
+    stem, suffix = Path(name).stem, Path(name).suffix
+    while path.exists() and str(path) != own:
+        path, n = folder / f"{stem} {n}{suffix}", n + 1
+    return path
 
 
 class PdfStep(Step):
     name = "pdf"
 
     def needed(self, app: Application, ctx: StepContext) -> bool:
-        return not (app.pdf_path and Path(app.pdf_path).exists())
+        return app.kind == APPLY and not (app.pdf_path and Path(app.pdf_path).exists())
 
     def run(self, app: Application, ctx: StepContext) -> dict[str, Any]:
+        """Built in a temporary folder; only the PDF is kept, in ~/Downloads (user, 30.10.2026: nothing in data/)."""
         assert app.materials is not None
-        pdf, warning = ctx.skill.build(app.materials.selection, ctx.out_dir / str(app.vacancy_id))
+        with tempfile.TemporaryDirectory(prefix="vr-cv-") as work:
+            pdf, warning = ctx.skill.build(app.materials.selection, Path(work))
+            target = downloads_path(ctx.out_dir, pdf.name, app.pdf_path)
+            target.parent.mkdir(parents=True, exist_ok=True)
+            shutil.copyfile(pdf, target)
         if warning:
             log.warning("Application %s: %s", app.id, warning)
-        return {"pdf_path": str(pdf), "pdf_file_id": None, "pdf_url": None}
+        return {"pdf_path": str(target), "pdf_file_id": None, "pdf_url": None}
 
 
 class UploadStep(Step):
     name = "upload"
 
     def needed(self, app: Application, ctx: StepContext) -> bool:
-        return ctx.drive.available and bool(app.folder_id) and not app.pdf_file_id
+        return app.kind == APPLY and ctx.drive.available and bool(app.folder_id) and not app.pdf_file_id
 
     def run(self, app: Application, ctx: StepContext) -> dict[str, Any]:
         assert app.folder_id and app.pdf_path
@@ -242,20 +263,22 @@ class FinalizeStep(Step):
     name = "finalize"
 
     def needed(self, app: Application, ctx: StepContext) -> bool:
-        return app.materials is not None
+        return app.materials is not None if app.kind == APPLY else bool(app.skills)
 
     def run(self, app: Application, ctx: StepContext) -> dict[str, Any]:
+        note = ctx.vault.find(app.vacancy_id, app.note_path) if ctx.vault else None
+        if app.kind == NOT_NOW:
+            if note is not None and app.skills:
+                ctx.vault.fill_property(note, SKILLS_PROPERTY, app.skills)  # type: ignore[union-attr]
+            return {"note_path": str(note)} if note else {}
         assert app.materials is not None
         letter = insert_cv_link(app.materials.letter, app.pdf_url)
         updates: dict[str, Any] = {"letter": letter}
-        note = ctx.vault.find(app.vacancy_id, app.note_path) if ctx.vault else None
         if note is not None:
+            ctx.vault.become_applied(note, ctx.dossier.employer)  # type: ignore[union-attr]  # was «не сейчас»
             mine = ctx.vault.mine_section(app.folder_url, letter)  # type: ignore[union-attr]
-            written = ctx.out_dir / str(app.vacancy_id) / "note_mine.md"  # what the app wrote there last time
-            previous = written.read_text(encoding="utf-8") if written.exists() else None
-            if ctx.vault.set_mine(note, mine, previous):  # type: ignore[union-attr]
-                written.parent.mkdir(parents=True, exist_ok=True)
-                written.write_text(mine, encoding="utf-8")
+            if ctx.vault.set_mine(note, mine, app.note_mine):  # app.note_mine: what the app wrote there last time
+                updates["note_mine"] = mine
             else:
                 ctx.warnings.append("«### моё» in the note was edited by hand — not changed")
             if app.skills:
@@ -266,7 +289,19 @@ class FinalizeStep(Step):
         return updates
 
 
-STEPS: list[Step] = [NoteStep(), FolderStep(), MaterialsStep(), PdfStep(), UploadStep(), FinalizeStep()]
+class SkillsStep(Step):
+    """Not now: the vacancy's skills for «👾необходимые скилы» (one small Claude call, no CV or letter)."""
+
+    name = "skills"
+
+    def needed(self, app: Application, ctx: StepContext) -> bool:
+        return app.kind == NOT_NOW and not app.skills
+
+    def run(self, app: Application, ctx: StepContext) -> dict[str, Any]:
+        return {"skills": ", ".join(asyncio.run(ctx.writer.skills(ctx.dossier, app.id)))}
+
+
+STEPS: list[Step] = [NoteStep(), FolderStep(), MaterialsStep(), SkillsStep(), PdfStep(), UploadStep(), FinalizeStep()]
 
 
 class ApplicationPipeline:
@@ -279,7 +314,7 @@ class ApplicationPipeline:
         self._steps = steps or STEPS
 
     def process(self, app: Application) -> Application:
-        ctx = StepContext(app.vacancy_id, self._services)
+        ctx = StepContext(app.vacancy_id, self._services, kind=app.kind)
         for step in self._steps:
             current = self._repo.get(app.id)
             if current is None:
@@ -291,6 +326,7 @@ class ApplicationPipeline:
             if not step.needed(app, ctx):
                 continue
             self._repo.update(app.id, state=ApplicationState.WORKING, step=step.name, error=None)
+            started = time.monotonic()
             try:
                 updates = step.run(app, ctx)
             except ApplyError as exc:
@@ -298,7 +334,9 @@ class ApplicationPipeline:
             except Exception as exc:  # one bad vacancy must not stop the worker
                 log.exception("Application %s: step %s failed", app.id, step.name)
                 return self._stop(app, step, ApplyError(f"{type(exc).__name__}: {exc}"))
-            self._repo.update(app.id, **updates)
+            stats = app.stats
+            stats.setdefault("steps", {})[step.name] = round(time.monotonic() - started, 2)
+            self._repo.update(app.id, **updates, stats_json=json.dumps(stats))
         self._repo.update(app.id, state=ApplicationState.DONE, step=None, error=None,
                           warning="; ".join(self._warnings(ctx)) or None)
         return self._repo.get(app.id) or app
@@ -307,7 +345,7 @@ class ApplicationPipeline:
         warnings = list(ctx.warnings)
         if ctx.vault is None:
             warnings.append("Obsidian vault not found (config/apply.yaml → obsidian.vault_dir)")
-        if not ctx.drive.available or isinstance(ctx.drive, StubDrive):
+        if ctx.kind == APPLY and (not ctx.drive.available or isinstance(ctx.drive, StubDrive)):
             warnings.append(ctx.drive.reason or "Google Drive is not connected")
         return warnings
 

@@ -15,7 +15,7 @@ from vacancy_retriever.apply.models import ApplicationState, ApplyError, Materia
 from vacancy_retriever.apply.obsidian import ObsidianVault, frontmatter, normalize_company, note_file_name
 from vacancy_retriever.apply.pipeline import ApplicationPipeline, ApplyServices, DossierBuilder
 from vacancy_retriever.apply.resume import MaterialsWriter, insert_cv_link
-from vacancy_retriever.apply.service import clean_cv_files, ApplicationService, ApplicationWorker
+from vacancy_retriever.apply.service import ApplicationService, ApplicationWorker
 from vacancy_retriever.collectors.base import RawItem
 from vacancy_retriever.collectors.job_search import employer_links
 from vacancy_retriever.config import AppConfig, ObsidianSettings
@@ -61,7 +61,8 @@ class FakeProvider(LlmProvider):
 
     async def complete_json(self, system: str, user: str, model: str, schema: dict[str, Any] | None = None) -> LlmResponse:
         self.calls += 1
-        assert "SKILL" in system and "CATALOG" in system and "Junior Data Scientist" in user
+        # the CV + letter call carries the skill; the Not now call only asks for the vacancy's skills
+        assert ("SKILL" in system and "CATALOG" in system or "key hard skills" in system) and "Junior Data Scientist" in user
         if self.fail:
             raise self.fail
         return LlmResponse(REPLY, LlmUsage(1000, 200, model="claude-sonnet-5-5"), "")
@@ -218,17 +219,25 @@ def test_user_edits_in_the_note_are_kept(env):
     assert "edited by hand" in app.warning
 
 
-def test_cv_files_are_removed_at_the_next_run_and_rebuilt_without_llm(env):
+def test_cv_pdf_goes_to_downloads_and_is_rebuilt_without_llm(env):
     env.service.enqueue(env.vacancy_id)
     app = run_all(env)
     pdf = Path(app.pdf_path)
-    (pdf.parent / "note_mine.md").write_text("kept", encoding="utf-8")
-    assert clean_cv_files(pdf.parent.parent, keep={app.vacancy_id}) == 0, "an application in work is not touched"
-    assert clean_cv_files(pdf.parent.parent, keep=set()) >= 1
-    assert not pdf.exists() and (pdf.parent / "note_mine.md").exists()
+    assert pdf.parent == env.services.out_dir and pdf.exists()  # ~/Downloads in the app, a temp folder here
+    assert app.note_mine and "### моё" not in app.note_mine  # what went into «### моё», kept in the database
+    pdf.unlink()  # the user deleted it from Downloads
     env.service.retry(app.id)
     app = run_all(env)
     assert Path(app.pdf_path).exists() and env.provider.calls == 1 and env.skill.builds == 2
+
+
+def test_a_taken_downloads_name_gets_a_number(tmp_path):
+    from vacancy_retriever.apply.pipeline import downloads_path
+
+    (tmp_path / "Ismailov_CV_X_DA.pdf").write_bytes(b"someone else's")
+    assert downloads_path(tmp_path, "Ismailov_CV_X_DA.pdf", None).name == "Ismailov_CV_X_DA 2.pdf"
+    own = str(tmp_path / "Ismailov_CV_X_DA.pdf")
+    assert downloads_path(tmp_path, "Ismailov_CV_X_DA.pdf", own).name == "Ismailov_CV_X_DA.pdf"  # its own: replaced
 
 
 def test_mine_section_follows_the_app_until_the_user_edits_it(env):
@@ -273,11 +282,15 @@ def test_setup_error_fails_with_retry(env):
     assert app.state == ApplicationState.FAILED and app.step == "pdf" and "xelatex" in app.error
 
 
-def test_undo_before_start_forgets_after_start_cancels(env):
-    env.service.enqueue(env.vacancy_id)
-    env.service.withdraw(env.vacancy_id)
-    assert env.storage.applications.for_vacancy(env.vacancy_id) is None
+def test_undo_and_stop_leave_a_stopped_row(env):
+    first = env.service.enqueue(env.vacancy_id)
+    env.service.withdraw(env.vacancy_id)  # Undo before the start: stays in the sidebar as «Stopped»
+    assert env.storage.applications.get(first.id).state == ApplicationState.CANCELLED
     app = env.service.enqueue(env.vacancy_id)
+    assert app.id == first.id and app.state == ApplicationState.QUEUED
+    env.storage.applications.update(app.id, state=ApplicationState.WORKING)
+    assert env.service.stop(app.id) and env.storage.applications.get(app.id).cancel_requested  # after this step
+    env.storage.applications.update(app.id, state=ApplicationState.QUEUED, cancel_requested=0)
     env.storage.applications.update(app.id, state=ApplicationState.FAILED, note_path="/x.md")
     env.service.withdraw(env.vacancy_id)
     assert env.storage.applications.get(app.id).state == ApplicationState.CANCELLED
@@ -425,3 +438,34 @@ def test_drive_folder_name():
     assert drive_folder_name(template, "Data Analyst", "Tribe", date(2026, 10, 29)) == "Data Analyst • Tribe • 2026-10-29 🦆"
     assert drive_folder_name(template, "Data Analyst", "", date(2026, 10, 29)) == "Data Analyst • 2026-10-29 🦆"
     assert drive_folder_name(template, "BI / DWH", "X", date(2026, 10, 29)) == "BI ∕ DWH • X • 2026-10-29 🦆"
+
+
+def test_not_now_makes_a_note_with_skills_then_apply_turns_it_into_an_application(env):
+    app = env.service.enqueue(env.vacancy_id, kind="not_now")
+    app = run_all(env)
+    assert app.state == ApplicationState.DONE and app.kind == "not_now"
+    assert env.provider.calls == 1 and env.skill.builds == 0 and env.drive.folders == 0  # skills only
+    text = Path(app.note_path).read_text(encoding="utf-8")
+    meta = frontmatter(text)
+    assert meta["👾статус"] == ["не сейчас"] and meta["👾FK"] is None and meta["👾необходимые скилы"]
+    assert "### моё" not in text and "**описание вакансии:**" in text
+    calls = env.storage.llm_calls.all()
+    assert calls[-1]["stage"] == "skills" and calls[-1]["application_id"] == app.id
+    assert app.stats["steps"].keys() >= {"note", "skills", "finalize"}
+    assert env.storage.applications.visible() == [], "a finished Not now leaves the sidebar"
+
+    env.service.enqueue(env.vacancy_id)  # ▶ later: the same note becomes the application
+    app = run_all(env)
+    assert app.kind == "apply" and app.state == ApplicationState.DONE and env.skill.builds == 1
+    text = Path(app.note_path).read_text(encoding="utf-8")
+    assert frontmatter(text)["👾статус"] == ["откликнулся"] and "### моё" in text and "**cover letter:**" in text
+    assert len(list(env.vault.root.glob("Junior*.md"))) == 1, "no second note"
+
+
+def test_applied_then_not_now_stops_the_application(env):
+    env.service.enqueue(env.vacancy_id)
+    app = run_all(env)
+    env.storage.applications.update(app.id, state=ApplicationState.FAILED)
+    env.service.enqueue(env.vacancy_id, kind="not_now")
+    app = env.storage.applications.get(app.id)
+    assert app.kind == "apply" and app.state == ApplicationState.CANCELLED

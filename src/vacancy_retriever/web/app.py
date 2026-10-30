@@ -198,9 +198,12 @@ def create_app(config: AppConfig, storage: Storage, port: int, manager: RunManag
     @app.get("/statistics", response_class=HTMLResponse)
     def statistics(request: Request, view: str = "sources") -> HTMLResponse:
         runs = views.health(config, storage)
-        view = view if view in ("sources", "runs") else "sources"
+        view = view if view in ("sources", "runs", "applies") else "sources"
         return page(request, "statistics.html", "statistics", view=view, runs=runs,
-                    latest=views.latest_source_states(runs), data=views.tokens(config, storage))
+                    latest=views.latest_source_states(runs), data=views.tokens(config, storage),
+                    linkedin_all_time=views.linkedin_all_time(storage),
+                    applies=views.apply_stats(config, storage) if view == "applies" else [],
+                    applies_count=len(storage.applications.history()))
 
     @app.get("/health")
     def health() -> RedirectResponse:
@@ -266,6 +269,8 @@ def create_app(config: AppConfig, storage: Storage, port: int, manager: RunManag
             raise HTTPException(404, "Vacancy not found")
         if change.status == "applied":
             applications.enqueue(vacancy_id)
+        elif change.status == "not_now":  # the Obsidian note «не сейчас» with the vacancy's skills (30.10.2026)
+            applications.enqueue(vacancy_id, kind="not_now")
         else:
             applications.withdraw(vacancy_id)
         return {"ok": True, "feed_count": storage.vacancies.feed_count()}
@@ -322,6 +327,10 @@ def create_app(config: AppConfig, storage: Storage, port: int, manager: RunManag
         if not applications.retry(application_id):
             raise HTTPException(409, "It is being processed right now")
         return {"ok": True}
+
+    @app.post("/api/applications/{application_id}/stop")
+    def stop_application(application_id: int) -> dict[str, Any]:
+        return {"ok": applications.stop(_application(application_id).id)}
 
     @app.post("/api/applications/{application_id}/dismiss")
     def dismiss_application(application_id: int) -> dict[str, Any]:

@@ -146,7 +146,8 @@ CREATE TABLE IF NOT EXISTS llm_calls (
     error TEXT,
     duration_s REAL,
     auth_source TEXT,
-    created_at TEXT NOT NULL
+    created_at TEXT NOT NULL,
+    application_id INTEGER             -- the Apply / Not now call (Statistics → Applies)
 );
 CREATE INDEX IF NOT EXISTS ix_llm_run ON llm_calls(run_id);
 
@@ -180,7 +181,10 @@ CREATE TABLE IF NOT EXISTS applications (
     cancel_requested INTEGER NOT NULL DEFAULT 0,
     dismissed INTEGER NOT NULL DEFAULT 0,
     created_at TEXT NOT NULL,
-    updated_at TEXT NOT NULL
+    updated_at TEXT NOT NULL,
+    kind TEXT NOT NULL DEFAULT 'apply', -- apply (▶) | not_now (N: only the Obsidian note with the skills)
+    note_mine TEXT,                    -- what the app last wrote into «### моё» (user edits are kept)
+    stats_json TEXT                    -- {"steps": {step: seconds}} for Statistics → Applies
 );
 CREATE INDEX IF NOT EXISTS ix_applications_state ON applications(state, due_at);
 """
@@ -204,7 +208,9 @@ class Database:
     def _migrate(conn: sqlite3.Connection) -> None:
         """Columns added after v0 databases were created. Add new ones here, never drop."""
         added = {("source_runs", "seen", "INTEGER"), ("vacancies", "user_note", "TEXT"),
-                 ("runs", "real_limit_pct", "REAL")}
+                 ("runs", "real_limit_pct", "REAL"), ("llm_calls", "application_id", "INTEGER"),
+                 ("applications", "kind", "TEXT NOT NULL DEFAULT 'apply'"), ("applications", "note_mine", "TEXT"),
+                 ("applications", "stats_json", "TEXT")}
         for table, column, kind in added:
             columns = {row[1] for row in conn.execute(f"PRAGMA table_info({table})")}
             if column not in columns:

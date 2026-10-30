@@ -36,6 +36,11 @@ Reply with ONE JSON object and nothing else:
             most important first, in the vacancy's terms — not limited to the candidate's skills>]}"""
 
 
+SKILLS_RULES = """You read one job vacancy and list the key hard skills / tools it requires: 3-%(max)d short canonical
+names (Python, SQL, A/B testing, Airflow), most important first, in the vacancy's own terms. Reply with ONE JSON
+object and nothing else: {"skills": ["…", "…"]}"""
+
+
 class ResumeSkill:
     """The user's resume-tailor Claude skill: its instructions are the prompt, its build.py makes the PDF."""
 
@@ -112,9 +117,10 @@ class MaterialsWriter:
     """One LLM call per vacancy: CV selection + cover letter + the vacancy's key skills."""
 
     def __init__(self, provider: LlmProvider, model: str, skill: ResumeSkill, calls: LlmCallRepository,
-                 max_skills: int = 10, max_input_chars: int = 9000):
+                 max_skills: int = 10, max_input_chars: int = 9000, skills_model: str | None = None):
         self._provider = provider
         self._model = model
+        self._skills_model = skills_model or model
         self._skill = skill
         self._calls = calls
         self._max_skills = max_skills
@@ -134,17 +140,30 @@ class MaterialsWriter:
             head.append(dossier.company_hint)
         return "\n".join([*head, "", dossier.text[: self._max_input_chars]])
 
-    async def write(self, dossier: VacancyDossier) -> Materials:
-        system, user = self.system_prompt(), self.user_prompt(dossier)
+    async def write(self, dossier: VacancyDossier, application_id: int | None = None) -> Materials:
+        response = await self._call("resume", self.system_prompt(), self.user_prompt(dossier), self._model,
+                                    application_id)
+        return self.parse(response.data, self._max_skills)
+
+    async def skills(self, dossier: VacancyDossier, application_id: int | None = None) -> list[str]:
+        """Not now: only the vacancy's key skills — a small call with the scoring model, no CV and no letter."""
+        system = SKILLS_RULES % {"max": self._max_skills}
+        response = await self._call("skills", system, self.user_prompt(dossier), self._skills_model, application_id)
+        skills = [str(s).strip() for s in response.data.get("skills") or [] if str(s).strip()]
+        if not skills:
+            raise ApplyError("LLM reply has no skills")
+        return skills[: self._max_skills]
+
+    async def _call(self, stage: str, system: str, user: str, model: str, application_id: int | None) -> Any:
         started = time.monotonic()
         try:
-            response = await self._provider.complete_json(system, user, self._model)
+            response = await self._provider.complete_json(system, user, model)
         except LlmError as exc:
-            self._record(started, None, str(exc))
+            self._record(stage, model, started, None, str(exc), application_id)
             kind = {"limit": "limit", "auth": "setup"}.get(exc.kind, "other")
             raise ApplyError(f"LLM: {exc}", kind=kind) from exc
-        self._record(started, response, None)
-        return self.parse(response.data, self._max_skills)
+        self._record(stage, model, started, response, None, application_id)
+        return response
 
     @staticmethod
     def parse(data: dict[str, Any], max_skills: int = 10) -> Materials:
@@ -156,16 +175,18 @@ class MaterialsWriter:
         skills = [str(s).strip() for s in data.get("skills") or [] if str(s).strip()]
         return Materials(selection, letter.strip(), skills[:max_skills])
 
-    def _record(self, started: float, response: Any, error: str | None) -> None:
+    def _record(self, stage: str, model: str, started: float, response: Any, error: str | None,
+                application_id: int | None) -> None:
         usage = response.usage if response else None
         self._calls.record(LlmCallRecord(
-            run_id=None, stage="resume", provider=self._provider.name, model=(usage.model if usage else None) or self._model,
+            run_id=None, stage=stage, provider=self._provider.name, model=(usage.model if usage else None) or model,
             n_items=1, input_tokens=usage.input_tokens if usage else None,
             output_tokens=usage.output_tokens if usage else None,
             cache_read_tokens=usage.cache_read_tokens if usage else None,
             cache_creation_tokens=usage.cache_creation_tokens if usage else None,
             ok=error is None, duration_s=time.monotonic() - started, error=error,
-            tokens_unknown=not (usage and usage.known), auth_source=response.auth_source if response else None))
+            tokens_unknown=not (usage and usage.known), auth_source=response.auth_source if response else None,
+            application_id=application_id))
 
 
 def insert_cv_link(letter: str, pdf_url: str | None) -> str:

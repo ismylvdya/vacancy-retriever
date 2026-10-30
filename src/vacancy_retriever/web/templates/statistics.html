@@ -17,12 +17,13 @@
 <div class="segmented" role="tablist">
   <a href="/statistics" class="seg {{ 'on' if view == 'sources' }}">Sources</a>
   <a href="/statistics?view=runs" class="seg {{ 'on' if view == 'runs' }}">Runs<span class="count">{{ runs | length }}</span></a>
+  <a href="/statistics?view=applies" class="seg {{ 'on' if view == 'applies' }}" title="▶ Apply and Not now: steps, Claude calls, tokens">Applies<span class="count">{{ applies_count }}</span></a>
 </div>
 </div>
 
 {#- Wide tables: the column titles and the rows are two boxes that scroll sideways together (data-hsync, app.js), so
     the titles can stick with plain position: sticky like every other heading (28.10.2026). -#}
-{% macro sources_table(rows, key, icons) -%}
+{% macro sources_table(rows, key, icons, all_time={}) -%}
 <div class="col-head hsync" data-hsync="{{ key }}"><table class="table src-table">{{ src_cols() }}
   <thead><tr><th>Source</th><th>Status</th><th class="r" title="Fresh posts collected">New</th><th class="r" title="Posts looked through, including old ones">Seen</th><th class="r">To feed</th><th class="r">Time</th><th>Problem</th></tr></thead>
 </table></div>
@@ -34,18 +35,44 @@
       <td class="nw"><span class="status s-{{ r.status }}">{{ r.status | replace('_', ' ') }}</span></td>
       <td class="r">{{ r.collected }}</td><td class="r">{{ r.seen if r.seen is not none else '' }}</td><td class="r">{{ r.to_feed }}</td>
       <td class="r muted">{{ r.duration }}</td>
-      <td class="problem">{% if r.alert %}<span class="alert">{{ r.alert }}</span>{% endif %}{% if r.error %}<span class="muted">{{ r.error }}</span>{% endif %}</td>
+      <td class="problem">{% if r.alert %}<span class="alert">{{ r.alert }}</span>{% endif %}{% if r.error %}<span class="muted">{{ r.error }}</span>{% endif %}
+        {%- if r.linkedin %}<div class="muted small" title="LinkedIn vacancies from the letters whose description was found via Google for Jobs (JSearch)">{{ r.linkedin }}{% if all_time.get(r.source_id) %} · {{ all_time[r.source_id] }}{% endif %}</div>{% endif %}</td>
     </tr>
   {% else %}<tr><td colspan="7" class="muted">No runs yet.</td></tr>{% endfor %}
   </tbody>
 </table></div>
 {%- endmacro %}
+{% macro apply_cols() %}<colgroup><col class="c-when"><col><col class="c-kind"><col class="c-status"><col class="c-num"><col class="c-steps"><col class="c-calls"><col class="c-tok"><col class="c-share"></colgroup>{% endmacro %}
 {% macro src_cols() %}<colgroup><col class="c-src"><col class="c-status"><col class="c-num"><col class="c-num"><col class="c-num"><col class="c-num"><col></colgroup>{% endmacro %}
 
 {% if view == 'sources' %}
 <section class="group">
   <div class="section-head"><h2>Sources</h2><span class="sub">State after the latest run</span></div>
-  {{ sources_table(latest, "sources", True) }}
+  {{ sources_table(latest, "sources", True, linkedin_all_time) }}
+</section>
+{% elif view == 'applies' %}
+<section class="group">
+  <div class="section-head"><h2>Applies</h2><span class="sub">▶ Apply and Not now — time of every step, Claude calls and tokens</span></div>
+  <div class="col-head hsync" data-hsync="applies"><table class="table apply-table">{{ apply_cols() }}
+    <thead><tr><th>Started</th><th>Vacancy</th><th>Kind</th><th>State</th><th class="r">Time</th><th>Steps</th><th class="r">Claude calls</th><th class="r">Tokens</th><th class="r">±% of 5h Pro Limit</th></tr></thead>
+  </table></div>
+  <div class="hsync hsync-body" data-hsync="applies"><table class="table apply-table">{{ apply_cols() }}
+    <tbody>
+    {% for a in applies %}
+      <tr>
+        <td class="nw muted">{{ a.started }}</td>
+        <td>{{ a.title }}{% if a.employer %} <span class="muted">· {{ a.employer }}</span>{% endif %}</td>
+        <td class="nw">{{ a.kind }}</td>
+        <td class="nw"><span class="status s-{{ a.state }}">{{ a.state }}</span></td>
+        <td class="r muted">{% if a.seconds is not none %}{{ a.seconds }} s{% else %}—{% endif %}</td>
+        <td class="muted small">{{ a.steps or '—' }}</td>
+        <td class="r">{{ a.calls }}{% if a.failed %} <span class="alert">({{ a.failed }} failed)</span>{% endif %}{% if a.models %}<div class="muted small">{{ a.models }}</div>{% endif %}</td>
+        <td class="r">{{ "{:,}".format(a.tokens) }}</td>
+        <td class="r">{% if a.limit_share is not none %}{{ a.limit_share }}%{% else %}—{% endif %}</td>
+      </tr>
+    {% else %}<tr><td colspan="9" class="muted">No applications yet — ▶ or N in the feed.</td></tr>{% endfor %}
+    </tbody>
+  </table></div>
 </section>
 {% else %}
 <section class="group">

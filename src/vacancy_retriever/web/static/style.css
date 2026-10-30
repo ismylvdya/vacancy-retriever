@@ -112,6 +112,10 @@ kbd { display: inline-block; min-width: 16px; padding: 0 3px; margin-left: 6px; 
 .hsync > .run-row, .hsync > .runs-head { min-width: 1250px; }  /* every Runs column stays; a narrow window scrolls */
 .src-table { table-layout: fixed; min-width: 720px; }
 .src-table .c-src { width: 220px; } .src-table .c-status { width: 120px; } .src-table .c-num { width: 72px; }
+.apply-table { table-layout: fixed; min-width: 1100px; }
+.apply-table .c-when { width: 110px; } .apply-table .c-kind { width: 76px; } .apply-table .c-status { width: 100px; }
+.apply-table .c-num { width: 64px; } .apply-table .c-steps { width: 260px; } .apply-table .c-calls { width: 110px; }
+.apply-table .c-tok { width: 90px; } .apply-table .c-share { width: 120px; }
 /* The line under a heading belongs to the heading (it stays when rows scroll under it); the first row has none. */
 .col-head, .table-head, .group-body > .cells.head { border-bottom: 1px solid var(--line); }
 .group-body > .cells.head + .vac, .group-body > .hidden-item:first-child { border-top: 0; }
@@ -406,6 +410,9 @@ body.with-sidebar { padding-right: 300px; }
 .app-status { margin-top: 4px; color: var(--muted); }
 .app-done .app-status { color: var(--ok); }
 .app-error, .app-failed .app-status { color: var(--danger); }
+/* stopped by Stop or by Undo of ▶: a badge, so it is not mistaken for «in work» */
+.app-cancelled .app-status { display: inline-block; padding: 1px 7px; border-radius: 6px; font-weight: 500;
+  color: var(--danger); background: color-mix(in srgb, var(--danger) 12%, transparent); }
 .app-error { margin-top: 2px; overflow-wrap: anywhere; }
 .app-warning { margin-top: 2px; color: var(--likely); }
 .app-actions { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }

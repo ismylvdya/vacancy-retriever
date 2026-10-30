@@ -383,3 +383,11 @@ sqlite3 data/vacancy_retriever.sqlite ".backup 'data/backup-$(date +%Y%m%d).sqli
   обычный CSS sticky, одинаково и без задержки; шапка Runs — верх карточки со скруглением и рамкой); Undo/Redo и Debug — в верхней полосе; звёзды вместо кружков;
   значки Gmail / Яндекс Почты в углу иконки отправителя; заголовок крупнее.
 
+## Изменения 30.10.2026 (✈️ из TO-DO)
+
+- Клик по карточке ничего не делает (раскрывают ↑ / ↓, закрывает Esc) — можно выделять текст.
+- Отклик: PDF только в `~/Downloads`, в `data/` ничего; Stop / Undo → «Stopped»; кнопки Obsidian и Cover letter,
+  без Drive; Not now (N) — заметка «не сейчас» с навыками (docs/APPLY.md); Statistics → Applies.
+- Statistics → Sources / Runs: у почтовых источников — доля вакансий LinkedIn из писем, для которых описание нашлось
+  через Google for Jobs (за прогон и за всё время).
+

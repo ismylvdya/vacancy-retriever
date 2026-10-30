@@ -312,3 +312,30 @@ def test_feed_fit_threshold_defaults_to_four_stars(client):
     assert "Junior Data Scientist" not in page and "Nothing with these filters" in page
     assert "Junior Data Scientist" in client.get("/?stars=3").text and "Junior Data Scientist" in client.get("/?stars=0").text
     assert "Junior Data Scientist" not in client.get("/?stars=0&city=Novi Sad").text  # facets work with the threshold
+
+
+def test_statistics_applies_tab(client):
+    page = client.get("/statistics?view=applies").text
+    assert "Applies" in page and "No applications yet" in page
+    storage = client.storage
+    app = storage.applications.create(client.vacancy_id, utcnow())
+    storage.applications.update(app.id, state="done", stats_json='{"steps": {"note": 0.4, "materials": 41.2, "pdf": 3.1}}')
+    storage.llm_calls.record(LlmCallRecord(None, "resume", "claude_sdk", "claude-sonnet-5-5", 1, 9000, 1200, 0, 0,
+                                           True, 41.0, application_id=app.id))
+    page = client.get("/statistics?view=applies").text
+    assert "Junior Data Scientist" in page and "CV + letter (Claude) 41s" in page and "10,200" in page
+
+
+def test_linkedin_description_share_in_statistics(client):
+    storage = client.storage
+    run_id = storage.runs.start({})
+    for n, detail in ((1, "Data Analyst\nDescription source: Google for Jobs (via LinkedIn)\n\ntext"), (2, None)):
+        raw = storage.items.insert(run_id, RawItem("gmail", f"linkedin:{n}", f"https://www.linkedin.com/jobs/view/{n}/",
+                                                   "letter", utcnow()), "scored")
+        if detail:
+            storage.items.set_detail(raw, detail)
+    from vacancy_retriever.storage.runs import SourceRunRecord
+    storage.runs.record_source(run_id, SourceRunRecord("gmail", "ok", collected=2))
+    storage.runs.commit(run_id, {"new_total": 0}, 30)
+    page = client.get("/statistics").text
+    assert "LinkedIn descriptions: 1 of 2 found via the job API (50%)" in page and "All time: 1 of 2" in page

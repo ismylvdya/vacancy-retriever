@@ -137,7 +137,6 @@ class Pipeline:
         self.progress.start(run_id, to_iso(run_start) or "", os.getpid(),
                             {s.id: self.stats.weight(s) for s in sources if s.enabled},
                             [(s.id, s.name) for s in sources if s.enabled])
-        self._clean_cv_files()
         http = self.http_factory()
         self._rates = RatesStore(self.config.paths).fetch_today(http, local(run_start).date())
         try:
@@ -501,16 +500,6 @@ class Pipeline:
         return decided
 
     # ------------------------------------------------------------------ 6. commit
-    def _clean_cv_files(self) -> None:
-        """CVs made by ▶ live until the next Run (config/apply.yaml → resume.clean_files_on_run)."""
-        if not self.config.apply.resume.clean_files_on_run:
-            return
-        from ..apply.service import clean_cv_files
-
-        removed = clean_cv_files(self.config.paths.data / "applications", self.storage.applications.active_vacancy_ids())
-        if removed:
-            log.info("Removed %d CV files of earlier applications", removed)
-
     def _note_missed_periods(self, run_id: int, sources: list[SourceConfig], options: RunOptions) -> None:
         """A period that began after this source's previous run leaves a hole (its cursor moves on): remember it
         for the Run panel. E-mail is exempt — unread letters are read whatever their age."""

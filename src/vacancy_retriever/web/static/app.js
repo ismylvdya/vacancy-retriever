@@ -494,9 +494,8 @@ document.addEventListener("click", (event) => {
     if (action === "fulltext") toggleFullText(row);
     return;
   }
-  if (event.target.closest("a, .fulltext, input, textarea")) return;
-  if (row === current && row.classList.contains("open")) { row.classList.remove("open"); return; }
-  focusRow(row, { scroll: false });
+  // A click elsewhere on a card does nothing (user, 30.10.2026): ↑ / ↓ open the next card, Esc closes it —
+  // so text can be selected and links clicked without the card folding.
 });
 
 document.addEventListener("keydown", (event) => {
@@ -604,9 +603,9 @@ function applicationRow(item) {
   };
   if (item.has_pdf) button("reveal", "Show PDF");
   if (item.pdf_removed) button("retry", "Rebuild PDF");
-  if (item.has_letter) button("letter", "Copy letter");
-  if (item.note_url) link(item.note_url, "Note", false);
-  if (item.folder_url) link(item.folder_url, "Drive", true);
+  if (item.has_letter) button("letter", "Cover letter");
+  if (item.note_url) link(item.note_url, "Obsidian", false);  // the Drive folder link is in the note
+  if (item.active) button("stop", "Stop");
   if (["failed", "waiting", "cancelled"].includes(item.state)) button("retry", "Retry");
   if (actions.children.length) li.append(actions);
   return li;
@@ -665,6 +664,7 @@ if (applySidebar) {
       }
       await api("POST", `/api/applications/${id}/${action}`);
       if (action === "retry") toast("Continuing from where it stopped");
+      if (action === "stop") toast("Stopped — what is made stays; Retry continues");
     } catch (e) { toast(e.message); }
     refreshApplications();
   });

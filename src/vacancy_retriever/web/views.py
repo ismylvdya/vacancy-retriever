@@ -246,6 +246,29 @@ class HealthRow:
     error: str
     alert: str
     warn: bool
+    linkedin: str = ""  # e-mail sources: how many LinkedIn vacancies got a description via the job API
+
+
+def linkedin_descriptions(storage: Storage) -> dict[tuple[int, str], tuple[int, int]]:
+    """(run, e-mail source) → (with a description from Google for Jobs, all LinkedIn vacancies of the letters)."""
+    rows = storage.db.query(
+        "SELECT run_id, source_id, COUNT(*) AS total,"
+        " SUM(CASE WHEN detail_text LIKE '%Description source: Google for Jobs%' THEN 1 ELSE 0 END) AS found"
+        " FROM raw_items WHERE staged = 0 AND external_id LIKE 'linkedin:%' GROUP BY run_id, source_id")
+    return {(r["run_id"], r["source_id"]): (r["found"] or 0, r["total"]) for r in rows}
+
+
+def linkedin_line(found: int, total: int, prefix: str = "LinkedIn descriptions") -> str:
+    return f"{prefix}: {found} of {total} found via the job API ({round(100 * found / total)}%)" if total else ""
+
+
+def linkedin_all_time(storage: Storage) -> dict[str, str]:
+    """E-mail source → «All time: X of Y found via the job API (Z%)» for Statistics → Sources."""
+    sums: dict[str, list[int]] = defaultdict(lambda: [0, 0])
+    for (_run, source), (found, total) in linkedin_descriptions(storage).items():
+        sums[source][0] += found
+        sums[source][1] += total
+    return {source: linkedin_line(found, total, "All time") for source, (found, total) in sums.items()}
 
 
 @dataclass
@@ -270,6 +293,7 @@ class HealthRun:
 def health(config: AppConfig, storage: Storage, limit: int = 60) -> list[HealthRun]:
     names = {s.id: s.name for s in config.sources.sources}
     runs = [r for r in storage.runs.history(limit)]
+    described = linkedin_descriptions(storage)
     history: dict[str, list[int]] = defaultdict(list)
     result: list[HealthRun] = []
     for run in reversed(runs):
@@ -290,7 +314,7 @@ def health(config: AppConfig, storage: Storage, limit: int = 60) -> list[HealthR
             health_run.rows.append(HealthRow(
                 source_id, names.get(source_id, source_id), row["status"], row["collected"], row["seen"], row["passed"],
                 row["to_feed"], f"{row['duration_s']:.0f}s", row["error"] or row["note"] or "",
-                ALERT_LABELS.get(alert, alert), warn,
+                ALERT_LABELS.get(alert, alert), warn, linkedin_line(*described.get((run["id"], source_id), (0, 0))),
             ))
             health_run.problems += int(warn)
             health_run.collected += row["collected"] or 0
@@ -478,6 +502,34 @@ def tokens(config: AppConfig, storage: Storage) -> dict[str, Any]:
     }
 
 
+STEP_SHORT = {"note": "note", "folder": "Drive folder", "materials": "CV + letter (Claude)",
+              "skills": "skills (Claude)", "pdf": "PDF", "upload": "upload", "finalize": "finish"}
+
+
+def apply_stats(config: AppConfig, storage: Storage) -> list[dict[str, Any]]:
+    """Statistics → Applies: one row per ▶ / Not now — time of every step and the Claude calls with their tokens.
+    Calls made before 30.10.2026 were not tied to an application and are not counted here."""
+    limit = config.llm.claude_sdk.pro_5h_limit_tokens if config.llm.provider == "claude_sdk" else None
+    calls = storage.llm_calls.by_application()
+    rows = []
+    for app in storage.applications.history():
+        record = storage.vacancies.get(app.vacancy_id)
+        steps = app.stats.get("steps", {})
+        own = calls.get(app.id, [])
+        tokens = sum(_call_tokens(c) for c in own)
+        rows.append({
+            "started": format_local(app.created_at), "kind": "Not now" if app.kind == "not_now" else "Apply",
+            "title": (record.facts.display_title if record and record.facts else "") or (record.title if record else "?"),
+            "employer": record.employer if record else "", "state": app.state.value,
+            "seconds": round(sum(steps.values())) if steps else None,
+            "steps": " · ".join(f"{STEP_SHORT.get(k, k)} {v:.0f}s" for k, v in steps.items()),
+            "calls": len(own), "failed": sum(1 for c in own if not c["ok"]), "tokens": tokens,
+            "models": ", ".join(sorted({model_label(c["model"]) for c in own if c["model"]})),
+            "limit_share": round(100 * tokens / limit, 1) if limit and own else None,
+        })
+    return rows
+
+
 # ---------------------------------------------------------------- debug mode
 
 def debug_info(config: AppConfig, storage: Storage, vacancy_id: int) -> dict[str, Any] | None:
@@ -535,6 +587,7 @@ STEP_LABELS = {
     "note": "Writing the Obsidian note…",
     "folder": "Creating the Drive folder…",
     "materials": "Tailoring CV & cover letter (Claude)…",
+    "skills": "Picking the vacancy's skills (Claude)…",
     "pdf": "Building the PDF…",
     "upload": "Uploading the CV to Drive…",
     "finalize": "Finishing…",
@@ -547,6 +600,8 @@ def application_item(storage: Storage, application: Application) -> dict[str, An
     state = application.state.value
     if state == "queued":
         status = "Queued" if not application.started else "Continuing…"
+    elif state == "working" and application.cancel_requested:
+        status = "Stopping after this step…"
     elif state == "working":
         status = STEP_LABELS.get(application.step or "", "Working…")
     elif state == "waiting":
@@ -554,9 +609,11 @@ def application_item(storage: Storage, application: Application) -> dict[str, An
     elif state == "failed":
         status = f"Stopped at “{application.step}”"
     elif state == "cancelled":
-        status = "Cancelled"
+        status = "Stopped"
     else:
-        status = "Ready"
+        status = "Ready" if application.kind == "apply" else "Obsidian note ready"
+    if application.kind == "not_now":
+        status = f"Not now · {status}"
     return {
         "id": application.id, "vacancy_id": application.vacancy_id,
         "title": (record.facts.display_title if record and record.facts else "") or (record.title if record else "?"),
@@ -564,7 +621,7 @@ def application_item(storage: Storage, application: Application) -> dict[str, An
         "state": state, "active": application.state.active, "status": status,
         "error": application.error, "warning": application.warning,
         "has_pdf": bool(application.pdf_path and Path(application.pdf_path).exists()),
-        # the CV file is deleted when the next Run starts (apply.yaml → resume.clean_files_on_run); Retry rebuilds it
+        # the user deleted the PDF from Downloads: «Rebuild PDF» makes it again without LLM
         "pdf_removed": bool(state == "done" and application.pdf_path
                             and not Path(application.pdf_path).exists()), "has_letter": bool(application.letter),
         "note_url": f"obsidian://open?path={quote(application.note_path)}" if application.note_path else None,

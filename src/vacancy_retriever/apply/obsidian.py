@@ -62,20 +62,25 @@ def frontmatter(text: str) -> dict:
 class NoteRenderer:
     settings: ObsidianSettings
 
-    def render(self, dossier: VacancyDossier, employer_link: str | None, today: date | None = None) -> str:
+    def render(self, dossier: VacancyDossier, employer_link: str | None, today: date | None = None,
+               not_now: bool = False) -> str:
         """Properties like the user's own vacancy notes (начало = today, статус, one «где»), then the template
         «### описание вакансии» (sources + text) and «### моё» (Drive folder + letter, filled in when ready)."""
         started = (today or date.today()).isoformat()
+        status = self.settings.status_not_now if not_now else self.settings.status
+        if not_now:
+            employer_link = None  # Not now: «👾FK» stays empty (the user's template, 30.10.2026)
         lines = ["---", "tags:", *[f"  - {_yaml_value(t)}" for t in self.settings.tags],
                  "👾что_это:", f"  - {_yaml_value(self.settings.what)}", f"начало: {started}", "👾статус:",
-                 *([f"  - {_yaml_value(self.settings.status)}"] if self.settings.status else []), "👾где:",
+                 *([f"  - {_yaml_value(status)}"] if status else []), "👾где:",
                  *[f"  - {_yaml_value(w)}" for w in dossier.where[:1]], "👾лэйблы:",
                  *[f"  - {_yaml_value(label)}" for label in dossier.labels],
                  f"👾FK: {_yaml_value(employer_link) if employer_link else ''}".rstrip(),
                  f"{SKILLS_PROPERTY}:", f"{ID_PROPERTY}: {dossier.vacancy_id}", "---", ""]
         sources = [f"[{_label(label)}]({url})" for label, url in dossier.links]
-        body = [DESCRIPTION_HEADING, *sources, "", "**описание вакансии:**", _fence(dossier.text), "",
-                MINE_HEADING, _PLACEHOLDER, ""]
+        body = [DESCRIPTION_HEADING, *sources, "", "**описание вакансии:**", _fence(dossier.text), ""]
+        if not not_now:
+            body += [MINE_HEADING, _PLACEHOLDER, ""]
         return "\n".join(lines + body)
 
 
@@ -112,7 +117,7 @@ class ObsidianVault:
                 return path
         return None
 
-    def create(self, dossier: VacancyDossier) -> Path:
+    def create(self, dossier: VacancyDossier, not_now: bool = False) -> Path:
         existing = self.find(dossier.vacancy_id)
         if existing:
             return existing
@@ -123,7 +128,8 @@ class ObsidianVault:
         path, n = folder / f"{base}{mark}.md", 2
         while path.exists():  # a name taken by another note: «… 2 🦆», «… 3 🦆» (the user's choice, 28.10.2026)
             path, n = folder / f"{base} {n}{mark}.md", n + 1
-        path.write_text(self.renderer.render(dossier, self.employer_link(dossier.employer)), encoding="utf-8")
+        path.write_text(self.renderer.render(dossier, self.employer_link(dossier.employer), not_now=not_now),
+                        encoding="utf-8")
         return path
 
     def employer_link(self, employer: str) -> str | None:
@@ -140,6 +146,20 @@ class ObsidianVault:
             if any(normalize_company(str(name)) == wanted for name in names):
                 return f"[[{path.stem}]]"
         return None
+
+    def become_applied(self, path: Path, employer: str) -> None:
+        """A «не сейчас» note, then ▶: the status turns «откликнулся» (only if it is still the app's «не сейчас»),
+        the empty «👾FK» gets the employer and the «### моё» section is added for the letter."""
+        text = path.read_text(encoding="utf-8")
+        old = f"👾статус:\n  - {_yaml_value(self.settings.status_not_now)}\n"
+        if self.settings.status and old in text:
+            text = text.replace(old, f"👾статус:\n  - {_yaml_value(self.settings.status)}\n", 1)
+        if not _MINE.search(text):
+            text = text.rstrip() + f"\n\n{MINE_HEADING}\n{_PLACEHOLDER}\n"
+        path.write_text(text, encoding="utf-8")
+        link = self.employer_link(employer)
+        if link:
+            self.fill_property(path, "👾FK", link)
 
     @staticmethod
     def set_mine(path: Path, content: str, previous: str | None) -> bool:

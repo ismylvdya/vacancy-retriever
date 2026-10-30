@@ -9,7 +9,8 @@ from .db import Database
 
 _RESULT_FIELDS = {
     "state", "step", "due_at", "note_path", "folder_id", "folder_url", "materials_json", "pdf_path", "pdf_file_id",
-    "pdf_url", "letter", "skills", "error", "warning", "cancel_requested", "dismissed",
+    "pdf_url", "letter", "skills", "error", "warning", "cancel_requested", "dismissed", "kind", "note_mine",
+    "stats_json",
 }
 
 
@@ -25,11 +26,12 @@ class ApplicationRepository:
         row = self.db.query_one("SELECT * FROM applications WHERE vacancy_id = ?", (vacancy_id,))
         return Application.from_row(row) if row else None
 
-    def create(self, vacancy_id: int, due_at: datetime) -> Application:
+    def create(self, vacancy_id: int, due_at: datetime, kind: str = "apply") -> Application:
         now = to_iso(utcnow())
         cursor = self.db.execute(
-            "INSERT INTO applications(vacancy_id, state, due_at, created_at, updated_at) VALUES (?, ?, ?, ?, ?)",
-            (vacancy_id, ApplicationState.QUEUED, to_iso(due_at), now, now),
+            "INSERT INTO applications(vacancy_id, state, due_at, created_at, updated_at, kind)"
+            " VALUES (?, ?, ?, ?, ?, ?)",
+            (vacancy_id, ApplicationState.QUEUED, to_iso(due_at), now, now, kind),
         )
         application = self.get(int(cursor.lastrowid or 0))
         assert application is not None
@@ -56,6 +58,11 @@ class ApplicationRepository:
         )
         return Application.from_row(row) if row else None
 
+    def history(self, limit: int = 300) -> list[Application]:
+        """Every application, newest first (Statistics → Applies)."""
+        return [Application.from_row(r) for r in self.db.query("SELECT * FROM applications ORDER BY id DESC LIMIT ?",
+                                                               (limit,))]
+
     def active_vacancy_ids(self) -> set[int]:
         """Vacancies whose application is queued, in work or waiting for the Claude limit."""
         rows = self.db.query("SELECT vacancy_id FROM applications WHERE state IN (?, ?, ?)",
@@ -63,7 +70,9 @@ class ApplicationRepository:
         return {r["vacancy_id"] for r in rows}
 
     def visible(self) -> list[Application]:
-        rows = self.db.query("SELECT * FROM applications WHERE dismissed = 0 ORDER BY id DESC")
+        # a finished Not now (just a note) leaves the sidebar by itself; one in work, stopped or failed stays
+        rows = self.db.query("SELECT * FROM applications WHERE dismissed = 0"
+                             " AND NOT (kind = 'not_now' AND state = 'done') ORDER BY id DESC")
         return [Application.from_row(r) for r in rows]
 
     def recover(self) -> int:

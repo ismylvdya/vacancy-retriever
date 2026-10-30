@@ -402,12 +402,41 @@ def apply_filters(config: AppConfig, records: list[VacancyRecord],
         for value in chosen.get(key, set()) - counts.keys():
             counts[value], labels[value] = 0, value
         options = [FilterOption(v, labels[v], n, v in chosen.get(key, set()))
-                   for v, n in sorted(counts.items(), key=lambda kv: (-kv[1], labels[kv[0]].lower()))]
+                   for v, n in sorted(counts.items(), key=(lambda kv: labels[kv[0]].lower()) if key == "source"
+                                      else (lambda kv: (-kv[1], labels[kv[0]].lower())))]
         if options:
             filters.append(Filter(key, label, options))
     kept = [r for r in records
             if all(not wanted or wanted & {v for v, _ in values[id(r)][key]} for key, wanted in chosen.items())]
     return kept, filters
+
+
+SEARCH_FIELDS = [("all", "Everywhere"), ("title", "Title"), ("employer", "Employer"), ("text", "Text"),
+                 ("reason", "Skip reason")]
+
+
+def search_records(storage: Storage, records: list[VacancyRecord], text: str, where: str) -> list[VacancyRecord]:
+    """Case-insensitive substring search. "text" is the original ad (detail page if there is one), loaded with
+    one query per 500 vacancies; "all" also looks at the title, employer, the Russian summary and the skip reason."""
+    needle = text.strip().lower()
+    if not needle:
+        return records
+    raw: dict[int, str] = {}
+    if where in ("all", "text"):
+        ids = sorted({r.primary_raw_id for r in records})
+        for start in range(0, len(ids), 500):
+            chunk = ids[start:start + 500]
+            rows = storage.db.query(
+                f"SELECT id, text, detail_text FROM raw_items WHERE id IN ({','.join('?' * len(chunk))})", tuple(chunk))
+            raw.update({row["id"]: f"{row['text'] or ''}\n{row['detail_text'] or ''}".lower() for row in rows})
+
+    def fields(record: VacancyRecord) -> list[str]:
+        summary = record.facts.summary_ru if record.facts else ""
+        by_name = {"title": [record.title], "employer": [record.employer], "reason": [record.skip_reason or ""],
+                   "text": [raw.get(record.primary_raw_id, "")]}
+        return by_name["title"] + by_name["employer"] + [summary] + by_name["reason"] + by_name["text"] \
+            if where == "all" else by_name.get(where, [])
+    return [r for r in records if any(needle in value.lower() for value in fields(r))]
 
 
 def group_by_run(cards: list[Card], storage: Storage) -> list[dict[str, Any]]:

@@ -139,19 +139,24 @@ def create_app(config: AppConfig, storage: Storage, port: int, manager: RunManag
             hidden = views.hidden_items(config, storage)
             return page(request, "processed.html", "processed", runs=[], hidden=hidden, total=0, current="hidden",
                         counts=storage.vacancies.processed_counts(), filters=processed_tabs, facets=[],
-                        active=False, query="", reported_count=storage.vacancies.reports_count())
+                        active=False, query="", search="", where="all", search_fields=[], reported_count=storage.vacancies.reports_count())
         chosen: dict[str, set[str]] = {}
         for key, value in request.query_params.multi_items():
-            if key != "filter" and value:
+            if key not in ("filter", "q", "in") and value:
                 chosen.setdefault(key, set()).add(value)
-        records = storage.vacancies.processed(filter, limit=10000)
+        search = request.query_params.get("q", "").strip()
+        where = request.query_params.get("in", "all")
+        where = where if where in dict(views.SEARCH_FIELDS) else "all"
+        records = views.search_records(storage, storage.vacancies.processed(filter, limit=10000), search, where)
         kept, filters = views.apply_filters(config, records, chosen)
         cards = views.CardBuilder(config, storage)
         built = [cards.build(record) for record in kept]
-        query = urlencode([(k, v) for k, values in sorted(chosen.items()) for v in sorted(values)])
+        pairs = [(k, v) for k, values in sorted(chosen.items()) for v in sorted(values)]
+        query = urlencode(pairs + ([("q", search)] + ([("in", where)] if where != "all" else []) if search else []))
         return page(request, "processed.html", "processed", runs=views.group_by_run(built, storage),
                     total=len(built), current=filter or "all", counts=storage.vacancies.processed_counts(),
-                    filters=processed_tabs, facets=filters, active=bool(chosen), query=query,
+                    filters=processed_tabs, facets=filters, active=bool(chosen or search), query=query,
+                    search=search, where=where, search_fields=views.SEARCH_FIELDS,
                     reported_count=storage.vacancies.reports_count())
 
     @app.get("/api/vacancies/{vacancy_id}/debug")

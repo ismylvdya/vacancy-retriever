@@ -507,6 +507,8 @@ if (filterForm) {
     menu.style.top = `${box.bottom + 4}px`;
     menu.style.left = `${Math.max(8, Math.min(box.left, window.innerWidth - menu.offsetWidth - 8))}px`;
   };
+  const searchIn = filterForm.querySelector(".search-in");
+  if (searchIn) searchIn.addEventListener("change", () => filterForm.submit());
   const applyIfChanged = () => { if (snapshot() !== initial) filterForm.submit(); };
   selects.forEach((select) => select.addEventListener("toggle", () => {
     if (select.open) {

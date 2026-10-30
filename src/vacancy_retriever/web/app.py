@@ -34,7 +34,6 @@ STATIC_ICONS = WEB_DIR / "static" / "icons"
 
 class StatusChange(BaseModel):
     status: str
-    note: str | None = None  # debug mode: the reason of a Skip
 
 
 class Report(BaseModel):
@@ -125,9 +124,8 @@ def create_app(config: AppConfig, storage: Storage, port: int, manager: RunManag
         return describe_status(manager.status())
 
     def page(request: Request, template: str, tab: str, **context: Any) -> HTMLResponse:
-        counts = storage.vacancies.processed_counts()
         return templates.TemplateResponse(request, template, {
-            "tab": tab, "feed_count": counts.get("new", 0), "status": full_status(),
+            "tab": tab, "feed_count": storage.vacancies.feed_count(), "status": full_status(),
             "health_problems": health_problems(), "notices": notices.active(config.paths.notices),
             "max_days": config.rules.max_age_days, "missed": missed_summary(), **context,
         })
@@ -149,10 +147,22 @@ def create_app(config: AppConfig, storage: Storage, port: int, manager: RunManag
         return sum(1 for row in views.latest_source_states(views.health(config, storage, limit=6)) if row.warn)
 
     @app.get("/", response_class=HTMLResponse)
-    def feed(request: Request) -> HTMLResponse:
+    def feed(request: Request, stars: str | None = None) -> HTMLResponse:
+        """Filters like in Processed, plus the minimum fit (★5 / ★4+ … / all; ★4+ by default, user 28.10.2026)."""
+        min_stars = views.FEED_MIN_STARS_DEFAULT if stars is None else (int(stars) if stars.isdigit() else 0)
+        chosen: dict[str, set[str]] = {}
+        for key, value in request.query_params.multi_items():
+            if key != "stars" and value:
+                chosen.setdefault(key, set()).add(value)
+        records = storage.vacancies.feed()
+        above = [r for r in records if (r.stars or 0) >= min_stars]
+        kept, facets = views.apply_filters(config, above, chosen, skip={"reason", "fit"})
         cards = views.CardBuilder(config, storage)  # per request: latest run, reports and rates change over time
-        built = [cards.build(record) for record in storage.vacancies.feed()]
-        return page(request, "feed.html", "feed", groups=views.group_feed(built, config))
+        built = [cards.build(record) for record in kept]
+        return page(request, "feed.html", "feed", groups=views.group_feed(built, config), facets=facets,
+                    min_stars=min_stars, star_options=views.star_options(records, min_stars),
+                    active=bool(chosen) or min_stars != views.FEED_MIN_STARS_DEFAULT,
+                    shown=len(built), all_count=len(records))
 
     processed_tabs = [("all", "All"), ("applied", "Applied"), ("not_now", "Not now"),
                       ("skipped", "Skipped"), ("auto_skipped", "Auto-skipped")]
@@ -203,7 +213,7 @@ def create_app(config: AppConfig, storage: Storage, port: int, manager: RunManag
     @app.get("/api/status")
     def status() -> dict[str, Any]:
         state = full_status()
-        state["feed_count"] = storage.vacancies.processed_counts().get("new", 0)
+        state["feed_count"] = storage.vacancies.feed_count()
         return state
 
     @app.post("/api/run")
@@ -249,7 +259,7 @@ def create_app(config: AppConfig, storage: Storage, port: int, manager: RunManag
     @app.post("/api/vacancies/{vacancy_id}/status")
     def change_status(vacancy_id: int, change: StatusChange) -> dict[str, Any]:
         try:
-            changed = storage.vacancies.set_user_status(vacancy_id, change.status, change.note)
+            changed = storage.vacancies.set_user_status(vacancy_id, change.status)
         except ValueError as exc:
             raise HTTPException(400, str(exc)) from exc
         if not changed:
@@ -258,7 +268,7 @@ def create_app(config: AppConfig, storage: Storage, port: int, manager: RunManag
             applications.enqueue(vacancy_id)
         else:
             applications.withdraw(vacancy_id)
-        return {"ok": True, "feed_count": storage.vacancies.processed_counts().get("new", 0)}
+        return {"ok": True, "feed_count": storage.vacancies.feed_count()}
 
     # ---- the user's Drive folder for vacancy folders (Google Picker, once)
     parent = DriveParent(config.paths.data / PARENT_FILE)

@@ -24,8 +24,8 @@ _MINE = re.compile(rf"^{re.escape(MINE_HEADING)}[ \t]*\n(.*?)(?=^#{{1,3}} |\Z)",
 
 
 def note_file_name(title: str, employer: str) -> str:
-    """«<вакансия> - <работодатель>» (user, 28.10.2026)."""
-    raw = f"{title} - {employer}" if employer else title
+    """«<вакансия> • <работодатель>» (user, 29.10.2026); the app's 🦆 is added by ObsidianVault.create."""
+    raw = f"{title} • {employer}" if employer else title
     name = " ".join(_FORBIDDEN.sub(" ", raw.strip()).split()).lstrip(".")
     return (name[:120].rstrip() or "Vacancy")
 
@@ -119,9 +119,10 @@ class ObsidianVault:
         folder = self.root / self.settings.folder if self.settings.folder else self.root
         folder.mkdir(parents=True, exist_ok=True)
         base = note_file_name(dossier.name_title or dossier.title, dossier.employer)
-        path, n = folder / f"{base}.md", 2
-        while path.exists():  # a name taken by another note: «… 2», «… 3» (the user's choice, 28.10.2026)
-            path, n = folder / f"{base} {n}.md", n + 1
+        mark = f" {self.settings.app_mark}" if self.settings.app_mark else ""
+        path, n = folder / f"{base}{mark}.md", 2
+        while path.exists():  # a name taken by another note: «… 2 🦆», «… 3 🦆» (the user's choice, 28.10.2026)
+            path, n = folder / f"{base} {n}{mark}.md", n + 1
         path.write_text(self.renderer.render(dossier, self.employer_link(dossier.employer)), encoding="utf-8")
         return path
 
@@ -172,5 +173,5 @@ class ObsidianVault:
     @staticmethod
     def mine_section(folder_url: str | None, letter: str) -> str:
         """«### моё»: the Drive folder, then the letter (with the link to the CV file) in a code block."""
-        folder = f"[папка Google Drive]({folder_url})" if folder_url else "_Google Drive не подключён — папки нет._"
+        folder = f"[папка на Google Drive]({folder_url})" if folder_url else "_Google Drive не подключён — папки нет._"
         return f"{folder}\n\n**cover letter:**\n{_fence(letter)}"

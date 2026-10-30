@@ -66,7 +66,6 @@ class VacancyRecord:
     origin: str
     run_id: int
     sources: list[VacancySource] = field(default_factory=list)
-    user_note: str = ""  # debug mode: why the user skipped it
 
     @classmethod
     def from_row(cls, row: Any) -> VacancyRecord:
@@ -92,7 +91,6 @@ class VacancyRecord:
             primary_raw_id=row["primary_raw_id"],
             origin=row["origin"],
             run_id=row["run_id"],
-            user_note=row["user_note"] or "",
         )
 
 
@@ -189,20 +187,25 @@ class VacancyRepository:
         self._load_sources(records)
         return records
 
+    def feed_count(self) -> int:
+        """The feed outside debug mode: new vacancies without a report (reported ones show only in debug mode)."""
+        row = self.db.query_one(
+            "SELECT COUNT(*) AS n FROM vacancies v WHERE v.staged = 0 AND v.user_status = 'new'"
+            " AND NOT EXISTS (SELECT 1 FROM reports r WHERE r.vacancy_id = v.id)")
+        return row["n"]
+
     def processed_counts(self) -> dict[str, int]:
         rows = self.db.query(
             "SELECT user_status, COUNT(*) AS n FROM vacancies WHERE staged = 0 GROUP BY user_status"
         )
         return {r["user_status"]: r["n"] for r in rows}
 
-    def set_user_status(self, vacancy_id: int, status: str, note: str | None = None) -> bool:
-        """note: the user's reason (debug mode, Skip); any status change without a note clears the old one."""
+    def set_user_status(self, vacancy_id: int, status: str) -> bool:
         if status not in USER_STATUSES:
             raise ValueError(f"Unknown status {status}")
         cursor = self.db.execute(
-            "UPDATE vacancies SET user_status = ?, user_set = ?, status_changed_at = ?, user_note = ?"
-            " WHERE id = ? AND staged = 0",
-            (status, 0 if status == "auto_skipped" else 1, to_iso(utcnow()), (note or "").strip() or None, vacancy_id),
+            "UPDATE vacancies SET user_status = ?, user_set = ?, status_changed_at = ? WHERE id = ? AND staged = 0",
+            (status, 0 if status == "auto_skipped" else 1, to_iso(utcnow()), vacancy_id),
         )
         return cursor.rowcount > 0
 

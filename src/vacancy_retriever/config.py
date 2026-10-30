@@ -305,7 +305,8 @@ class ObsidianSettings(_Strict):
     vault_dir: str | None = None
     folder: str = ""
     tags: list[str] = Field(default_factory=lambda: ["👾травля"])
-    label_retrieved: str = "🦆 retrieved"  # in «👾лэйблы»: the note was made by the app
+    label_retrieved: str = ""   # a label in «👾лэйблы» for app-made notes; empty: the 🦆 at the end of the name says it
+    app_mark: str = "🦆"        # at the end of the note name: «Data Analyst • Tribe 🦆» = made by the app
     what: str = "📋 вакансия"
     label_non_it: str = "📋не IT"
     status: str = "откликнулся"
@@ -326,7 +327,7 @@ class DriveSettings(_Strict):
     stub: bool = False
     parent_required: bool = True   # vacancy folders go into the folder picked at /drive/pick
     picker_key_env: str = "GOOGLE_PICKER_API_KEY"
-    folder_name: str = "🦆 {title} - {employer} {date}"
+    folder_name: str = "{title} • {employer} • {date} 🦆"
     root_folder: str = "Vacancy Retriever"
     share_with_link: bool = True
 

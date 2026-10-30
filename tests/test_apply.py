@@ -145,11 +145,11 @@ def test_full_pipeline_makes_note_cv_letter_and_folder(env):
     assert app.letter.endswith(f"Резюме: {file_url('P1')}\nGitHub: https://github.com/x")
     assert Path(app.pdf_path).exists() and app.folder_url == folder_url("F1")
     note = Path(app.note_path)
-    assert note.name == "Junior Data Scientist - Acme d.o.o..md"
+    assert note.name == "Junior Data Scientist • Acme d.o.o. 🦆.md"
     text = note.read_text(encoding="utf-8")
     meta = frontmatter(text)
     assert meta["tags"] == ["👾травля"] and meta["👾что_это"] == ["📋 вакансия"]
-    assert meta["👾лэйблы"] == ["🦆 retrieved"], "made by the app: a label, not a tag"
+    assert meta["👾лэйблы"] is None, "made by the app: the 🦆 in the name says it, no label (29.10.2026)"
     assert meta["👾где"] == ["🇷🇺яз: в Сербии очно"] and meta["retriever_id"] == env.vacancy_id
     assert meta["👾FK"] == "[[Acme (IT)]]", "employer note found by its name without the legal suffix"
     assert meta["👾необходимые скилы"] == "Python, SQL, A/B testing"
@@ -157,12 +157,12 @@ def test_full_pipeline_makes_note_cv_letter_and_folder(env):
     assert "%%" not in text, "no service markers in the note"
     assert text.index("### описание вакансии") < text.index("https://telegram.me/serbiawork/1") < text.index("### моё")
     assert "https://telegram.me/serbiawork/1" in text and "Полный текст вакансии про Data Science" in text
-    assert f"### моё\n[папка Google Drive]({folder_url('F1')})\n\n**cover letter:**\n```" in text
+    assert f"### моё\n[папка на Google Drive]({folder_url('F1')})\n\n**cover letter:**\n```" in text
     assert file_url("P1") in text
     assert "### описание вакансии\n[эта вакансия в Telegram-канале " in text
     assert "](https://telegram.me/serbiawork/1)" in text and "\n\n**описание вакансии:**\n```" in text
     assert "ВСТАВИТЬ" not in text
-    assert env.drive.names == [f"🦆 Junior Data Scientist - Acme d.o.o. {date.today():%d-%m-%Y}"]
+    assert env.drive.names == [f"Junior Data Scientist • Acme d.o.o. • {date.today().isoformat()} 🦆"]
     calls = env.storage.llm_calls.all()
     assert [c["stage"] for c in calls] == ["resume"] and calls[0]["input_tokens"] == 1000
 
@@ -191,11 +191,11 @@ def test_restart_continues_interrupted_work(env):
 
 
 def test_a_taken_note_name_gets_a_number(env):
-    taken = env.vault.root / "Junior Data Scientist - Acme d.o.o..md"
+    taken = env.vault.root / "Junior Data Scientist • Acme d.o.o. 🦆.md"
     taken.write_text("my own note", encoding="utf-8")
     env.service.enqueue(env.vacancy_id)
     app = run_all(env)
-    assert Path(app.note_path).name == "Junior Data Scientist - Acme d.o.o. 2.md"
+    assert Path(app.note_path).name == "Junior Data Scientist • Acme d.o.o. 2 🦆.md"
     assert taken.read_text(encoding="utf-8") == "my own note"
 
 
@@ -241,7 +241,7 @@ def test_mine_section_follows_the_app_until_the_user_edits_it(env):
     env.service.retry(app.id)
     app = run_all(env)
     text = note.read_text(encoding="utf-8")
-    assert f"[папка Google Drive]({folder_url('F1')})" in text and file_url("P1") in text
+    assert f"[папка на Google Drive]({folder_url('F1')})" in text and file_url("P1") in text
     assert "Google Drive не подключён" not in text and text.count("### моё") == 1
 
 
@@ -301,7 +301,7 @@ def test_property_is_filled_only_when_empty(tmp_path):
 
 
 def test_names_and_links():
-    assert note_file_name("Data Analyst / BI", "Citrus: iGaming") == "Data Analyst BI - Citrus iGaming"
+    assert note_file_name("Data Analyst / BI", "Citrus: iGaming") == "Data Analyst BI • Citrus iGaming"
     assert normalize_company("Linea Milanovic d.o.o.") == normalize_company("LINEA MILANOVIC") == "linea milanovic"
     assert insert_cv_link(LETTER, "https://drive/x").count("https://drive/x") == 1
     assert employer_links(["https://www.linkedin.com/jobs/view/1", "https://citrus.careers-page.com/jobs/1?utm_x=1",
@@ -416,3 +416,12 @@ def test_grade_in_note_and_folder_names(env):
     assert builder.name_title("Аналитик данных", russian) == "Аналитик данных стажа"
     assert builder.name_title("Стажёр-аналитик", russian) == "Стажёр-аналитик"
     assert builder.name_title("Data Analyst", None) == "Data Analyst"
+
+
+def test_drive_folder_name():
+    from vacancy_retriever.apply.pipeline import drive_folder_name
+
+    template = "{title} • {employer} • {date} 🦆"
+    assert drive_folder_name(template, "Data Analyst", "Tribe", date(2026, 10, 29)) == "Data Analyst • Tribe • 2026-10-29 🦆"
+    assert drive_folder_name(template, "Data Analyst", "", date(2026, 10, 29)) == "Data Analyst • 2026-10-29 🦆"
+    assert drive_folder_name(template, "BI / DWH", "X", date(2026, 10, 29)) == "BI ∕ DWH • X • 2026-10-29 🦆"

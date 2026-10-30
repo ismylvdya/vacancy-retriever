@@ -97,7 +97,6 @@ class Card:
     employer_type: str = ""
     ad_language: str = ""          # flag (or code) of the language the ad is written in
     required_languages: list[str] = field(default_factory=list)  # flags with the language name as tooltip
-    user_note: str = ""                                        # debug mode: why it was skipped
     reports: list[dict[str, str]] = field(default_factory=list)  # debug mode: the user's complaints
 
     @property
@@ -155,7 +154,6 @@ class CardBuilder:
             employer_type=EMPLOYER_TYPES.get(facts.employer_type, "") if facts else "",
             ad_language=_flag(facts.ad_language) if facts and facts.ad_language != "other" else "",
             required_languages=[_flag(code) for code in facts.required_languages] if facts else [],
-            user_note=record.user_note,
             reports=[{"text": r["text"], "date": format_local(r["created_at"], "%-d %b %H:%M")}
                      for r in self._reports.get(record.id, [])],
         )
@@ -398,10 +396,20 @@ class Filter:
         return [o for o in self.options if o.selected]
 
 
-def apply_filters(config: AppConfig, records: list[VacancyRecord],
-                  chosen: dict[str, set[str]]) -> tuple[list[VacancyRecord], list[Filter]]:
+FEED_MIN_STARS_DEFAULT = 4  # the feed shows ★5 and ★4 unless the filter says otherwise
+
+
+def star_options(records: list[VacancyRecord], current: int) -> list[FilterOption]:
+    """Feed «Fit» filter: one threshold — ★5 only, ★4+, ★3+, ★2+, All — with how many it shows."""
+    labels = {5: "★5 only", 4: "★4 and 5", 3: "★3 and up", 2: "★2 and up", 0: "All"}
+    return [FilterOption(str(n), label, sum(1 for r in records if (r.stars or 0) >= n), n == current)
+            for n, label in labels.items()]
+
+
+def apply_filters(config: AppConfig, records: list[VacancyRecord], chosen: dict[str, set[str]],
+                  skip: set[str] = frozenset()) -> tuple[list[VacancyRecord], list[Filter]]:
     """OR inside one filter, AND between filters. Options are counted over the whole sub-tab."""
-    fields = filter_fields(config)
+    fields = [f for f in filter_fields(config) if f[0] not in skip]
     values = {id(r): {key: get(r) for key, _, get in fields} for r in records}
     filters = []
     for key, label, _ in fields:
@@ -500,7 +508,6 @@ def debug_info(config: AppConfig, storage: Storage, vacancy_id: int) -> dict[str
     report = "\n".join([
         f"Vacancy id {record.id}: {record.title}" + (f" — {record.employer}" if record.employer else ""),
         f"Run {record.run_id} · {verdict}",
-        *([f"Skip reason (user): {record.user_note}"] if record.user_note else []),
         *[f"User report {format_local(r['created_at'], '%-d %b %H:%M')}: {r['text']}" for r in reports],
         "", "Why:", *[f"- {line}" for line in explain],
         "", "Raw items:", *[f"- {line}" for line in raw_lines],

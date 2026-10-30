@@ -7,10 +7,48 @@
   <p>The feed is hidden until the run finishes — then it reloads with the new vacancies.</p>
 </section>
 <div class="feed-content">
+{% if all_count %}
+<div class="subbar">
+<form class="filters" id="filters" method="get" action="/">
+  <span class="filters-label">Filters:</span>
+  <div class="filters-scroll" id="filters-scroll">
+    <div class="filters-row">
+      {#- the minimum fit: one choice, ★4 and 5 by default -#}
+      {% set star = star_options | selectattr('selected') | first %}
+      <details class="fsel{{ ' on' if min_stars != 4 }}" data-key="stars">
+        <summary>Fit: <b>{{ star.label if star else 'All' }}</b><i class="caret"></i></summary>
+        <div class="fsel-menu">
+          {% for o in star_options %}
+          <label class="fsel-opt"><input type="radio" name="stars" value="{{ o.value }}" {% if o.selected %}checked{% endif %}><span>{{ o.label }}</span><span class="count">{{ o.count }}</span></label>
+          {% endfor %}
+        </div>
+      </details>
+    {% for f in facets %}
+      <details class="fsel{{ ' on' if f.selected }}" data-key="{{ f.key }}">
+        <summary>{{ f.label }}{% if f.selected %}: <b>{{ f.selected[0].label }}</b>{% if f.selected | length > 1 %} +{{ f.selected | length - 1 }}{% endif %}{% endif %}<i class="caret"></i></summary>
+        <div class="fsel-menu">
+          {% for o in f.options %}
+          <label class="fsel-opt"><input type="checkbox" name="{{ f.key }}" value="{{ o.value }}" {% if o.selected %}checked{% endif %}><span>{{ o.label }}</span><span class="count">{{ o.count }}</span></label>
+          {% endfor %}
+        </div>
+      </details>
+    {% endfor %}
+    </div>
+  </div>
+  <a class="btn reset{{ ' off' if not active }}" href="/">Reset</a>
+</form>
+</div>
+{% if shown < all_count %}<p class="note">Showing {{ shown }} of {{ all_count }} — the rest are below the filters (Fit {{ star.label if star else 'All' }}).</p>{% endif %}
+{% endif %}
 {% if total == 0 %}
   <section class="empty-state">
+  {% if all_count %}
+    <h1>Nothing with these filters</h1>
+    <p>{{ all_count }} vacancies are in the feed — choose a lower Fit or <a href="/">reset the filters</a>.</p>
+  {% else %}
     <h1>You're all caught up</h1>
     <p>New vacancies appear here after a run. Processed ones are in <a href="/processed">Processed</a>.</p>
+  {% endif %}
   </section>
 {% endif %}
 {% if total %}<div class="sheet">

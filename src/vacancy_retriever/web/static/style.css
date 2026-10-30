@@ -253,11 +253,6 @@ body.running .feed-content { display: none; }
 .btn.icon.mirror svg { transform: scaleX(-1); }
 
 /* ---------- debug mode: skip reason, reports ---------- */
-.skip-group { display: inline-flex; align-items: stretch; }
-body.debug .skip-group .btn { border-radius: var(--radius) 0 0 var(--radius); }
-.skip-note { font: inherit; font-size: 13px; width: 190px; padding: 3px 8px; color: var(--text); background: var(--bg);
-  border: 1px solid var(--line-strong); border-left: 0; border-radius: 0 var(--radius) var(--radius) 0; }
-.skip-note:focus { outline: none; border-color: var(--accent); }
 .flag.reported { color: var(--danger); background: color-mix(in srgb, var(--danger) 12%, transparent); }
 .reports { margin: 10px 0 0; padding: 8px 12px; border-left: 2px solid var(--danger); font-size: 13px; max-width: 640px; }
 .reports h4 { margin: 0 0 4px; font-size: 12px; color: var(--muted); }
@@ -273,6 +268,8 @@ body.debug .skip-group .btn { border-radius: var(--radius) 0 0 var(--radius); }
 
 /* ---------- debug mode ---------- */
 body:not(.debug) .debug-only { display: none !important; }
+/* a reported vacancy leaves the feed outside debug mode; a feed group with nothing else hides with it */
+body:not(.debug) .vac.reported, body:not(.debug) .group.nothing-shown { display: none !important; }
 .debug-toggle { display: inline-flex; align-items: center; gap: 8px; margin-left: 12px;
   font-size: 12px; color: var(--faint); cursor: pointer; user-select: none; }
 .debug-toggle input { position: absolute; opacity: 0; width: 0; height: 0; }

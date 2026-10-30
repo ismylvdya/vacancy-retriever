@@ -12,11 +12,11 @@
 {%- endmacro %}
 
 {% macro row(c, permit_column=False, processed=False) %}
-<article class="vac{{ ' low' if c.low_fit and not processed }}" id="vac-{{ c.id }}" data-id="{{ c.id }}" tabindex="0">
+<article class="vac{{ ' low' if c.low_fit and not processed }}{{ ' reported' if c.reports and not processed }}" id="vac-{{ c.id }}" data-id="{{ c.id }}" tabindex="0">
   {% if processed %}
   <div class="cells cells-processed">
     {{ role(c) }}
-    <div><div class="st st-{{ c.user_status }}">{{ c.status_label }}</div>{% if c.user_status == 'auto_skipped' and c.skip_reason %}<div class="sub">{{ c.skip_reason }}</div>{% endif %}{% if c.user_note %}<div class="sub" title="{{ c.user_note }}">“{{ c.user_note }}”</div>{% endif %}</div>
+    <div><div class="st st-{{ c.user_status }}">{{ c.status_label }}</div>{% if c.user_status == 'auto_skipped' and c.skip_reason %}<div class="sub">{{ c.skip_reason }}</div>{% endif %}</div>
     <div class="col-date">{{ c.published }}</div>
   </div>
   {% else %}
@@ -55,7 +55,7 @@
       {% else %}
         <button class="btn" data-action="status" data-status="applied" title="Applied: CV, cover letter, Obsidian note and Drive folder are made in the sidebar">Apply<kbd>▶</kbd></button>
         <button class="btn" data-action="status" data-status="not_now">Not now<kbd>N</kbd></button>
-        <span class="skip-group"><button class="btn" data-action="status" data-status="skipped">Skip<kbd>◀</kbd></button><input class="debug-only skip-note" type="text" placeholder="why skip? (optional)" aria-label="Reason of the skip"></span>
+        <button class="btn" data-action="status" data-status="skipped">Skip<kbd>◀</kbd></button>
       {% endif %}
       <span class="spacer"></span>
       <button class="btn btn-quiet debug-only" data-action="report">Report</button>

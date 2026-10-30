@@ -245,13 +245,10 @@ def test_salary_in_another_currency_shows_rub(client, tmp_paths):
     assert "1500–2000 €" in feed and "≈ 135 000–180 000 ₽" in feed
 
 
-def test_skip_with_a_reason_and_reports_in_debug_mode(client):
+def test_reports_and_a_reported_vacancy_leaves_the_feed_outside_debug(client):
     vacancy_id = client.vacancy_id
-    response = client.post(f"/api/vacancies/{vacancy_id}/status", json={"status": "skipped", "note": "офис в Москве"},
-                           headers=ORIGIN)
-    assert response.status_code == 200
-    page = client.get("/processed?filter=skipped").text
-    assert "“офис в Москве”" in page
+    page = client.get("/").text
+    assert "skip-note" not in page and "why skip" not in page  # the optional Skip reason is gone (29.10.2026)
     assert client.post(f"/api/vacancies/{vacancy_id}/report", json={"text": "  "}, headers=ORIGIN).status_code == 400
     assert client.post("/api/vacancies/999999/report", json={"text": "x"}, headers=ORIGIN).status_code == 404
     response = client.post(f"/api/vacancies/{vacancy_id}/report",
@@ -260,10 +257,10 @@ def test_skip_with_a_reason_and_reports_in_debug_mode(client):
     reported = client.get("/processed?filter=reported").text
     assert "Junior Data Scientist" in reported and "это удалёнка из РФ" in reported
     assert 'href="/processed?filter=reported"' in reported and "Reported" in reported
-    debug = client.get(f"/api/vacancies/{vacancy_id}/debug").json()["report"]
-    assert "Skip reason (user): офис в Москве" in debug and "User report" in debug
-    client.post(f"/api/vacancies/{vacancy_id}/status", json={"status": "new"}, headers=ORIGIN)
-    assert "“офис в Москве”" not in client.get("/processed?filter=reported").text, "a status change clears the note"
+    assert "User report" in client.get(f"/api/vacancies/{vacancy_id}/debug").json()["report"]
+    feed = client.get("/").text
+    assert f'class="vac reported" id="vac-{vacancy_id}"' in feed  # hidden by CSS unless debug mode is on
+    assert client.get("/api/status").json()["feed_count"] == 0
 
 
 def test_real_share_of_the_limit_is_typed_by_hand(client):
@@ -302,3 +299,16 @@ def test_drive_folder_picker_page(client):
     assert page.status_code == 200 and "Choose a folder in Google Drive" in page.text
     assert client.post("/api/drive/picker", headers=ORIGIN).status_code == 409  # Drive / key not set up in tests
     assert client.post("/api/drive/parent", json={"id": "x"}, headers={"origin": "http://evil.example"}).status_code == 403
+
+
+def test_feed_fit_threshold_defaults_to_four_stars(client):
+    storage = client.storage
+    stars = storage.vacancies.get(client.vacancy_id).stars
+    assert stars >= 4  # the fixture vacancy is a good fit
+    page = client.get("/").text
+    assert "Junior Data Scientist" in page and 'name="stars" value="4" checked' in page and "Fit: <b>★4 and 5</b>" in page
+    storage.db.execute("UPDATE vacancies SET stars = 3 WHERE id = ?", (client.vacancy_id,))
+    page = client.get("/").text
+    assert "Junior Data Scientist" not in page and "Nothing with these filters" in page
+    assert "Junior Data Scientist" in client.get("/?stars=3").text and "Junior Data Scientist" in client.get("/?stars=0").text
+    assert "Junior Data Scientist" not in client.get("/?stars=0&city=Novi Sad").text  # facets work with the threshold

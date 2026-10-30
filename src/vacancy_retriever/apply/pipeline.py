@@ -104,7 +104,7 @@ class DossierBuilder:
         return [label] if label else []  # an empty label in apply.yaml = leave «👾где» empty
 
     def labels(self, category: str) -> list[str]:
-        """«🦆 retrieved» always (made by the app), «📋не IT» for categories worked by hand (kind: manual)."""
+        """«📋не IT» for categories worked by hand (kind: manual); label_retrieved if set (empty: the 🦆 in the name)."""
         obsidian = self._config.apply.obsidian
         rule = self._config.rules.categories.get(category)
         return [label for label in (obsidian.label_retrieved, obsidian.label_non_it if rule and rule.kind == "manual"
@@ -121,7 +121,7 @@ class ApplyServices:
     writer: MaterialsWriter
     skill: ResumeSkill
     out_dir: Path
-    folder_name: str = "🦆 {title} - {employer} {date}"  # apply.yaml → drive.folder_name; date = the day of ▶
+    folder_name: str = "{title} • {employer} • {date} 🦆"  # apply.yaml → drive.folder_name; date of ▶, yyyy-mm-dd
 
 
 @dataclass
@@ -178,6 +178,14 @@ class NoteStep(Step):
         return {"note_path": str(ctx.vault.create(ctx.dossier))}
 
 
+def drive_folder_name(template: str, title: str, employer: str, day: date) -> str:
+    """«Data Analyst • Tribe • 2026-10-29 🦆»; no employer — «Data Analyst • 2026-10-29 🦆» (no dangling separator)."""
+    if not employer:
+        template = re.sub(r"\s*[•\-–—|]?\s*\{employer\}", "", template)
+    name = template.format(title=title, employer=employer, date=day.isoformat())
+    return " ".join(name.replace("/", "∕").split())
+
+
 class FolderStep(Step):
     name = "folder"
 
@@ -185,12 +193,9 @@ class FolderStep(Step):
         return ctx.drive.available and not app.folder_id
 
     def run(self, app: Application, ctx: StepContext) -> dict[str, Any]:
-        title = ctx.dossier.name_title or ctx.dossier.title
-        template = ctx.services.folder_name
-        if not ctx.dossier.employer:  # no employer: no dangling « - »
-            template = template.replace(" - {employer}", "").replace("{employer}", "")
-        name = template.format(title=title, employer=ctx.dossier.employer, date=date.today().strftime("%d-%m-%Y"))
-        item = ctx.drive.ensure_folder(app.vacancy_id, " ".join(name.replace("/", "∕").split()))
+        name = drive_folder_name(ctx.services.folder_name, ctx.dossier.name_title or ctx.dossier.title,
+                                 ctx.dossier.employer, date.today())
+        item = ctx.drive.ensure_folder(app.vacancy_id, name)
         return {"folder_id": item.id, "folder_url": item.url}
 
 

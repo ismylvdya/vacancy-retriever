@@ -185,7 +185,9 @@ $("cancel-btn").addEventListener("click", async () => {
 });
 
 /* ---------- vacancy rows: focus, keyboard, actions ---------- */
-const visibleRows = () => [...document.querySelectorAll(".vac")].filter((el) => !el.closest(".collapsed"));
+/* A reported vacancy is in the feed only in debug mode (user, 29.10.2026). */
+const counted = (el) => !(el.classList.contains("reported") && !debugOn());
+const visibleRows = () => [...document.querySelectorAll(".vac")].filter((el) => !el.closest(".collapsed") && counted(el));
 let current = null;
 
 function focusRow(row, { scroll = true } = {}) {
@@ -205,11 +207,20 @@ function move(delta) {
   focusRow(rows[Math.max(0, Math.min(rows.length - 1, index + delta))]);
 }
 
-function updateCounts(row, delta) {
+function updateCounts(row) {
   const group = row.closest(".group");
-  const counter = group && group.querySelector(".group-count");
-  if (counter) counter.textContent = Math.max(0, Number(counter.textContent) + delta);
+  if (group) refreshGroupCount(group);
 }
+
+/* Group counts follow what is shown: reported vacancies count only in debug mode; a group left empty hides. */
+function refreshGroupCount(group) {
+  const counter = group.querySelector(".group-count");
+  if (!counter) return;
+  const shown = [...group.querySelectorAll(".vac")].filter(counted).length;
+  counter.textContent = shown;
+  if (tab === "feed") group.classList.toggle("nothing-shown", shown === 0 && group.querySelector(".vac") !== null);
+}
+function refreshGroupCounts() { document.querySelectorAll(".group").forEach(refreshGroupCount); }
 
 const LABELS = { applied: "Applied — sent to the sidebar", not_now: "Moved to Not now", skipped: "Skipped", new: "Returned to feed",
   auto_skipped: "Auto-skipped" };
@@ -238,8 +249,8 @@ function rowTitle(row) {
   return copy.textContent.trim().slice(0, 60);
 }
 
-async function postStatus(id, status, note) {
-  const data = await api("POST", `/api/vacancies/${id}/status`, note ? { status, note } : { status });
+async function postStatus(id, status) {
+  const data = await api("POST", `/api/vacancies/${id}/status`, { status });
   if (typeof data.feed_count === "number") $("feed-count").textContent = data.feed_count;
   refreshApplications();
 }
@@ -256,7 +267,7 @@ function takeOff(row) {
   setTimeout(() => {
     const parent = row.parentNode;
     row.remove();
-    if (parent) updateCounts(parent, -1);
+    if (parent) updateCounts(parent);
     current = null;
     if (following) focusRow(following);
   }, 180);
@@ -268,7 +279,7 @@ function putBack(id) {
   removedRows.delete(id);
   kept.row.classList.remove("leaving");
   kept.parent.insertBefore(kept.row, kept.next && kept.next.parentNode === kept.parent ? kept.next : null);
-  updateCounts(kept.parent, 1);
+  updateCounts(kept.parent);
   focusRow(kept.row);
   return true;
 }
@@ -291,11 +302,8 @@ function reflect(id, status) {
 async function setStatus(row, status) {
   const id = row.dataset.id;
   const previous = tab === "processed" ? row.querySelector(".st").className.replace("st st-", "") : "new";
-  // Debug mode: the text next to Skip is saved as the reason of the skip.
-  const noteField = row.querySelector(".skip-note");
-  const note = status === "skipped" && debugOn() && noteField ? noteField.value.trim() : "";
-  try { await postStatus(id, status, note); } catch (e) { toast(e.message); return; }
-  history.undo.push({ id, from: previous, to: status, note, title: rowTitle(row) });
+  try { await postStatus(id, status); } catch (e) { toast(e.message); return; }
+  history.undo.push({ id, from: previous, to: status, title: rowTitle(row) });
   history.redo = [];
   saveHistory();
   if (belongsHere(status)) reflect(id, status); else takeOff(row);
@@ -315,7 +323,7 @@ async function undo() {
 async function redo() {
   const entry = history.redo.pop();
   if (!entry) return;
-  try { await postStatus(entry.id, entry.to, entry.note); } catch (e) { history.redo.push(entry); toast(e.message); return; }
+  try { await postStatus(entry.id, entry.to); } catch (e) { history.redo.push(entry); toast(e.message); return; }
   history.undo.push(entry);
   saveHistory();
   reflect(entry.id, entry.to);
@@ -342,6 +350,7 @@ function debugOn() { return document.body.classList.contains("debug"); }
 function setDebug(on) {
   document.body.classList.toggle("debug", on);
   debugToggle.checked = on;
+  refreshGroupCounts();
   try { localStorage.setItem("vr-debug", on ? "1" : ""); } catch (e) { /* private mode */ }
   if (on && current && current.classList.contains("open")) loadDebug(current);
 }
@@ -411,11 +420,7 @@ document.querySelectorAll(".real-limit").forEach((field) => {
   field.addEventListener("keydown", (event) => { if (event.key === "Enter") { event.preventDefault(); field.blur(); save(); } });
 });
 
-/* ---------- debug mode: Skip with a reason (Enter in the field), Report a wrong evaluation ---------- */
-document.addEventListener("keydown", (event) => {
-  const field = event.target.closest && event.target.closest(".skip-note");
-  if (field && event.key === "Enter") { event.preventDefault(); setStatus(field.closest(".vac"), "skipped"); }
-});
+/* ---------- debug mode: Report a wrong evaluation ---------- */
 
 let reportRow = null;
 function openReport(row) {
@@ -441,6 +446,12 @@ async function submitReport() {
     }
     const count = document.querySelector('a[href="/processed?filter=reported"] .count');
     if (count) count.textContent = data.reported;
+    if (tab === "feed" && !reportRow.classList.contains("reported")) {  // out of the feed once debug mode is off
+      reportRow.classList.add("reported");
+      refreshGroupCount(reportRow.closest(".group"));
+      const feedCount = $("feed-count");
+      if (feedCount) feedCount.textContent = Math.max(0, Number(feedCount.textContent) - 1);
+    }
     toast("Reported — see Processed → Reported");
   } catch (e) { toast(e.message); }
 }

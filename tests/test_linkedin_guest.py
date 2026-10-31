@@ -19,8 +19,8 @@ PAGE = """<html><head><title>Data Scientist - Acme - LinkedIn</title>
 
 
 def make(handler, tmp_path, tunnel=None, **settings):
-    """Page-logic tests run without the VPN requirement; the VPN has its own tests below."""
-    settings.setdefault("require_vpn", tunnel is not None)
+    """Page-logic tests run without the exit requirement; the exit has its own tests below."""
+    settings.setdefault("require_exit", tunnel is not None)
     seen = []
 
     def recording(request):
@@ -29,7 +29,7 @@ def make(handler, tmp_path, tunnel=None, **settings):
 
     fetcher = LinkedInGuestFetcher(GuestSettings(enabled=True, **settings), tmp_path / "linkedin_guest.json",
                                    transport=httpx.MockTransport(recording), sleep=lambda _s: None,
-                                   today=lambda: date(2026, 10, 27), tunnel=tunnel)
+                                   today=lambda: date(2026, 10, 27), egress=tunnel)
     return fetcher, seen
 
 
@@ -43,6 +43,16 @@ def test_parse_public_page():
     text = parse_job_page(PAGE)
     assert text.startswith("Junior Data Scientist\nCompany: Acme d.o.o.\nLocation: Belgrade, Serbia")
     assert "Seniority level: Entry level" in text and "Serbian is a must" in text and "Python, SQL." in text
+    assert "Description source: LinkedIn public page" in text and "Apply:" not in text
+
+
+def test_employer_apply_link_is_read_never_opened():
+    apply = ('<code id="applyUrl" style="display: none"><!--"https://www.linkedin.com/jobs/view/externalApply/4455?url='
+             'https%3A%2F%2Fjobs%2Eacme%2Ecom%2Fdata-scientist%3Fsource%3Dli&amp;urlHash=AbCd"--></code>')
+    text = parse_job_page(PAGE.replace("</body>", apply + "</body>"))
+    assert "Apply: https://jobs.acme.com/data-scientist?source=li" in text
+    self_hosted = apply.replace("jobs%2Eacme%2Ecom", "www%2Elinkedin%2Ecom")
+    assert "Apply:" not in parse_job_page(PAGE.replace("</body>", self_hosted + "</body>"))
     assert parse_job_page(PAGE.replace("show-more-less-html__markup", "x")).endswith("From JSON-LD")
     assert parse_job_page("<html><body>Sign in to view</body></html>") is None
 
@@ -73,10 +83,10 @@ def test_only_bare_job_pages_are_opened(tmp_path):
     httpx.Response(302, headers={"location": "https://www.linkedin.com/authwall?trk=x"}),
     httpx.Response(200, text="<html><body><a href='/uas/login'>Sign in to view</a></body></html>"),
 ])
-def test_first_refusal_pauses_until_tomorrow(tmp_path, response):
+def test_first_refusal_pauses_for_days(tmp_path, response):
     fetcher, seen = make(lambda r: response, tmp_path)
     assert fetcher.fetch("https://www.linkedin.com/jobs/view/111111/") is None
-    assert fetcher.paused_until() == date(2026, 10, 28) and "paused until 28 Oct" in fetcher.alert
+    assert fetcher.paused_until() == date(2026, 10, 29) and "paused until 29 Oct" in fetcher.alert
     assert fetcher.fetch("https://www.linkedin.com/jobs/view/222222/") is None
     assert len(seen) == 1, "nothing is retried and no other page is asked for after a refusal"
     again, seen_again = make(lambda r: httpx.Response(200, text=PAGE), tmp_path)
@@ -94,10 +104,24 @@ def test_disabled_and_limit(tmp_path):
     fetcher = LinkedInGuestFetcher(GuestSettings(enabled=False), tmp_path / "s.json",
                                    transport=httpx.MockTransport(lambda r: pytest.fail("no request when off")))
     assert fetcher.fetch("https://www.linkedin.com/jobs/view/111111/") is None
-    limited, seen = make(lambda r: httpx.Response(200, text=PAGE), tmp_path, max_per_run=2)
+    limited, seen = make(lambda r: httpx.Response(200, text=PAGE), tmp_path, max_per_day=2)
     for job in ("111111", "222222", "333333"):
         limited.fetch(f"https://www.linkedin.com/jobs/view/{job}/")
-    assert len(seen) == 2 and "limit of 2" in limited.note and limited.alert is None
+    assert len(seen) == 2 and "2 a day reached" in limited.note and limited.alert is None
+    next_run, seen_next = make(lambda r: httpx.Response(200, text=PAGE), tmp_path, max_per_day=2)
+    assert not next_run.available() and seen_next == [], "the limit is per day, not per run"
+
+
+def test_a_cancelled_run_does_not_wait_out_the_pause(tmp_path):
+    import threading
+
+    stop = threading.Event()
+    fetcher = LinkedInGuestFetcher(GuestSettings(enabled=True, require_exit=False, min_delay=600, max_delay=600),
+                                   tmp_path / "s.json", transport=httpx.MockTransport(lambda r: httpx.Response(200, text=PAGE)),
+                                   stop_event=stop)
+    assert fetcher.fetch("https://www.linkedin.com/jobs/view/111111/")
+    stop.set()
+    assert fetcher.fetch("https://www.linkedin.com/jobs/view/222222/") is None and fetcher.fetched == 1
 
 
 def test_linkedin_parser_detail_url_is_the_bare_page():
@@ -123,7 +147,7 @@ class FakeTunnel:
         self.proxy_url = None
 
     def start(self):
-        from vacancy_retriever.collectors.vpn import VpnError
+        from vacancy_retriever.collectors.egress import EgressError as VpnError
 
         self.calls.append("start")
         if self.fail_start:
@@ -131,7 +155,7 @@ class FakeTunnel:
         # proxy_url stays None here so the mock transport answers; test_pages_go_through_the_tunnel checks the proxy.
 
     def verify(self):
-        from vacancy_retriever.collectors.vpn import VpnError
+        from vacancy_retriever.collectors.egress import EgressError as VpnError
 
         self.calls.append("verify")
         if self.fail_verify_after is not None and self.calls.count("verify") > self.fail_verify_after:
@@ -143,9 +167,9 @@ class FakeTunnel:
 
 
 def test_without_a_vpn_linkedin_is_never_opened(tmp_path):
-    fetcher, seen = make(lambda r: httpx.Response(200, text=PAGE), tmp_path, require_vpn=True)
+    fetcher, seen = make(lambda r: httpx.Response(200, text=PAGE), tmp_path, require_exit=True)
     assert fetcher.fetch("https://www.linkedin.com/jobs/view/111111/") is None
-    assert seen == [] and "VPN problem" in fetcher.alert
+    assert seen == [] and "exit problem" in fetcher.alert
 
 
 def test_vpn_down_at_start_means_no_linkedin_at_all(tmp_path):
@@ -154,7 +178,7 @@ def test_vpn_down_at_start_means_no_linkedin_at_all(tmp_path):
     for job in ("111111", "222222"):
         assert fetcher.fetch(f"https://www.linkedin.com/jobs/view/{job}/") is None
     assert seen == [] and tunnel.calls == ["start"], "one failed start, no retries"
-    assert fetcher.alert == "LinkedIn not opened — VPN problem: Xray is not installed"
+    assert fetcher.alert == "LinkedIn not opened — exit problem: Xray is not installed"
     assert not fetcher.available()
 
 
@@ -206,40 +230,74 @@ def test_subscription_parsing_and_server_choice():
         choose_server(servers, "Германия")
 
 
-def test_tunnel_refuses_when_the_exit_ip_is_the_home_ip(monkeypatch):
+class _Echo:
+    """ExitGuard with a fake echo: direct requests see the home addresses, proxied ones the exit addresses."""
+
+    def __init__(self, **addresses):
+        self.addresses = {"home_v4": "9.9.9.9", "home_v6": None, "exit_v4": "1.1.1.1", "exit_v6": None, **addresses}
+
+    def guard(self):
+        from vacancy_retriever.collectors import egress
+
+        outer = self
+
+        class Guard(egress.ExitGuard):
+            def _echo(self, url, proxy, required):
+                key = ("exit_" if proxy else "home_") + ("v6" if "api6" in url else "v4")
+                value = outer.addresses[key]
+                if value is None:
+                    if required:
+                        raise egress.EgressError("no answer")
+                    return None
+                return egress.public_ip(value)
+
+        return Guard()
+
+
+def test_exit_guard_refuses_the_home_network():
+    from vacancy_retriever.collectors.egress import EgressError, ProxyEgress
+
+    ProxyEgress("http://u:p@proxy.example:8000", _Echo().guard()).start()
+    with pytest.raises(EgressError, match="home network"):
+        ProxyEgress("http://u:p@proxy.example:8000", _Echo(exit_v4="9.9.9.9").guard()).start()
+    same_v6_net = _Echo(home_v6="2a01:4f8:1:2::10", exit_v6="2a01:4f8:1:2::99").guard()
+    with pytest.raises(EgressError, match="home network"):
+        ProxyEgress("http://u:p@proxy.example:8000", same_v6_net).start()
+    other_v6_net = _Echo(home_v6="2a01:4f8:1:2::10", exit_v6="2a02:1:2:3::1").guard()
+    ProxyEgress("http://u:p@proxy.example:8000", other_v6_net).start()
+
+
+def test_exit_guard_refuses_a_changed_exit_and_a_bad_proxy():
+    from vacancy_retriever.collectors.egress import EgressError, ProxyEgress
+
+    echo = _Echo()
+    exit_ = ProxyEgress("http://u:p@proxy.example:8000", echo.guard())
+    exit_.start()
+    echo.addresses["exit_v4"] = "8.8.4.4"
+    with pytest.raises(EgressError, match="changed"):
+        exit_.verify()
+    for url in ("", "socks5://proxy.example:1080"):
+        with pytest.raises(EgressError):
+            ProxyEgress(url, _Echo().guard()).start()
+    assert ProxyEgress("http://login:secret@proxy.example:8000").label == "proxy proxy.example"
+
+
+def test_tunnel_uses_the_same_exit_checks(monkeypatch):
     from vacancy_retriever.collectors import vpn
 
-    tunnel = vpn.XrayTunnel("https://sub.example", "x", vpn.Path("/tmp"), xray_path="/bin/true")
+    tunnel = vpn.XrayTunnel("https://sub.example", "x", vpn.Path("/tmp"), xray_path="/bin/true",
+                            guard=_Echo(exit_v4="9.9.9.9").guard())
+    tunnel._guard.learn_home()
     tunnel._process = type("P", (), {"poll": lambda self: None})()
-    tunnel.proxy_url, tunnel.home_ip = "http://127.0.0.1:1", "9.9.9.9"
-    monkeypatch.setattr(vpn.httpx, "Client", lambda **kw: _FakeClient("9.9.9.9"))
-    with pytest.raises(vpn.VpnError, match="home IP"):
+    tunnel.proxy_url = "http://127.0.0.1:1"
+    with pytest.raises(vpn.VpnError, match="home network"):
         tunnel.verify()
-    monkeypatch.setattr(vpn.httpx, "Client", lambda **kw: _FakeClient("1.1.1.1"))
-    assert tunnel.verify() == "1.1.1.1"
-    monkeypatch.setattr(vpn.httpx, "Client", lambda **kw: _FakeClient("8.8.4.4"))
-    with pytest.raises(vpn.VpnError, match="changed"):
-        tunnel.verify()
-
-
-class _FakeClient:
-    def __init__(self, ip):
-        self.ip = ip
-
-    def __enter__(self):
-        return self
-
-    def __exit__(self, *exc):
-        return False
-
-    def get(self, url):
-        return type("R", (), {"text": self.ip})()
 
 
 def test_pages_go_through_the_tunnel_proxy(tmp_path):
     tunnel = FakeTunnel()
-    fetcher = LinkedInGuestFetcher(GuestSettings(enabled=True), tmp_path / "s.json", tunnel=tunnel)
-    assert fetcher._vpn_ok()
+    fetcher = LinkedInGuestFetcher(GuestSettings(enabled=True), tmp_path / "s.json", egress=tunnel)
+    assert fetcher._exit_ok()
     tunnel.proxy_url = "http://127.0.0.1:10808"
     fetcher._client = None
     client = fetcher._http()

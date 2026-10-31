@@ -8,7 +8,7 @@ import time
 from collections import defaultdict
 from collections.abc import Callable
 from dataclasses import dataclass, field
-from datetime import datetime, timedelta
+from datetime import date, datetime, timedelta
 from typing import Any
 
 from ..collectors.base import (
@@ -126,6 +126,7 @@ class Pipeline:
         self._period_start: dict[str, datetime] = {}  # source → where this run's period began (not first runs)
         self._llm_error: str | None = None
         self._scored_previous: set[int] = set()
+        self._released: list[StoredRawItem] = []  # waiting_page items of earlier runs evaluated in this run
 
     # ------------------------------------------------------------------ entry point
     def run(self, options: RunOptions) -> RunSummary:
@@ -227,6 +228,7 @@ class Pipeline:
         try:
             collector = collector_for(source, http)
             self._collectors[source.id] = collector
+            collector.bind_stop(self.cancel_event)
             result = collector.collect(ctx)
         except RunCancelled:
             raise
@@ -331,6 +333,7 @@ class Pipeline:
         items = [i for i in self.storage.items.by_run(run_id, "pending_llm") if i.meta.get("detail_url")]
         try:
             self._fetch_detail_pages(run_id, items, allowed)
+            self._release_waiting()
         finally:
             for collector in self._collectors.values():
                 collector.finish_details()  # e.g. the LinkedIn VPN tunnel is stopped whatever happened
@@ -349,20 +352,48 @@ class Pipeline:
             self.progress.phase("details", f"Fetching descriptions {index + 1}/{len(items)}", index / max(len(items), 1))
             url = item.meta["detail_url"]
             collector = self._collectors.get(item.source_id)
-            if not collector or not collector.can_fetch_detail(url, allowed):
+            if not collector:
                 continue
-            try:
-                text = collector.fetch_detail(_as_raw(item))
-            except RunCancelled:
-                raise
-            except Exception as exc:  # noqa: BLE001 - listing text is still usable
-                log.info("Detail fetch failed for %s: %s", url, exc)
-                continue
+            text = None
+            if collector.can_fetch_detail(url, allowed):
+                try:
+                    text = collector.fetch_detail(_as_raw(item))
+                except RunCancelled:
+                    raise
+                except Exception as exc:  # noqa: BLE001 - listing text is still usable
+                    log.info("Detail fetch failed for %s: %s", url, exc)
             if text:
                 self.storage.items.set_detail(item.id, text)
                 reason = collector.detail_skip_reason(_as_raw(item), text)
                 if reason:
                     self._skip_before_llm(run_id, item, reason)
+                continue
+            after = collector.defer_detail(_as_raw(item))
+            if after:  # e.g. a LinkedIn vacancy Google for Jobs did not find: out of the feed until its page is read
+                self.storage.items.defer(item.id, after, local(self.now()).date())
+
+    def _release_waiting(self) -> None:
+        """Waiting items of earlier runs whose day has come get their description (or a final «none») and are
+        evaluated in this run; the rest keep waiting (LinkedIn paused, limit of the day) up to max_wait_days."""
+        today = local(self.now()).date()
+        waiting = [i for i in self.storage.items.waiting_pages() if (i.meta.get("page_after") or "") <= today.isoformat()]
+        for index, item in enumerate(waiting):
+            self._check_cancel()
+            self.progress.phase("details", f"LinkedIn pages {index + 1}/{len(waiting)}", index / max(len(waiting), 1))
+            collector = self._collectors.get(item.source_id)
+            if item.meta.get("page_tried") or item.detail_text:
+                self._released.append(item)
+                continue
+            if collector is None:
+                continue  # its source is not in this run
+            deferred_on = date.fromisoformat(item.meta.get("deferred_on") or today.isoformat())
+            text, final = collector.fetch_deferred(_as_raw(item), (today - deferred_on).days)
+            self._check_cancel()
+            if text:
+                self.storage.items.set_detail(item.id, text)
+            if final:
+                self.storage.items.mark_page_tried(item.id)
+                self._released.append(self.storage.items.get(item.id) or item)
 
     def _language_filter(self, run_id: int) -> None:
         """Sources marked `serbian_needs_russian`: Serbian ads without Russian never reach the LLM."""
@@ -378,7 +409,8 @@ class Pipeline:
 
     # ------------------------------------------------------------------ 4. LLM facts
     def _score(self, run_id: int) -> None:
-        pending = self.storage.items.pending_from_previous_runs() + self.storage.items.by_run(run_id, "pending_llm")
+        pending = (self.storage.items.pending_from_previous_runs() + self._released
+                   + self.storage.items.by_run(run_id, "pending_llm"))
         if not pending:
             return
         self.progress.phase("scoring", f"Evaluating {_plural(len(pending), 'item')} with LLM")

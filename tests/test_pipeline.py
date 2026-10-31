@@ -128,6 +128,7 @@ def env(tmp_paths):
     FEED.clear()
     FLAGGED.clear()
     DETAILS.clear()
+    DEFERRED.clear()
     FakeCollector.calls.clear()
     yield config, storage, tmp_paths
     storage.db.close()
@@ -387,8 +388,52 @@ def test_detail_page_can_drop_a_vacancy_before_llm(env):
     assert rows["2"][0] == "scored"
 
 
+DEFERRED: dict[str, tuple[str | None, bool]] = {}
+
+
+@register
+class DeferringCollector(FakeCollector):
+    """Like a LinkedIn mailbox: no description now, the item waits for its page until the next day."""
+
+    type_name = "deferring"
+
+    def can_fetch_detail(self, url: str, allowed_domains: set[str]) -> bool:
+        return False
+
+    def defer_detail(self, item: RawItem):
+        return NOW.date() + timedelta(days=1)
+
+    def fetch_deferred(self, item: RawItem, waited_days: int):
+        return DEFERRED.get(item.detail_url or "", (None, True))
+
+
+def test_a_vacancy_without_description_waits_out_of_the_feed_and_comes_next_day(env):
+    config, storage, paths = env
+    config.__dict__["sources"].sources.append(SourceConfig(id="li", type="deferring", name="LinkedIn letters"))
+    for post_id in (1, 2):
+        FEED.setdefault("li", []).append(RawItem(
+            "li", str(post_id), f"https://www.linkedin.com/jobs/view/{post_id}0000/", "FACTS:" + json.dumps(
+                [facts("Junior Data Scientist", f"Acme {post_id}")]), NOW - timedelta(hours=1),
+            detail_url=f"https://www.linkedin.com/jobs/view/{post_id}0000/"))
+    provider = FakeProvider()
+    run(config, storage, paths, provider, source_ids=["li"])
+    assert storage.items.count_waiting_pages() == 2 and storage.vacancies.feed() == [], "nothing half-described"
+    assert provider.calls == 0
+
+    page = "Full page text FACTS:" + json.dumps([facts("Junior Data Scientist", "Acme 1")])
+    DEFERRED["https://www.linkedin.com/jobs/view/10000/"] = (page, True)
+    DEFERRED["https://www.linkedin.com/jobs/view/20000/"] = (None, False)  # LinkedIn paused: keep waiting
+    tomorrow = Pipeline(config, storage, lambda: provider, ProgressTracker(paths.data / "progress.json"),
+                        threading.Event(), now=lambda: NOW + timedelta(days=1))
+    tomorrow.run(RunOptions(notify=False, source_ids=["li"]))
+    rows = {r["external_id"]: (r["status"], r["detail_text"]) for r in storage.db.query(
+        "SELECT external_id, status, detail_text FROM raw_items WHERE source_id = 'li'")}
+    assert rows == {"1": ("scored", page), "2": ("waiting_page", None)}
+    assert [v.employer for v in storage.vacancies.feed()] == ["Acme 1"]
+
+
 def teardown_module(module):
-    for name in ("fake", "broken", "unconfigured"):
+    for name in ("fake", "broken", "unconfigured", "deferring"):
         _REGISTRY.pop(name, None)
 
 

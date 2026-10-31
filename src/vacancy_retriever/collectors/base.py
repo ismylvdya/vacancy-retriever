@@ -7,7 +7,7 @@ import threading
 from abc import ABC, abstractmethod
 from collections.abc import Callable
 from dataclasses import dataclass, field
-from datetime import datetime
+from datetime import date, datetime
 from typing import Any, ClassVar, Literal
 
 from ..config import SourceConfig
@@ -117,6 +117,17 @@ class Collector(ABC):
 
     def finish_details(self) -> None:
         """After the details stage, whatever happened (e.g. stop the LinkedIn VPN tunnel)."""
+
+    def bind_stop(self, event: threading.Event) -> None:
+        """The run's cancel event, for collectors that wait long between requests."""
+
+    def defer_detail(self, item: RawItem) -> date | None:
+        """No description now: the day to try another way (the item waits, out of the feed), or None = evaluate now."""
+        return None
+
+    def fetch_deferred(self, item: RawItem, waited_days: int) -> tuple[str | None, bool]:
+        """A waiting item's turn: (description or None, final). Not final = keep waiting (paused, limit of the day)."""
+        return None, True
 
     def detail_skip_reason(self, item: RawItem, text: str) -> str | None:
         """After the detail page is fetched: a reason to drop the vacancy before the LLM (recruitment closed,

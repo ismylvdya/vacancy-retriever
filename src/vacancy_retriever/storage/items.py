@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import json
 from dataclasses import dataclass
-from datetime import datetime, timedelta
+from datetime import date, datetime, timedelta
 from typing import Any
 
 from ..collectors.base import RawItem, normalize_url
@@ -99,6 +99,28 @@ class RawItemRepository:
 
     def set_detail(self, raw_id: int, detail_text: str) -> None:
         self.db.execute("UPDATE raw_items SET detail_text = ? WHERE id = ?", (detail_text, raw_id))
+
+    def defer(self, raw_id: int, after: date, today: date) -> None:
+        """This run's item waits for another way to get its description (status waiting_page: not scored, not in
+        the feed) — not before `after`."""
+        self.db.execute(
+            "UPDATE raw_items SET status = 'waiting_page',"
+            " meta_json = json_set(COALESCE(meta_json, '{}'), '$.page_after', ?, '$.deferred_on', ?) WHERE id = ?",
+            (after.isoformat(), today.isoformat(), raw_id))
+
+    def waiting_pages(self) -> list[StoredRawItem]:
+        rows = self.db.query("SELECT * FROM raw_items WHERE staged = 0 AND status = 'waiting_page' ORDER BY id")
+        return [StoredRawItem.from_row(r) for r in rows]
+
+    def count_waiting_pages(self) -> int:
+        row = self.db.query_one("SELECT COUNT(*) AS n FROM raw_items WHERE staged = 0 AND status = 'waiting_page'")
+        return int(row["n"]) if row else 0
+
+    def mark_page_tried(self, raw_id: int) -> None:
+        """A waiting item had its turn (found or not): the next run only evaluates it (e.g. after an LLM failure).
+        Like detail_text, this enrichment is written at once — a cancelled run must not ask LinkedIn again."""
+        self.db.execute("UPDATE raw_items SET meta_json = json_set(COALESCE(meta_json, '{}'), '$.page_tried', 1)"
+                        " WHERE id = ?", (raw_id,))
 
     def by_run(self, run_id: int, status: str | None = None) -> list[StoredRawItem]:
         sql = "SELECT * FROM raw_items WHERE run_id = ? AND staged = 1"

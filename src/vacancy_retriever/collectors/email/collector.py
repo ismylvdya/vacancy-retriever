@@ -1,10 +1,11 @@
 from __future__ import annotations
 
 import logging
+import threading
 from collections import defaultdict
 from collections.abc import Callable
 from dataclasses import dataclass
-from datetime import timedelta
+from datetime import date, timedelta
 from email.message import Message
 from typing import Any, ClassVar
 
@@ -13,6 +14,7 @@ from ...notices import add_once
 from ..linkedin_guest import JOB_URL as LINKEDIN_JOB_URL
 from ..linkedin_guest import GuestSettings, LinkedInGuestFetcher
 from ..job_search import JobSearchLookup, ProviderSettings
+from ..egress import Egress, ProxyEgress
 from ..vpn import XrayTunnel
 from ..base import CollectContext, Collector, CollectResult, RawItem, SourceError, SourceNotConfigured
 from ..registry import register
@@ -96,6 +98,10 @@ class EmailCollector(Collector):
         self._detail_cache: dict[str, DetailResult] = {}
         self._guest: LinkedInGuestFetcher | None = None
         self._search: JobSearchLookup | None = None
+        self._stop = threading.Event()
+
+    def bind_stop(self, event: threading.Event) -> None:
+        self._stop = event
 
     def _job_search(self) -> JobSearchLookup | None:
         """Google for Jobs lookup (no LinkedIn requests) — the main way to describe LinkedIn vacancies."""
@@ -109,25 +115,57 @@ class EmailCollector(Collector):
                                            second_query=wanted.second_query)
         return self._search
 
+    def _egress(self) -> Egress | None:
+        """The private exit of the guest client: a proxy (recommended) or the Xray tunnel. None = not configured."""
+        config = AppConfig()
+        pages = config.mail.linkedin_public_pages
+        if pages.exit.kind == "proxy":
+            url = config.secrets.get(pages.exit.proxy_env)
+            return ProxyEgress(url) if url else None
+        subscription = config.secrets.get(pages.vpn.subscription_env)
+        if not subscription or not pages.vpn.server:
+            return None
+        return XrayTunnel(subscription, pages.vpn.server, config.paths.data / "xray")
+
     def _linkedin(self) -> LinkedInGuestFetcher:
         if self._guest is None:
             config = AppConfig()
             pages = config.mail.linkedin_public_pages
-            subscription = config.secrets.get(pages.vpn.subscription_env) or ""
-            tunnel = XrayTunnel(subscription, pages.vpn.server, config.paths.data / "xray") if pages.vpn.server else None
             self._guest = LinkedInGuestFetcher(
-                GuestSettings(pages.enabled, pages.max_per_run, pages.min_delay, pages.max_delay, pages.vpn.required),
-                config.paths.data / "linkedin_guest.json", tunnel=tunnel)
+                GuestSettings(pages.enabled, pages.max_per_day, pages.min_delay, pages.max_delay, pages.pause_days,
+                              pages.vpn.required or pages.exit.kind == "proxy"),
+                config.paths.data / "linkedin_guest.json", egress=self._egress(), stop_event=self._stop)
         return self._guest
 
+    def _guest_ready(self) -> bool:
+        """The fallback is switched on and has an exit — then a vacancy Google did not find waits for its page."""
+        pages = AppConfig().mail.linkedin_public_pages
+        return pages.enabled and self._egress() is not None
+
     def can_fetch_detail(self, url: str, allowed_domains: set[str]) -> bool:
-        # LinkedIn job pages go only through the guest fetcher (its own anonymous client), never the shared one.
+        # LinkedIn: Google for Jobs here and now; LinkedIn's own page only later, for the misses (fetch_deferred).
         if LINKEDIN_JOB_URL.match(url):
             search = self._job_search()
-            if search is not None:
-                return search.available()
-            return self._linkedin().available()  # public pages: off unless the user asked for them
+            return search is not None and search.available()
         return super().can_fetch_detail(url, allowed_domains)
+
+    def defer_detail(self, item: RawItem) -> date | None:
+        if not LINKEDIN_JOB_URL.match(item.detail_url or "") or not self._guest_ready():
+            return None
+        return date.today() + timedelta(days=AppConfig().mail.linkedin_public_pages.delay_days)
+
+    def fetch_deferred(self, item: RawItem, waited_days: int) -> tuple[str | None, bool]:
+        """A vacancy Google for Jobs did not find: its public LinkedIn page, through the private exit only."""
+        if not LINKEDIN_JOB_URL.match(item.detail_url or ""):
+            return None, True
+        guest = self._linkedin()
+        gave_up = waited_days >= AppConfig().mail.linkedin_public_pages.max_wait_days
+        if not guest.available():
+            return None, gave_up
+        text = guest.fetch(item.detail_url)
+        # Nothing and LinkedIn still open = an honest «no page» (404, no description): final. A refusal or an exit
+        # problem closes LinkedIn: the vacancy keeps waiting until max_wait_days.
+        return text, bool(text) or guest.available() or gave_up
 
     def detail_alert(self) -> str | None:
         return "; ".join(filter(None, [x.alert for x in (self._search, self._guest) if x])) or None
@@ -226,10 +264,10 @@ class EmailCollector(Collector):
         match = LINKEDIN_JOB_URL.match(item.detail_url or "")
         if match:
             search = self._job_search()
-            if search is not None:
-                return search.lookup(item.title, item.meta.get("company") or "", item.meta.get("location") or "",
-                                     match.group(1))
-            return self._linkedin().fetch(item.detail_url)
+            if search is None:
+                return None
+            return search.lookup(item.title, item.meta.get("company") or "", item.meta.get("location") or "",
+                                 match.group(1))
         result = self._detail(item)
         return result.text if result else None
 

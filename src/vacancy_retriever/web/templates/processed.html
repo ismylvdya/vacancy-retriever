@@ -27,9 +27,9 @@
     {% for f in facets %}
       <details class="fsel{{ ' on' if f.selected }}" data-key="{{ f.key }}">
         <summary>{{ f.label }}{% if f.selected %}: <b>{{ f.selected[0].label }}</b>{% if f.selected | length > 1 %} +{{ f.selected | length - 1 }}{% endif %}{% endif %}<i class="caret"></i></summary>
-        <div class="fsel-menu">
+        <div class="fsel-menu{{ ' fsel-source' if f.key == 'source' }}">
           {% for o in f.options %}
-          <label class="fsel-opt"><input type="checkbox" name="{{ f.key }}" value="{{ o.value }}" {% if o.selected %}checked{% endif %}><span>{{ o.label }}</span><span class="count">{{ o.count }}</span></label>
+          <label class="fsel-opt"><input type="checkbox" name="{{ f.key }}" value="{{ o.value }}" {% if o.selected %}checked{% endif %}>{% if o.icon %}<img class="fsel-ico" src="/icons/{{ o.icon }}" alt="" loading="lazy">{% endif %}<span>{{ o.label }}</span><span class="count">{{ o.count }}</span></label>
           {% endfor %}
         </div>
       </details>

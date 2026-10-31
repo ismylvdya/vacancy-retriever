@@ -181,13 +181,19 @@ def test_source_options_are_alphabetical(config=None):
     import types
     names = {"b": "Beta", "a": "alpha", "c": "Charlie"}
     fake = types.SimpleNamespace(sources=types.SimpleNamespace(sources=[
-        types.SimpleNamespace(id=i, name=n) for i, n in names.items()]))
+        types.SimpleNamespace(id=i, name=n) for i, n in names.items()]),
+        mail=types.SimpleNamespace(senders=[types.SimpleNamespace(name="hh.ru", icon_id="mail-hh")]))
     records = [types.SimpleNamespace(sources=[types.SimpleNamespace(source_id=i, sender=None)], skip_reason=None,
                                      group_no=None, stars=None, residence_permit=None, facts=None)
                for i in ["c", "c", "b", "a"]]
     _, filters = apply_filters(fake, records, {})
     source = next(f for f in filters if f.key == "source")
     assert [o.label for o in source.options] == ["alpha", "Beta", "Charlie"]
+    assert [o.icon for o in source.options] == ["a", "b", "c"]  # the source's own icon in the dropdown
+    letters = [types.SimpleNamespace(sources=[types.SimpleNamespace(source_id="gmail", sender="hh.ru")], skip_reason=None,
+                                     group_no=None, stars=None, residence_permit=None, facts=None)]
+    _, filters = apply_filters(fake, letters, {})
+    assert next(f for f in filters if f.key == "source").options[0].icon == "mail-hh"  # the sender's icon
 
 
 def test_debug_report_explains_the_verdict(client):

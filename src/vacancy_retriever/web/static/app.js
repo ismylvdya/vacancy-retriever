@@ -173,6 +173,12 @@ try {
 } catch (e) { /* no storage */ }
 $("run-more").addEventListener("click", (event) => { event.stopPropagation(); $("run-panel").hidden = !$("run-panel").hidden; });
 document.addEventListener("click", (event) => { if (!event.target.closest("#run-group")) $("run-panel").hidden = true; });
+$("run-defaults").addEventListener("click", (event) => {  // back to: since the last run, every group
+  event.stopPropagation();
+  $("run-days").value = "";
+  groupBoxes.forEach((box) => { box.checked = true; });
+  try { localStorage.removeItem(RUN_KEY); } catch (e) { /* no storage */ }
+});
 $("run-custom").addEventListener("click", () => {
   const days = parseInt($("run-days").value, 10) || null;
   const groups = groupBoxes.filter((box) => box.checked).map((box) => box.value);

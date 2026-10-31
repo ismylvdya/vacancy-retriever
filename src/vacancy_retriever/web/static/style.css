@@ -323,8 +323,14 @@ body.debug .debug-toggle { color: var(--accent); }
   overscroll-behavior: contain; }
 .fsel-opt { display: flex; align-items: center; gap: 8px; padding: 5px 8px; border-radius: 6px; font-size: 13px; cursor: pointer; }
 .fsel-opt:hover { background: var(--hover); }
-.fsel-opt span:nth-child(2) { flex: 1; }
+.fsel-opt > span:not(.count) { flex: 1; }
 .fsel-opt .count { margin-left: 8px; }
+/* Source filter: the source's icon, and the choice shown by a frame around the source instead of a checkbox */
+.fsel-ico { width: 16px; height: 16px; border-radius: 4px; object-fit: cover; flex: none; }
+.fsel-source .fsel-opt { border: 1px solid transparent; }
+.fsel-source .fsel-opt input { position: absolute; opacity: 0; width: 0; height: 0; pointer-events: none; }
+.fsel-source .fsel-opt:has(input:checked) { border-color: var(--accent); background: color-mix(in srgb, var(--accent) 8%, transparent); }
+.fsel-source .fsel-opt:has(input:focus-visible) { outline: 2px solid var(--accent); outline-offset: 1px; }
 .reset { flex: none; }
 .reset.off { color: var(--faint); pointer-events: none; border-color: var(--line); }
 

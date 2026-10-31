@@ -408,6 +408,7 @@ class FilterOption:
     label: str
     count: int
     selected: bool
+    icon: str = ""  # Source filter: the id for /icons/<id> (the source, or the e-mail sender's icon)
 
 
 @dataclass
@@ -446,7 +447,9 @@ def apply_filters(config: AppConfig, records: list[VacancyRecord], chosen: dict[
                 labels[value] = value_label
         for value in chosen.get(key, set()) - counts.keys():
             counts[value], labels[value] = 0, value
-        options = [FilterOption(v, labels[v], n, v in chosen.get(key, set()))
+        icons = sender_icons(config) if key == "source" else {}
+        options = [FilterOption(v, labels[v], n, v in chosen.get(key, set()),
+                                (icons.get(labels[v], v.split(":", 1)[0]) if ":" in v else v) if key == "source" else "")
                    for v, n in sorted(counts.items(), key=(lambda kv: labels[kv[0]].lower()) if key == "source"
                                       else (lambda kv: (-kv[1], labels[kv[0]].lower())))]
         if options:

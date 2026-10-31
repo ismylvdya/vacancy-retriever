@@ -149,7 +149,7 @@ def test_statistics_runs_show_share_of_pro_limit(client):
 def test_processed_filters_and_run_groups(client):
     client.post(f"/api/vacancies/{client.vacancy_id}/status", json={"status": "skipped"}, headers=ORIGIN)
     page = client.get("/processed").text
-    assert "Filters:" in page and 'name="country" value="Serbia"' in page
+    assert 'class="filters-label">Filters<' in page and 'name="country" value="Serbia"' in page
     assert "Run " in page and "Junior Data Scientist" in page
     page = client.get("/processed?country=Serbia&required_languages=en").text
     assert "Junior Data Scientist" in page and "1 matching" in page

@@ -87,17 +87,18 @@ body.settings-open .app-title { visibility: hidden; }
 .dot-alert { display: inline-block; width: 6px; height: 6px; border-radius: 50%; background: var(--danger); margin-left: 6px; vertical-align: 2px; }
 .updated { color: var(--faint); font-size: var(--font-m); margin-right: var(--space-3); white-space: nowrap; }
 .btn { font: inherit; font-size: var(--font-m); color: var(--text); background: transparent; border: 1px solid var(--line-strong);
-  border-radius: var(--radius); padding: 4px 10px; cursor: pointer; white-space: nowrap; text-decoration: none;
-  display: inline-flex; align-items: center; gap: 6px; }
+  border-radius: var(--radius); height: var(--control-h); padding: 0 10px; cursor: pointer; white-space: nowrap;
+  text-decoration: none; display: inline-flex; align-items: center; justify-content: center; gap: 6px; max-width: 100%;
+  overflow: hidden; text-overflow: ellipsis; }
 .btn:hover { border-color: var(--faint); text-decoration: none; }
-.btn.small { font-size: var(--font-s); padding: 3px 8px; }
+.btn.small { font-size: var(--font-s); height: 24px; padding: 0 8px; }
 .btn:focus-visible, .link:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
 .vac:focus, .vac:focus-visible { outline: none; }
 .btn.armed { color: var(--danger); border-color: var(--danger); }
 .link { font: inherit; font-size: var(--font-m); background: none; border: 0; padding: 0; color: var(--accent); cursor: pointer; }
 .link.quiet { color: var(--muted); }
 .link.quiet:hover { color: var(--text); }
-.progress { max-width: var(--content); margin: 0 auto; padding: 0 20px 10px; }
+.progress { max-width: var(--content); margin: 0 auto; padding: 0 var(--gutter) 10px; }
 .progress-track { height: 3px; background: var(--line); border-radius: 2px; overflow: hidden; }
 .progress-bar { height: 100%; background: var(--accent); transition: width .4s ease; }
 .stages { display: flex; gap: 4px; list-style: none; margin: 0 0 8px; padding: 0; font-size: 12px; color: var(--faint); }
@@ -117,21 +118,23 @@ body.settings-open .app-title { visibility: hidden; }
 .source-strip .err::after { content: "✕"; background: var(--danger); }
 @keyframes pulse { 50% { box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 45%, transparent); } }
 .progress-text { display: flex; gap: 10px; margin-top: 6px; font-size: 12px; color: var(--muted); }
-.notice { max-width: var(--content); margin: 0 auto 8px; padding: 0 20px; font-size: 13px; }
+.notice { max-width: var(--content); margin: 0 auto 8px; padding: 0 var(--gutter); font-size: 13px; }
 .notice.warn { color: var(--likely); }
 .notice.error { color: var(--danger); }
 .notice.info { color: var(--muted); }
 
 /* ---------- layout ---------- */
-.main { max-width: var(--content); margin: 0 auto; padding: var(--frame) 20px 48px; }  /* room for the first card's frame */
+.main { max-width: var(--content); margin: 0 auto; padding: var(--frame) var(--gutter) 48px; }  /* room for the first card's frame */
 .sheet { background: var(--panel); border-radius: 12px; box-shadow: 0 0 0 1px var(--line); overflow: hidden; margin: 0 0 16px; }
 .group { background: var(--panel); border-radius: 12px; box-shadow: 0 0 0 1px var(--line); margin: 0 0 16px; overflow: clip;
   overflow-clip-margin: 4px; }  /* the stuck heading's frame and corner fill sit just outside the card box */
 /* Sticky headers: the top bar, then sub-tabs + filters, then the heading of the group / run being scrolled.
    --top-h and --sub-h are measured in app.js. overflow: clip (not hidden) keeps position: sticky working. */
-.subbar { position: sticky; top: var(--top-h, 0px); z-index: 8; background: var(--bg); padding-top: 2px; box-shadow: 0 -2px 0 var(--bg);
-  margin-bottom: var(--frame); }  /* the card below keeps its 1px frame visible */
-.subbar .segmented { margin-bottom: 10px; }
+/* Sub-tabs + filters. Its spacing is padding INSIDE the sticky box (not the children's margins, which collapsed
+   out of it): so a stuck card heading keeps the same gap under the filters as before scrolling. */
+.subbar { position: sticky; top: var(--top-h, 0px); z-index: 8; display: flex; flex-direction: column; gap: var(--space-3);
+  padding: 2px 0 var(--space-4); background: var(--bg); box-shadow: 0 -2px 0 var(--bg); }
+.subbar > * { margin: 0; }
 /* --frame: the card's 1px frame lies OUTSIDE its box, so every stuck heading stops 1px below the bars above it —
    flush against them, the opaque bars would cover the frame (28.10.2026: the top line was always cut off). */
 .group > .group-head, .group > .section-head, .group > .table-head { position: sticky;
@@ -256,7 +259,7 @@ pre { max-width: 100%; overflow-x: auto; }
 .empty-state p { color: var(--muted); margin: 0; }
 
 /* ---------- processed ---------- */
-.segmented { display: inline-flex; gap: 2px; padding: 3px; background: var(--hover); border-radius: 9px; margin: 0 0 14px; }
+.segmented { display: inline-flex; align-self: flex-start; gap: 2px; padding: 3px; background: var(--hover); border-radius: 9px; }
 .seg { padding: 4px 10px; border-radius: 7px; color: var(--muted); font-size: 13px; }
 .seg:hover { color: var(--text); text-decoration: none; }
 .seg.on { background: var(--panel); color: var(--text); box-shadow: 0 0 0 1px var(--line); }
@@ -277,7 +280,7 @@ body.running .feed-content { display: none; }
 /* ---------- Run + options panel ---------- */
 .run-group { position: relative; display: inline-flex; }
 .run-main { border-radius: var(--radius) 0 0 var(--radius); }
-.run-more { border-radius: 0 var(--radius) var(--radius) 0; border-left: 0; padding: 4px 7px; color: var(--muted); }
+.run-more { border-radius: 0 var(--radius) var(--radius) 0; border-left: 0; padding: 0 7px; color: var(--muted); }
 .run-panel { position: absolute; right: 0; top: calc(100% + 6px); z-index: 30; width: 260px; padding: 12px; border-radius: 10px;
   background: var(--panel); box-shadow: 0 0 0 1px var(--line-strong), 0 8px 24px rgba(0, 0, 0, .12); font-size: 13px; }
 .run-days input { width: 110px; margin: 0 4px; font: inherit; padding: 3px 6px; border: 1px solid var(--line-strong);
@@ -331,22 +334,25 @@ body.debug .debug-toggle { color: var(--accent); }
 .hidden-text { color: var(--muted); }
 
 /* ---------- processed filters ---------- */
-.filters { display: flex; align-items: center; gap: 10px; margin: 0 0 14px; }
+.filters { display: flex; align-items: center; gap: var(--space-2); min-width: 0; }
 .search { display: inline-flex; gap: 6px; flex: none; }
-.search-box, .search-in { font: inherit; font-size: 13px; color: var(--text); background: transparent; border: 1px solid var(--line-strong);
-  border-radius: var(--radius); padding: 3px 9px; }
+.search-box, .search-in { font: inherit; font-size: var(--font-m); color: var(--text); background: transparent;
+  border: 1px solid var(--line-strong); border-radius: var(--radius); height: var(--control-h); padding: 0 9px; }
 .search-box { width: 170px; }
 .search-box:focus-visible, .search-in:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
-.filters-label { color: var(--muted); font-size: 13px; flex: none; }
+.filters-label { color: var(--muted); font-size: var(--font-m); flex: none; margin-left: var(--space-2); }
+.filters-label:first-child { margin-left: 0; }
 .filters-scroll { position: relative; flex: 1; min-width: 0; }
-.filters-scroll::after { content: ""; position: absolute; top: 0; right: 0; bottom: 0; width: 40px; pointer-events: none;
-  background: linear-gradient(to right, transparent, var(--bg)); opacity: 0; transition: opacity .15s; }
+.filters-scroll::after { content: ""; position: absolute; top: 0; right: 0; bottom: 0; width: 32px; pointer-events: none;
+  background: linear-gradient(to right, color-mix(in srgb, var(--bg) 0%, transparent), var(--bg)); opacity: 0; transition: opacity .15s; }
 .filters-scroll.more::after { opacity: 1; }
 .filters-row { display: flex; gap: 6px; overflow-x: auto; scrollbar-width: none; padding: 1px; }
 .filters-row::-webkit-scrollbar { display: none; }
 .fsel { flex: none; }
 .fsel > summary { list-style: none; cursor: pointer; display: inline-flex; align-items: center; gap: 6px; white-space: nowrap;
-  font-size: 13px; color: var(--muted); padding: 3px 10px; border: 1px solid var(--line-strong); border-radius: 999px; }
+  height: var(--control-h); font-size: var(--font-m); color: var(--muted); padding: 0 10px; border: 1px solid var(--line-strong);
+  border-radius: 999px; }
+.fsel-more { color: var(--muted); font-variant-numeric: tabular-nums; }
 .fsel > summary::-webkit-details-marker { display: none; }
 .fsel > summary:hover { color: var(--text); border-color: var(--faint); }
 .fsel.on > summary { color: var(--text); background: var(--focus); border-color: var(--accent); }

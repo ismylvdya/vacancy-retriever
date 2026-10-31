@@ -11,7 +11,7 @@ import time
 from pathlib import Path
 from typing import Any
 
-WINDOWS = (("five_hour", "5-hour limit"), ("seven_day", "Weekly · all models"))
+WINDOWS = (("five_hour", "5-hour limit", ""), ("seven_day", "Weekly", "all models"))
 
 
 def save(path: Path, raw: dict[str, Any]) -> None:

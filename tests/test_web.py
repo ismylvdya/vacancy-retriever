@@ -376,14 +376,18 @@ def test_linkedin_description_share_in_statistics(client):
     assert "LinkedIn descriptions: 1 of 2 found via the job API (50%)" in page and "All time: 1 of 2" in page
 
 
-def test_claude_limit_bars_in_the_footer(client, tmp_paths):
+def test_claude_limits_ring_and_bubble_in_the_app_bar(client, tmp_paths):
     import json
     import time
 
-    assert "never — press ↻" in client.get("/").text
+    page = client.get("/").text
+    assert 'id="limits-btn"' in page and "--fill: 0" in page and '"updated": "never"' in page
     later = time.time() + 2 * 3600 + 600
     (tmp_paths.data / "claude_limits.json").write_text(json.dumps({"observed_at": time.time(), "windows": {
         "five_hour": {"utilization": 0.58, "resetsAt": later}, "seven_day": {"utilization": 0.37, "resetsAt": later}}}))
     page = client.get("/").text
-    assert "5-hour limit" in page and "58%" in page and "Resets in 2 h" in page and "Weekly · all models" in page
+    assert "--fill: 58" in page, "the ring shows the fuller of the two windows"
+    bars = client.get("/api/status").json()["limits"]["bars"]
+    assert [(b["label"], b["sublabel"], b["percent"]) for b in bars] == [("5-hour limit", "", 58), ("Weekly", "all models", 37)]
+    assert bars[0]["note"].startswith("Resets in 2 h")
     assert client.get("/api/status").json()["limits"]["bars"][1]["percent"] == 37

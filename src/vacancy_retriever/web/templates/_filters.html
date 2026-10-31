@@ -1,0 +1,22 @@
+{#- One filter bar for Feed and Processed: chips with multi-select menus, scrolled sideways, and Reset. -#}
+{% macro facet(f) -%}
+<details class="fsel{{ ' on' if f.selected }}" data-key="{{ f.key }}">
+  <summary>{{ f.label }}{% if f.selected %}: <b>{{ f.selected[0].label }}</b>{% if f.selected | length > 1 %}<span class="fsel-more">+{{ f.selected | length - 1 }}</span>{% endif %}{% endif %}<i class="caret"></i></summary>
+  <div class="fsel-menu{{ ' fsel-source' if f.key == 'source' }}">
+    {% for o in f.options %}
+    <label class="fsel-opt"><input type="checkbox" name="{{ f.key }}" value="{{ o.value }}" {% if o.selected %}checked{% endif %}>{% if o.icon %}<img class="fsel-ico" src="/icons/{{ o.icon }}" alt="" loading="lazy">{% endif %}<span>{{ o.label }}</span><span class="count">{{ o.count }}</span></label>
+    {% endfor %}
+  </div>
+</details>
+{%- endmacro %}
+
+{% macro filter_bar(facets, reset_href, active) -%}
+<span class="filters-label">Filters</span>
+<div class="filters-scroll" id="filters-scroll">
+  <div class="filters-row">
+    {{ caller() if caller is defined }}
+    {% for f in facets %}{{ facet(f) }}{% endfor %}
+  </div>
+</div>
+<a class="btn reset{{ ' off' if not active }}" href="{{ reset_href }}"{% if not active %} aria-disabled="true" tabindex="-1"{% endif %}>Reset</a>
+{%- endmacro %}

@@ -18,6 +18,7 @@
   --appbar-h: 52px;               /* the transparent bar at the top of the page */
   --sidebar-w: 320px;             /* the Apply sidebar */
   --icon-btn: 30px;               /* round icon buttons of the app bar */
+  --control-h: 28px;              /* buttons, filter chips, inputs: one height everywhere */
   --frame: 1px;                   /* a card's frame lies outside its box: stuck headings stop 1px lower */
 }
 @media (prefers-color-scheme: dark) {

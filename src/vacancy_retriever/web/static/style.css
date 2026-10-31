@@ -161,7 +161,7 @@ pre { max-width: 100%; overflow-x: auto; }
 .new { display: inline-block; width: 6px; height: 6px; border-radius: 50%; background: var(--accent); margin-right: 8px; vertical-align: 2px; }
 .flag { display: inline-block; margin-left: 8px; padding: 0 6px; border-radius: 4px; background: var(--flag-bg);
   color: var(--likely); font-size: 11px; font-weight: 500; line-height: 18px; vertical-align: 1px; }
-.fit { color: var(--dot-on); font-size: 13px; letter-spacing: 1px; white-space: nowrap; line-height: 1; }
+.fit { color: var(--dot-on); font-size: 9px; letter-spacing: 0; white-space: nowrap; line-height: 1; }
 .permit-yes { color: var(--ok); }
 .permit-likely { color: var(--likely); }
 .permit-no { color: var(--muted); }

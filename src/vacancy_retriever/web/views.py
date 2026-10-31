@@ -607,17 +607,17 @@ def tokens(config: AppConfig, storage: Storage) -> dict[str, Any]:
 
 
 def claude_limits(config: AppConfig) -> dict[str, Any] | None:
-    """Footer bars like Claude's own: «5-hour limit … Resets in 2 h 10 min  58%», «Weekly · all models … 37%»."""
+    """The limits ring and its bubble, like Claude's own: «5-hour limit · Resets in 2 h 10 min · 58%», «Weekly …»."""
     if config.llm.provider != "claude_sdk":
         return None
     from ..llm import limits
 
     saved = limits.load(config.paths.data / "claude_limits.json")
     if not saved:
-        return {"bars": [], "updated": "never — press ↻ (one tiny Claude call)"}
+        return {"bars": [], "updated": "never"}
     now = datetime.now(UTC).timestamp()
     bars = []
-    for key, label in limits.WINDOWS:
+    for key, label, sublabel in limits.WINDOWS:
         window = (saved.get("windows") or {}).get(key) or {}
         resets = window.get("resetsAt")
         used = float(window.get("utilization") or 0) if resets and resets > now else 0.0
@@ -628,7 +628,7 @@ def claude_limits(config: AppConfig) -> dict[str, Any] | None:
             note = f"Resets in {minutes // 60} h {minutes % 60} min" if minutes >= 60 else f"Resets in {minutes} min"
         else:
             note = "Resets " + format_local(datetime.fromtimestamp(resets, UTC), "%a %H:%M")
-        bars.append({"label": label, "note": note, "percent": round(used * 100)})
+        bars.append({"key": key, "label": label, "sublabel": sublabel, "note": note, "percent": round(used * 100)})
     ago = int((now - saved.get("observed_at", now)) // 60)
     updated = "just now" if ago < 1 else f"{ago} min ago" if ago < 120 else f"{ago // 60} h ago"
     return {"bars": bars, "updated": updated}

@@ -1,59 +1,8 @@
 "use strict";
 
-const $ = (id) => document.getElementById(id);
 const tab = document.body.dataset.tab;
 let wasRunning = !$("cancel-btn").hidden;
 let pollTimer = null;
-
-async function api(method, url, body) {
-  const response = await fetch(url, {
-    method,
-    headers: body ? { "Content-Type": "application/json" } : {},
-    body: body ? JSON.stringify(body) : undefined,
-  });
-  const data = await response.json().catch(() => ({}));
-  if (!response.ok) throw new Error(data.detail || `HTTP ${response.status}`);
-  return data;
-}
-
-/* ---------- sticky headers: heights of the top bar and the sub-tab bar ---------- */
-function measureSticky() {
-  const top = document.querySelector(".top");
-  const sub = document.querySelector(".subbar");
-  const groupHead = document.querySelector(".group > .group-head, .group > .section-head, .group > .table-head");
-  // exact (fractional) heights: offsetHeight rounds, and the rounded-off fraction of a pixel let rows show through
-  const height = (el) => (el ? el.getBoundingClientRect().height : 0);
-  document.documentElement.style.setProperty("--top-h", `${height(top)}px`);
-  document.documentElement.style.setProperty("--sub-h", `${height(sub)}px`);
-  document.documentElement.style.setProperty("--gh-h", `${height(groupHead)}px`);
-}
-
-/* Wide tables: titles and rows are separate boxes (so the titles stick with plain CSS); they scroll sideways together. */
-document.querySelectorAll("[data-hsync]").forEach((box) => {
-  box.addEventListener("scroll", () => {
-    document.querySelectorAll(`[data-hsync="${box.dataset.hsync}"]`).forEach((other) => {
-      if (other !== box && other.scrollLeft !== box.scrollLeft) other.scrollLeft = box.scrollLeft;
-    });
-  }, { passive: true });
-});
-if (window.ResizeObserver) {
-  const observer = new ResizeObserver(measureSticky);
-  document.querySelectorAll(".top, .subbar").forEach((el) => observer.observe(el));
-}
-measureSticky();
-
-/* ---------- toast with optional undo ---------- */
-let toastTimer = null;
-function toast(text, undo) {
-  $("toast-text").textContent = text;
-  const undoBtn = $("toast-undo");
-  undoBtn.hidden = !undo;
-  undoBtn.onclick = undo ? () => { hideToast(); undo(); } : null;
-  $("toast").hidden = false;
-  clearTimeout(toastTimer);
-  toastTimer = setTimeout(hideToast, undo ? 6000 : 2500);
-}
-function hideToast() { $("toast").hidden = true; }
 
 /* ---------- run status ---------- */
 const PHASE_ORDER = ["collecting", "prefilter", "details", "scoring", "dedup", "committing"];
@@ -79,31 +28,6 @@ function renderSources(s) {
     span.className = failed.has(id) ? "err" : done.has(id) ? "ok" : id === s.current_id ? "now" : "";
   }
 }
-/* Footer: Claude's 5-hour and weekly limits (updated with every Claude call the app makes; ↻ makes one tiny call). */
-function renderLimits(limits) {
-  const box = $("limits-bars");
-  if (!box || !limits) return;
-  $("limits-updated").textContent = limits.updated;
-  box.replaceChildren(...limits.bars.map((b) => {
-    const bar = el("div", "limit");
-    const row = el("div", "limit-row");
-    row.append(el("span", "", b.label), el("span", "muted", b.note), el("span", "limit-pct", `${b.percent}%`));
-    const track = el("div", "limit-track");
-    const fill = el("div", "limit-fill");
-    fill.style.width = `${b.percent}%`;
-    track.append(fill);
-    bar.append(row, track);
-    return bar;
-  }));
-}
-if ($("limits-refresh")) {
-  $("limits-refresh").addEventListener("click", async () => {
-    try { await api("POST", "/api/claude-limits/refresh"); toast("Asking Claude… the bars update in a few seconds"); }
-    catch (e) { toast(e.message); }
-    setTimeout(poll, 6000);
-  });
-}
-
 function renderStatus(s) {
   renderLimits(s.limits);
   const running = !!s.running;
@@ -370,16 +294,6 @@ $("undo-btn").addEventListener("click", undo);
 $("redo-btn").addEventListener("click", redo);
 saveHistory();
 
-async function writeClipboard(text) {
-  if (navigator.clipboard && window.isSecureContext) { await navigator.clipboard.writeText(text); return; }
-  const area = document.createElement("textarea");
-  area.value = text;
-  document.body.appendChild(area);
-  area.select();
-  document.execCommand("copy");
-  area.remove();
-}
-
 /* ---------- debug mode ---------- */
 const debugToggle = $("debug-toggle");
 function debugOn() { return document.body.classList.contains("debug"); }
@@ -410,9 +324,6 @@ async function loadDebug(row) {
       + `<h4>Raw items</h4>${list(info.raw)}`
       + (info.facts ? `<details><summary>Facts JSON</summary><pre>${escapeHtml(info.facts)}</pre></details>` : "");
   } catch (e) { box.dataset.loaded = ""; toast(e.message); }
-}
-function escapeHtml(text) {
-  return String(text).replace(/[&<>"']/g, (ch) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[ch]));
 }
 async function copyDebug(row, what) {
   try {
@@ -583,110 +494,6 @@ if (filterForm) {
   window.addEventListener("scroll", () => { if (!document.querySelector(".fsel[open]")) return; closeAll(); },
     { passive: true });
   fade();
-}
-
-/* ---------- Apply sidebar: ▶ sends a vacancy here; the server makes the note, CV, letter and Drive folder ---------- */
-const applySidebar = $("apply-sidebar");
-let applyTimer = null;
-
-function el(tag, className, text) {
-  const node = document.createElement(tag);
-  if (className) node.className = className;
-  if (text) node.textContent = text;
-  return node;
-}
-
-function applicationRow(item) {
-  const li = el("li", `app-item app-${item.state}`);
-  li.dataset.id = item.id;
-  const head = el("div", "app-head");
-  if (item.active) head.append(el("span", "spinner"));
-  head.append(el("b", "app-item-title", item.title));
-  const dismiss = el("button", "link quiet app-dismiss", "×");
-  Object.assign(dismiss, { title: "Remove from the sidebar (files stay)", ariaLabel: "Remove from the sidebar" });
-  dismiss.dataset.app = "dismiss";
-  head.append(dismiss);
-  li.append(head);
-  if (item.employer) li.append(el("div", "muted small", item.employer));
-  li.append(el("div", "app-status small", item.status));
-  if (item.error) li.append(el("div", "app-error small", item.error));
-  if (item.warning) li.append(el("div", "app-warning small", item.warning));
-  const actions = el("div", "app-actions");
-  const button = (action, label) => { const b = el("button", "btn", label); b.dataset.app = action; actions.append(b); };
-  const link = (url, label, newTab) => {
-    const a = el("a", "btn", label);
-    a.href = url;
-    if (newTab) { a.target = "_blank"; a.rel = "noopener"; }
-    actions.append(a);
-  };
-  if (item.has_pdf) button("reveal", "Show PDF");
-  if (item.pdf_removed) button("retry", "Rebuild PDF");
-  if (item.has_letter) button("letter", "Cover letter");
-  if (item.note_url) link(item.note_url, "Obsidian", false);  // the Drive folder link is in the note
-  if (item.active) button("stop", "Stop");
-  if (["failed", "waiting", "cancelled"].includes(item.state)) button("retry", "Retry");
-  if (actions.children.length) li.append(actions);
-  return li;
-}
-
-/* The sidebar can be folded into a tab on the right edge; the content then goes back to the centre. */
-const SIDEBAR_KEY = "vr-sidebar-hidden";
-let applyItems = 0;
-let sidebarHidden = false;
-try { sidebarHidden = localStorage.getItem(SIDEBAR_KEY) === "1"; } catch (e) { /* no storage */ }
-function layoutSidebar() {
-  if (!applySidebar) return;
-  const shown = applyItems > 0 && !sidebarHidden;
-  applySidebar.hidden = !shown;
-  $("apply-show").hidden = !(applyItems > 0 && sidebarHidden);
-  $("apply-count").textContent = applyItems || "";
-  document.body.classList.toggle("with-sidebar", shown);
-  measureSticky();
-}
-function setSidebarHidden(hidden) {
-  sidebarHidden = hidden;
-  try { localStorage.setItem(SIDEBAR_KEY, hidden ? "1" : "0"); } catch (e) { /* no storage */ }
-  layoutSidebar();
-}
-if (applySidebar) {
-  $("apply-hide").addEventListener("click", () => setSidebarHidden(true));
-  $("apply-show").addEventListener("click", () => setSidebarHidden(false));
-}
-
-async function refreshApplications() {
-  if (!applySidebar) return;
-  clearTimeout(applyTimer);
-  try {
-    const data = await api("GET", "/api/applications");
-    applyItems = data.items.length;
-    layoutSidebar();
-    $("apply-list").replaceChildren(...data.items.map(applicationRow));
-    applyTimer = setTimeout(refreshApplications, data.items.some((item) => item.active) ? 2500 : 30000);
-  } catch (e) {
-    applyTimer = setTimeout(refreshApplications, 15000);
-  }
-}
-
-if (applySidebar) {
-  $("apply-list").addEventListener("click", async (event) => {
-    const control = event.target.closest("[data-app]");
-    if (!control) return;
-    const id = control.closest(".app-item").dataset.id;
-    const action = control.dataset.app;
-    try {
-      if (action === "letter") {
-        const data = await api("GET", `/api/applications/${id}/letter`);
-        await writeClipboard(data.text);
-        toast("Cover letter copied");
-        return;
-      }
-      await api("POST", `/api/applications/${id}/${action}`);
-      if (action === "retry") toast("Continuing from where it stopped");
-      if (action === "stop") toast("Stopped — what is made stays; Retry continues");
-    } catch (e) { toast(e.message); }
-    refreshApplications();
-  });
-  refreshApplications();
 }
 
 if (tab === "feed") focusRow(visibleRows()[0], { scroll: false });

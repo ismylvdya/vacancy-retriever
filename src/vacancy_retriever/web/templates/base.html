@@ -5,17 +5,41 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>{{ app_name }}</title>
   <link rel="icon" href="/static/icons/favicon.svg">
+  <link rel="stylesheet" href="/static/tokens.css?v={{ version }}">
   <link rel="stylesheet" href="/static/style.css?v={{ version }}">
 </head>
 <body data-tab="{{ tab }}" class="{{ 'running' if status.running }}">
 
-<h1 class="app-title">🦆 Vacancy Retriever</h1>
+<header class="appbar" id="appbar">
+  <div class="appbar-side">
+    <button class="icon-btn" id="undo-btn" type="button" disabled title="Nothing to undo" aria-label="Undo"><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M5.5 3.5 2.5 6.5l3 3"/><path d="M2.8 6.5h6.7a3.5 3.5 0 0 1 0 7H7"/></svg></button>
+    <button class="icon-btn mirror" id="redo-btn" type="button" disabled title="Nothing to redo" aria-label="Redo"><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M5.5 3.5 2.5 6.5l3 3"/><path d="M2.8 6.5h6.7a3.5 3.5 0 0 1 0 7H7"/></svg></button>
+    {% if limits %}
+    <span class="anchor">
+      <button class="icon-btn ring" id="limits-btn" type="button" aria-haspopup="dialog" aria-expanded="false" aria-label="Claude limits"
+              style="--fill: {{ limits.bars | map(attribute='percent') | max if limits.bars else 0 }}"><svg viewBox="0 0 20 20" aria-hidden="true"><circle class="ring-track" cx="10" cy="10" r="7"/><circle class="ring-fill" cx="10" cy="10" r="7" pathLength="100"/></svg></button>
+      <div class="popover limits-pop" id="limits-pop" role="dialog" aria-label="Claude limits" hidden>
+        <h3 class="popover-title">Claude limits</h3>
+        <ul class="limits" id="limits-bars"></ul>
+        <script type="application/json" id="limits-data">{{ limits | tojson }}</script>
+        <p class="muted small" id="limits-empty" hidden>Not known yet: they come with every Claude reply.</p>
+        <div class="popover-foot"><span class="muted small">Updated <span id="limits-updated">{{ limits.updated }}</span></span>
+          <button class="btn small" id="limits-refresh" type="button" title="One tiny Claude call (Haiku) — the limits come with every reply">Refresh</button></div>
+      </div>
+    </span>
+    {% endif %}
+    <button class="icon-btn" id="settings-btn" type="button" aria-pressed="false" title="Settings (Esc closes)" aria-label="Settings"><svg viewBox="0 0 20 20" aria-hidden="true"><circle cx="10" cy="10" r="2.6"/><path d="M10 1.8v2.3M10 15.9v2.3M18.2 10h-2.3M4.1 10H1.8M15.8 4.2l-1.6 1.6M5.8 14.2l-1.6 1.6M15.8 15.8l-1.6-1.6M5.8 5.8 4.2 4.2"/><circle cx="10" cy="10" r="5.6"/></svg></button>
+  </div>
+  <div class="appbar-title" aria-hidden="true">🦆 Vacancy Retriever</div>
+  <div class="appbar-side appbar-right">
+    <label class="debug-toggle" title="Show vacancy ids, the rule trace and LLM facts"><span>Debug</span><input type="checkbox" role="switch" id="debug-toggle"><i class="switch"></i></label>
+    <button class="icon-btn" id="sidebar-btn" type="button" aria-pressed="false" title="Apply sidebar" aria-label="Apply sidebar"><svg viewBox="0 0 20 20" aria-hidden="true"><rect x="2.5" y="3.5" width="15" height="13" rx="2.5"/><path d="M12.5 3.5v13"/></svg><span class="badge" id="apply-count" hidden></span></button>
+  </div>
+</header>
+
+<h1 class="app-title" id="app-title">🦆 Vacancy Retriever</h1>
 <header class="top">
   <nav class="nav">
-    <div class="history" aria-label="History of status changes">
-      <button class="btn icon" id="undo-btn" disabled title="Nothing to undo" aria-label="Undo"><svg viewBox="0 0 16 16" width="15" height="15" aria-hidden="true"><path d="M5.5 3.5 2.5 6.5l3 3" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/><path d="M2.8 6.5h6.7a3.5 3.5 0 0 1 0 7H7" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
-      <button class="btn icon mirror" id="redo-btn" disabled title="Nothing to redo" aria-label="Redo"><svg viewBox="0 0 16 16" width="15" height="15" aria-hidden="true"><path d="M5.5 3.5 2.5 6.5l3 3" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/><path d="M2.8 6.5h6.7a3.5 3.5 0 0 1 0 7H7" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
-    </div>
     <a href="/" class="tab {{ 'on' if tab == 'feed' }}">Feed<span class="count" id="feed-count">{{ feed_count }}</span></a>
     <a href="/processed" class="tab {{ 'on' if tab == 'processed' }}">Processed</a>
     <a href="/statistics" class="tab {{ 'on' if tab == 'statistics' }}">Statistics{% if health_problems %}<span class="dot-alert" title="Some sources have problems"></span>{% endif %}</a>
@@ -46,7 +70,6 @@
       </div>
     </span>
     <button class="btn" id="cancel-btn" {% if not status.running %}hidden{% endif %}>Cancel</button>
-    <label class="debug-toggle" title="Show vacancy ids, the rule trace and LLM facts"><span>Debug</span><input type="checkbox" role="switch" id="debug-toggle"><i class="switch"></i></label>
   </nav>
   <div class="progress" id="progress" {% if not status.running %}hidden{% endif %}>
     <ol class="stages" id="stages">
@@ -67,25 +90,15 @@
   <pre class="dev-notice-text">{{ n.text }}</pre>
 </section>
 {% endfor %}
-<button class="apply-tab" id="apply-show" type="button" hidden title="Show the Apply sidebar" aria-label="Show the Apply sidebar">«<span class="apply-tab-label">Apply</span><span class="count" id="apply-count"></span></button>
 <aside class="apply-sidebar" id="apply-sidebar" hidden aria-label="Applications">
-  <h2 class="apply-head">Apply <span class="muted small">CV · letter · note · Drive</span><button class="link quiet apply-hide" id="apply-hide" type="button" title="Hide the sidebar" aria-label="Hide the sidebar">»</button></h2>
+  <h2 class="apply-head">Apply</h2>
   <ul class="apply-list" id="apply-list"></ul>
+  <div class="apply-empty" id="apply-empty"><p>Nothing here yet.</p><p class="muted small"><kbd>▶</kbd> on a vacancy makes its CV, cover letter, Obsidian note and Drive folder here.</p></div>
 </aside>
 <main class="main">
 {% block content %}{% endblock %}
 </main>
-{% if limits %}
-<footer class="limits" id="limits" title="Claude subscription limits, as Claude reports them with every reply">
-  <div class="limits-bars" id="limits-bars">
-  {% for b in limits.bars %}
-    <div class="limit"><div class="limit-row"><span>{{ b.label }}</span><span class="muted">{{ b.note }}</span><span class="limit-pct">{{ b.percent }}%</span></div>
-      <div class="limit-track"><div class="limit-fill" style="width: {{ b.percent }}%"></div></div></div>
-  {% endfor %}
-  </div>
-  <div class="limits-meta muted small">Updated <span id="limits-updated">{{ limits.updated }}</span> · <button class="link quiet" id="limits-refresh" type="button" title="One tiny Claude call (Haiku) — the limits come with every reply">↻ refresh</button></div>
-</footer>
-{% endif %}
+<section class="settings" id="settings" hidden aria-label="Settings"></section>
 <dialog class="report-dialog" id="report-dialog">
   <form method="dialog" id="report-form">
     <h3>Report this evaluation</h3>
@@ -95,6 +108,7 @@
   </form>
 </dialog>
 <div class="toast" id="toast" hidden><span id="toast-text"></span><button class="link" id="toast-undo" hidden>Undo</button></div>
-<script src="/static/app.js?v={{ version }}"></script>
+{% for script in ("ui-config", "core", "shell", "app", "settings") %}<script src="/static/{{ script }}.js?v={{ version }}"></script>
+{% endfor %}
 </body>
 </html>

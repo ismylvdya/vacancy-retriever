@@ -26,6 +26,7 @@ from ..icons import IconStore
 from ..pipeline.manager import AlreadyRunning, RunManager
 from ..pipeline.recalculate import recalculate
 from ..pipeline.runner import RunOptions
+from ..settings.service import SettingsError, SettingsService
 from ..storage import Storage
 from ..storage.llm_calls import LlmCallRecord
 from ..timeutil import format_local, from_iso, local, utcnow
@@ -38,6 +39,10 @@ STATIC_ICONS = WEB_DIR / "static" / "icons"
 
 class StatusChange(BaseModel):
     status: str
+
+
+class SettingsChanges(BaseModel):
+    changes: dict[str, Any]
 
 
 class Report(BaseModel):
@@ -394,6 +399,33 @@ def create_app(config: AppConfig, storage: Storage, port: int, manager: RunManag
         if not notices.dismiss(config.paths.notices, notice_id):
             raise HTTPException(404, "Notice not found")
         return {"ok": True}
+
+    settings = SettingsService(config)
+
+    @app.get("/api/settings")
+    def read_settings() -> dict[str, Any]:
+        return settings.snapshot()
+
+    @app.post("/api/settings/preview")
+    def preview_settings(body: SettingsChanges) -> Any:
+        try:
+            return {"fit": settings.preview_fit(body.changes)}
+        except SettingsError as exc:
+            return JSONResponse({"detail": "Some values are not valid", "problems": exc.problems}, status_code=422)
+
+    @app.post("/api/settings")
+    def save_settings(body: SettingsChanges) -> Any:
+        try:
+            result = settings.save(body.changes)
+        except SettingsError as exc:
+            return JSONResponse({"detail": "Nothing saved: some values are not valid", "problems": exc.problems},
+                                status_code=422)
+        recalculated = None
+        if result.rules_changed and not manager.is_running():  # the feed follows the new rules at once, no LLM
+            done = recalculate(config, storage)
+            recalculated = {"total": done.total, "changed": done.changed}
+        return {"files": result.files, "recalculated": recalculated, "settings": settings.snapshot(),
+                "run_active": manager.is_running()}
 
     @app.post("/api/recalculate")
     def recalc() -> dict[str, Any]:

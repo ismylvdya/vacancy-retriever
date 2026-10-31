@@ -96,6 +96,10 @@ class ScoringEngine:
         lines.append(f"Decision: skip — {skip}" if skip else "Decision: show (no skip rule matched)")
         return lines
 
+    def fit(self, facts: VacancyFacts) -> tuple[int, str]:
+        """Stars and how they were counted (the settings screen shows them for every combination of facts)."""
+        return self._stars_with_steps(facts, self._category(facts))
+
     def _category(self, facts: VacancyFacts) -> CategoryRule:
         categories = self._rules.categories
         return categories.get(facts.role_category, categories["other"])

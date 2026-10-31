@@ -85,11 +85,14 @@ if ($("limits-btn")) {
 }
 
 /* ---------- settings: the gear swaps the whole page for the settings screen (settings.js) ---------- */
+let scrollBeforeSettings = 0;
 function setSettingsOpen(open) {
+  if (open) scrollBeforeSettings = window.scrollY;
   document.body.classList.toggle("settings-open", open);
   $("settings-btn").setAttribute("aria-pressed", String(open));
   $("settings").hidden = !open;
-  if (open && window.Settings) window.Settings.show();
+  window.scrollTo(0, open ? 0 : scrollBeforeSettings);
+  if (open) window.Settings.show(); else window.Settings.closed();
 }
 $("settings-btn").addEventListener("click", () => setSettingsOpen(!document.body.classList.contains("settings-open")));
 document.addEventListener("keydown", (event) => {

@@ -24,7 +24,9 @@ log = logging.getLogger(__name__)
 
 # TEMPORARY (2026-10-26): templates without a real sample yet. The first letter of each raises a UI notice asking
 # the user to tell Claude, who then checks the parser on that letter, adds a masked sample and removes the entry.
-WATCHED_TEMPLATES = {"hh_saved_search": "первое письмо автопоиска hh.ru"}
+# Templates written without a real sample: the first such letter leaves a notice (with its Message-ID) to check the
+# parser against it. hh_saved_search checked on the letter of 28.10.2026 (samples/emails/hh_ru/yandex_502.eml).
+WATCHED_TEMPLATES: dict[str, str] = {}
 
 
 def sender_rule(message: Message, senders: list[SenderRule]) -> SenderRule | None:

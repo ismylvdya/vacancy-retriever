@@ -66,5 +66,13 @@
     }
   },
   "infostud/gmail_518.eml": "ignore",
-  "newsletter/yandex_491.eml": "ignore"
+  "newsletter/yandex_491.eml": "ignore",
+  "hh_ru/yandex_502.eml": {
+    "vacancies": 20,
+    "first": {
+      "title": "Руководитель департамента маркетинга и PR (CMO)",
+      "company": "ЕвроОбувь",
+      "location": "Ессентуки"
+    }
+  }
 }

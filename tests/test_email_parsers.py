@@ -135,8 +135,9 @@ def test_hh_saved_search_marked_vacancy_retriever_is_remote():
     assert vacancy.extra["work_format"] == "remote"
 
 
-def test_first_watched_letter_raises_one_notice(tmp_paths):
+def test_first_watched_letter_raises_one_notice(tmp_paths, monkeypatch):
     from vacancy_retriever import notices
+    from vacancy_retriever.collectors.email import collector as email_collector
     from vacancy_retriever.collectors.email.collector import EmailCollector
     from vacancy_retriever.config import AppConfig, MailboxConfig
 
@@ -147,6 +148,9 @@ def test_first_watched_letter_raises_one_notice(tmp_paths):
     message = letter("hh.ru <noreply@hh.ru>", html, "Новые вакансии по автопоиску «для 🦆 vacancy-retriever»")
     rule = SenderRule(match="noreply@hh.ru", name="hh.ru", parser="hh_ru")
     items = items_from_message("yandex", "yandex", "77", message, rule).items
+    EmailCollector._watch(config, mailbox, "76", message, items)
+    assert notices.active(config.paths.notices) == [], "hh_saved_search was checked on a real letter (28.10.2026)"
+    monkeypatch.setitem(email_collector.WATCHED_TEMPLATES, "hh_saved_search", "первое письмо автопоиска hh.ru")
     EmailCollector._watch(config, mailbox, "77", message, items)
     EmailCollector._watch(config, mailbox, "78", message, items)
     [notice] = notices.active(config.paths.notices)

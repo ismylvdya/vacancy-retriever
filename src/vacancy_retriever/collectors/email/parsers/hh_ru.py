@@ -55,11 +55,14 @@ def parse(message: Message) -> list[ParsedVacancy]:
         rest = lines[lines.index(title) + 1:] if title in lines else lines
         salary_parts = [line for line in rest if _SALARY.search(line)]
         salary = " ".join(salary_parts)
-        company = next((line for line in rest if line not in salary_parts), "")
+        place = next((line for line in rest if line not in salary_parts), "")
+        # the real saved-search letter (28.10.2026) has «Работодатель, Город, м. Метро» in one line
+        company, _, location = place.partition(", ")
         url = f"https://hh.ru/vacancy/{job_id}"
-        text = "\n".join(filter(None, [title, company, f"Зарплата: {salary}" if salary else "",
-                                       "hh.ru — подборка вакансий для резюме (Россия / СНГ)"]))
-        vacancies.append(ParsedVacancy(title=title, url=url, company=company, text=text, key=f"hh:{job_id}",
+        text = "\n".join(filter(None, [title, company, location, f"Зарплата: {salary}" if salary else "",
+                                       "hh.ru — автопоиск (вакансии по подписке)"]))
+        vacancies.append(ParsedVacancy(title=title, url=url, company=company, location=location, text=text,
+                                       key=f"hh:{job_id}",
                                        extra={"template": "hh_saved_search", **({"salary": salary} if salary else {}),
                                               **({"work_format": "remote"} if remote else {})}))
     if not vacancies:

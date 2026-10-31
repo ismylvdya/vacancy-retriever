@@ -12,10 +12,8 @@ from typing import Any, ClassVar
 from ...config import AppConfig, MailboxConfig, SenderRule
 from ...notices import add_once
 from ..linkedin_guest import JOB_URL as LINKEDIN_JOB_URL
-from ..linkedin_guest import GuestSettings, LinkedInGuestFetcher
+from ..linkedin_guest import GuestSettings, LinkedInGuestFetcher, create_egress
 from ..job_search import JobSearchLookup, ProviderSettings
-from ..egress import Egress, ProxyEgress
-from ..vpn import XrayTunnel
 from ..base import CollectContext, Collector, CollectResult, RawItem, SourceError, SourceNotConfigured
 from ..registry import register
 from .generic import decoded_header, message_date, parse_generic
@@ -115,32 +113,20 @@ class EmailCollector(Collector):
                                            second_query=wanted.second_query)
         return self._search
 
-    def _egress(self) -> Egress | None:
-        """The private exit of the guest client: a proxy (recommended) or the Xray tunnel. None = not configured."""
-        config = AppConfig()
-        pages = config.mail.linkedin_public_pages
-        if pages.exit.kind == "proxy":
-            url = config.secrets.get(pages.exit.proxy_env)
-            return ProxyEgress(url) if url else None
-        subscription = config.secrets.get(pages.vpn.subscription_env)
-        if not subscription or not pages.vpn.server:
-            return None
-        return XrayTunnel(subscription, pages.vpn.server, config.paths.data / "xray")
-
     def _linkedin(self) -> LinkedInGuestFetcher:
         if self._guest is None:
             config = AppConfig()
             pages = config.mail.linkedin_public_pages
             self._guest = LinkedInGuestFetcher(
                 GuestSettings(pages.enabled, pages.max_per_day, pages.min_delay, pages.max_delay, pages.pause_days,
-                              pages.vpn.required or pages.exit.kind == "proxy"),
-                config.paths.data / "linkedin_guest.json", egress=self._egress(), stop_event=self._stop)
+                              require_exit=True),
+                config.paths.data / "linkedin_guest.json", egress=create_egress(config), stop_event=self._stop)
         return self._guest
 
     def _guest_ready(self) -> bool:
         """The fallback is switched on and has an exit — then a vacancy Google did not find waits for its page."""
         pages = AppConfig().mail.linkedin_public_pages
-        return pages.enabled and self._egress() is not None
+        return pages.enabled and create_egress(AppConfig()) is not None
 
     def can_fetch_detail(self, url: str, allowed_domains: set[str]) -> bool:
         # LinkedIn: Google for Jobs here and now; LinkedIn's own page only later, for the misses (fetch_deferred).

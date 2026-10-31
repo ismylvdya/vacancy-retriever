@@ -52,7 +52,6 @@ linkedin_public_pages:
   # Только для exit.kind: vpn — Xray из Homebrew + один сервер подписки. 27.10.2026: сервер коммерческого VPN получил
   # 429 на 3-й странице (общий датацентровый IP), поэтому по умолчанию — прокси.
   vpn:
-    required: true                              # не выключать: без выхода LinkedIn не открывается
     server: "Нидерланды · мир"                  # часть названия сервера из подписки; всегда этот, без замены
     subscription_env: LINKEDIN_VPN_SUBSCRIPTION # ссылка подписки — в config/.env
 

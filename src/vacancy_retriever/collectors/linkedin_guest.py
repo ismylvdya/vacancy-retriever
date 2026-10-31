@@ -36,7 +36,8 @@ import httpx
 from bs4 import BeautifulSoup
 
 from .. import traffic
-from .egress import Egress, EgressError
+from ..config import AppConfig
+from .egress import Egress, EgressError, ProxyEgress
 from .http import USER_AGENT
 
 log = logging.getLogger(__name__)
@@ -56,6 +57,20 @@ def job_url(job_id: str) -> str:
     if not job_id.isdigit():
         raise ValueError(f"Not a LinkedIn job id: {job_id!r}")
     return f"https://www.linkedin.com/jobs/view/{job_id}/"
+
+
+def create_egress(config: AppConfig) -> Egress | None:
+    """The private exit of the guest client: a proxy (recommended) or the Xray tunnel. None = not configured."""
+    from .vpn import XrayTunnel
+
+    pages = config.mail.linkedin_public_pages
+    if pages.exit.kind == "proxy":
+        url = config.secrets.get(pages.exit.proxy_env)
+        return ProxyEgress(url) if url else None
+    subscription = config.secrets.get(pages.vpn.subscription_env)
+    if not subscription or not pages.vpn.server:
+        return None
+    return XrayTunnel(subscription, pages.vpn.server, config.paths.data / "xray")
 
 
 @dataclass

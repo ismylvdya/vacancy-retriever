@@ -194,7 +194,6 @@ class MailboxConfig(_Strict):
 
 
 class LinkedInVpn(_Strict):
-    required: bool = True
     server: str = ""
     subscription_env: str = "LINKEDIN_VPN_SUBSCRIPTION"
 

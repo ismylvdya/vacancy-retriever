@@ -436,6 +436,8 @@ def apply_filters(config: AppConfig, records: list[VacancyRecord], chosen: dict[
                   skip: set[str] = frozenset()) -> tuple[list[VacancyRecord], list[Filter]]:
     """OR inside one filter, AND between filters. Options are counted over the whole sub-tab."""
     fields = [f for f in filter_fields(config) if f[0] not in skip]
+    known = {key for key, _, _ in fields}
+    chosen = {key: wanted for key, wanted in chosen.items() if key in known}  # an old bookmark's ?fit= must not fail
     values = {id(r): {key: get(r) for key, _, get in fields} for r in records}
     filters = []
     for key, label, _ in fields:

@@ -391,3 +391,9 @@ def test_claude_limits_ring_and_bubble_in_the_app_bar(client, tmp_paths):
     assert [(b["label"], b["sublabel"], b["percent"]) for b in bars] == [("5-hour limit", "", 58), ("Weekly", "all models", 37)]
     assert bars[0]["note"].startswith("Resets in 2 h")
     assert client.get("/api/status").json()["limits"]["bars"][1]["percent"] == 37
+
+
+def test_unknown_or_skipped_filter_in_the_address_is_ignored(client):
+    for query in ("?fit=5", "?reason=x", "?nonsense=1&stars=0"):
+        assert client.get(f"/{query}").status_code == 200, query
+    assert client.get("/processed?nonsense=1").status_code == 200

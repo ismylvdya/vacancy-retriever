@@ -30,10 +30,13 @@
   <ul class="split-legend">{% for p in split.parts %}<li><i class="split-dot seg-{{ p.key }}"></i><span>{{ p.label }}</span><b>{{ p.percent }}%</b></li>{% endfor %}</ul>
 </figure>
 {%- endmacro %}
-{% macro sources_table(rows, key, icons, all_time={}) -%}
+{% macro sources_head(key) -%}
 <div class="col-head hsync" data-hsync="{{ key }}"><table class="table src-table">{{ src_cols() }}
   <thead><tr><th>Source</th><th>Status</th><th class="r" title="Fresh posts collected">New</th><th class="r" title="Posts looked through, including old ones">Seen</th><th class="r">To feed</th><th class="r">Time</th><th>Problem</th></tr></thead>
 </table></div>
+{%- endmacro %}
+{% macro sources_table(rows, key, icons, all_time={}, head=True) -%}
+{% if head %}{{ sources_head(key) }}{% endif %}
 <div class="hsync hsync-body" data-hsync="{{ key }}"><table class="table src-table">{{ src_cols() }}
   <tbody>
   {% for r in rows %}
@@ -55,15 +58,20 @@
 
 {% if view == 'sources' %}
 <section class="group">
-  <div class="section-head"><h2>Sources</h2><span class="sub">State after the latest run</span></div>
-  {{ sources_table(latest, "sources", True, linkedin_all_time) }}
+  <div class="card-head">
+    <div class="section-head"><h2>Sources</h2><span class="sub">State after the latest run</span></div>
+    {{ sources_head("sources") }}
+  </div>
+  {{ sources_table(latest, "sources", True, linkedin_all_time, head=False) }}
 </section>
 {% elif view == 'applies' %}
 <section class="group">
-  <div class="section-head"><h2>Applies</h2><span class="sub">▶ Apply and Not now — time of every step, Claude calls and tokens</span></div>
-  <div class="col-head hsync" data-hsync="applies"><table class="table apply-table">{{ apply_cols() }}
-    <thead><tr><th>Started</th><th>Vacancy</th><th>Kind</th><th>State</th><th class="r">Time</th><th>Steps</th><th class="r">Claude calls</th><th class="r">Tokens</th><th class="r">±% of 5h Pro Limit</th></tr></thead>
-  </table></div>
+  <div class="card-head">
+    <div class="section-head"><h2>Applies</h2><span class="sub">▶ Apply and Not now — time of every step, Claude calls and tokens</span></div>
+    <div class="col-head hsync" data-hsync="applies"><table class="table apply-table">{{ apply_cols() }}
+      <thead><tr><th>Started</th><th>Vacancy</th><th>Kind</th><th>State</th><th class="r">Time</th><th>Steps</th><th class="r">Claude calls</th><th class="r">Tokens</th><th class="r">±% of 5h Pro Limit</th></tr></thead>
+    </table></div>
+  </div>
   <div class="hsync hsync-body" data-hsync="applies"><table class="table apply-table">{{ apply_cols() }}
     <tbody>
     {% for a in applies %}
@@ -84,7 +92,7 @@
 </section>
 {% else %}
 <section class="group">
-  <div class="table-head"><div class="hsync" data-hsync="runs"><div class="cells run-row stats-row runs-head"><span>Started</span><span>Status</span><span class="r">Duration</span><span class="r" title="New posts, letters and cards collected by all sources">Parsed</span><span class="r" title="Vacancies of this run that went to the feed">To feed</span><span class="r" title="Downloaded by the app itself: sites, Telegram previews, mail, job API (Claude CLI traffic is not visible to the app)">Network, MB</span><span class="r">Tokens (sdk-python)</span><span class="r" title="Run tokens / pro_5h_limit_tokens of config/llm.yaml">±% of 5h Pro Limit by COEF</span><span class="r" title="From what Claude reports after every call: the 5-hour limit used at the end of the run minus just before it (≥ — the start is not known). Runs before 31.10.2026: the share typed by hand from claude.ai → Usage">% of 5h from CLAUDE</span><span>Problems</span></div></div></div>
+  <div class="card-head table-head"><div class="hsync" data-hsync="runs"><div class="cells run-row stats-row runs-head"><span>Started</span><span>Status</span><span class="r">Duration</span><span class="r" title="New posts, letters and cards collected by all sources">Parsed</span><span class="r" title="Vacancies of this run that went to the feed">To feed</span><span class="r" title="Downloaded by the app itself: sites, Telegram previews, mail, job API (Claude CLI traffic is not visible to the app)">Network, MB</span><span class="r">Tokens (sdk-python)</span><span class="r" title="Run tokens / pro_5h_limit_tokens of config/llm.yaml">±% of 5h Pro Limit by COEF</span><span class="r" title="From what Claude reports after every call: the 5-hour limit used at the end of the run minus just before it (≥ — the start is not known). Runs before 31.10.2026: the share typed by hand from claude.ai → Usage">% of 5h from CLAUDE</span><span>Problems</span></div></div></div>
   <div class="runs">
   {% for run in runs %}
     {% set t = data.per_run.get(run.id) %}

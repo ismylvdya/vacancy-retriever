@@ -9,7 +9,6 @@ function measureSticky() {
   const root = document.documentElement.style;
   root.setProperty("--top-h", `${height($("appbar")) + height(document.querySelector(".top"))}px`);
   root.setProperty("--sub-h", `${height(document.querySelector(".subbar"))}px`);
-  root.setProperty("--gh-h", `${height(document.querySelector(".group > .group-head, .group > .section-head, .group > .table-head"))}px`);
 }
 if (window.ResizeObserver) {
   const observer = new ResizeObserver(measureSticky);

@@ -406,6 +406,11 @@ function enterRow(row) {
     toggleFullText(row);
     return;
   }
+  openSource(row);
+}
+
+/* The vacancy's site — the first of its sources (Open source button, Return on an open card). */
+function openSource(row) {
   const site = row.querySelector(".sources a.src[href]");
   if (site) site.click();  // the link's own target="_blank" rel="noopener noreferrer"
   else toggleFullText(row);
@@ -429,7 +434,7 @@ document.addEventListener("click", (event) => {
     if (action === "copy-id") copyDebug(row, "id");
     if (action === "copy-debug") copyDebug(row, "report");
     if (action === "report") openReport(row);
-    if (action === "fulltext") toggleFullText(row);
+    if (action === "open-source") openSource(row);
     return;
   }
   // A click on a closed card opens it; on an open card it does nothing (user, 31.10.2026) — text can be selected

@@ -126,28 +126,32 @@ body.settings-open .app-title { visibility: hidden; }
 /* ---------- layout ---------- */
 .main { max-width: var(--content); margin: 0 auto; padding: var(--frame) var(--gutter) 48px; }  /* room for the first card's frame */
 .sheet { background: var(--panel); border-radius: 12px; box-shadow: 0 0 0 1px var(--line); overflow: hidden; margin: 0 0 16px; }
-.group { background: var(--panel); border-radius: 12px; box-shadow: 0 0 0 1px var(--line); margin: 0 0 16px; overflow: clip;
+/* A card. Its bottom keeps an empty strip as tall as the corner radius: a sticky box never enters its parent's
+   padding, so the stuck card head stops above the rounded bottom and is pushed up by it instead of covering it. */
+.group { background: var(--panel); border-radius: var(--radius-card); box-shadow: 0 0 0 1px var(--line); margin: 0 0 16px;
+  padding-bottom: var(--radius-card); overflow: clip;
   overflow-clip-margin: 4px; }  /* the stuck heading's frame and corner fill sit just outside the card box */
+.group.collapsed { padding-bottom: 0; }
 /* Sticky headers: the top bar, then sub-tabs + filters, then the heading of the group / run being scrolled.
    --top-h and --sub-h are measured in app.js. overflow: clip (not hidden) keeps position: sticky working. */
 /* Sub-tabs + filters. Its spacing is padding INSIDE the sticky box (not the children's margins, which collapsed
    out of it): so a stuck card heading keeps the same gap under the filters as before scrolling. */
+/* It is a few px wider than the content on both sides: the cards' frames (outside their boxes) and the stuck
+   heads' corner fills scroll under it and must not show at its sides. */
 .subbar { position: sticky; top: var(--top-h, 0px); z-index: 8; display: flex; flex-direction: column; gap: var(--space-3);
-  padding: 2px 0 var(--space-4); background: var(--bg); box-shadow: 0 -2px 0 var(--bg); }
+  margin: 0 -6px; padding: 2px 6px var(--space-4); background: var(--bg); box-shadow: 0 -2px 0 var(--bg); }
 .subbar > * { margin: 0; }
-/* --frame: the card's 1px frame lies OUTSIDE its box, so every stuck heading stops 1px below the bars above it —
-   flush against them, the opaque bars would cover the frame (28.10.2026: the top line was always cut off). */
-.group > .group-head, .group > .section-head, .group > .table-head { position: sticky;
-  top: calc(var(--top-h, 0px) + var(--sub-h, 0px) + var(--frame)); z-index: 5; background: none; }
-/* A stuck heading carries the card's top with it: its own rounded corners and frame (::after), and the page
+/* --frame: the card's 1px frame lies OUTSIDE its box, so the stuck card head stops 1px below the bars above it —
+   flush against them, the opaque bars would cover the frame (28.10.2026: the top line was always cut off).
+   The card head is ONE sticky block: the title row and the column titles move together. */
+.card-head { position: sticky; top: calc(var(--top-h, 0px) + var(--sub-h, 0px) + var(--frame)); z-index: 5; }
+/* A stuck head carries the card's top with it: its own rounded corners and frame (::after), and the page
    background behind them (::before) so nothing scrolled shows in the corners or in a sliver above. */
-.group > .group-head::before, .group > .section-head::before, .group > .table-head::before,
-.group > .group-head::after, .group > .section-head::after, .group > .table-head::after {
-  content: ""; position: absolute; z-index: -1; pointer-events: none; }
-.group > .group-head::before, .group > .section-head::before, .group > .table-head::before { left: -2px; right: -2px; top: -3px; height: 16px;
-  background: var(--bg); }
-.group > .group-head::after, .group > .section-head::after, .group > .table-head::after { inset: -1px -1px 0 -1px; background: var(--panel);
-  border: 1px solid var(--line); border-bottom: 0; border-radius: 13px 13px 0 0; }  /* = the card's 1px ring */
+.card-head::before, .card-head::after { content: ""; position: absolute; z-index: -1; pointer-events: none; }
+.card-head::before { left: -2px; right: -2px; top: -3px; height: 16px; background: var(--bg); }
+.card-head::after { inset: -1px -1px 0 -1px; background: var(--panel); border: 1px solid var(--line); border-bottom: 0;
+  border-radius: calc(var(--radius-card) + 1px) calc(var(--radius-card) + 1px) 0 0; }  /* = the card's 1px ring */
+.collapsed .card-head > .cells.head { display: none; }
 /* column titles stick right under the group / run heading */
 /* Anything wider than the content scrolls sideways inside its card. A wide table is two boxes — titles and rows —
    scrolled together by app.js (data-hsync), so the titles stick with plain CSS like every other heading.
@@ -164,17 +168,15 @@ body.settings-open .app-title { visibility: hidden; }
 .apply-table .c-num { width: 64px; } .apply-table .c-steps { width: 260px; } .apply-table .c-calls { width: 110px; }
 .apply-table .c-tok { width: 90px; } .apply-table .c-share { width: 120px; }
 /* The line under a heading belongs to the heading (it stays when rows scroll under it); the first row has none. */
-.col-head, .table-head, .group-body > .cells.head { border-bottom: 1px solid var(--line); }
-.group-body > .cells.head + .vac, .group-body > .hidden-item:first-child { border-top: 0; }
-.group > .section-head:has(+ .group-body > .hidden-item:first-child) { border-bottom: 1px solid var(--line); }
+.col-head, .table-head, .card-head > .cells.head { border-bottom: 1px solid var(--line); }
+.group-body > .vac:first-child, .group-body > .hidden-item:first-child { border-top: 0; }
+.card-head:has(+ .group-body > .hidden-item:first-child) { border-bottom: 1px solid var(--line); }
 .hsync-body .table tbody tr:first-child td { border-top: 0; }
 .col-head th { padding-top: 10px; }
 .run-sources .table { font-size: 12px; }
 .run-sources .table td:first-child, .run-sources .table th:first-child { padding-left: 32px; }
 pre { max-width: 100%; overflow-x: auto; }
-.group-body > .cells.head, .group > .cells-processed.head, .col-head { position: sticky; z-index: 4; background: var(--panel);
-  box-shadow: 0 -2px 0 var(--panel);
-  top: calc(var(--top-h, 0px) + var(--sub-h, 0px) + var(--frame) + var(--gh-h, 0px)); }
+
 /* Each feed group is its own card with an empty gap between them, so it is obvious where a group ends. */
 .sheet { background: none; box-shadow: none; overflow: visible; border-radius: 0; }
 .sheet .group { margin: 0 0 16px; }
@@ -471,7 +473,7 @@ body.with-sidebar { padding-right: var(--sidebar-w); }
   .apply-sidebar { position: static; width: auto; padding-top: var(--space-4); border-left: 0; border-bottom: 1px solid var(--line); }
 }
 /* a folded group is all heading: the frame goes round the whole card */
-.group.collapsed > .group-head::after { inset: -1px; border-bottom: 1px solid var(--line); border-radius: 13px; }
+.group.collapsed > .card-head::after { inset: -1px; border-bottom: 1px solid var(--line); border-radius: calc(var(--radius-card) + 1px); }
 /* /drive/pick — choosing the Google Drive folder for vacancy folders */
 .drive-pick { max-width: 640px; padding-top: 64px; }
 .drive-pick h1 { font-size: 22px; margin: 0 0 10px; }

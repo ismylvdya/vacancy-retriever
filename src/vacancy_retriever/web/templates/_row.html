@@ -63,7 +63,7 @@
       <button class="btn btn-quiet debug-only" data-action="copy-id">Copy id</button>
       <button class="btn btn-quiet debug-only" data-action="copy-debug">Copy debug report</button>
       <button class="btn btn-quiet" data-action="copy">Copy text<kbd>C</kbd></button>
-      <button class="btn btn-quiet" data-action="fulltext">Full text<kbd>↵</kbd></button>
+      <button class="btn btn-quiet" data-action="open-source" title="The vacancy's site (its first source)">Open source<kbd>↵</kbd></button>
     </div>
     {% if c.reports %}<div class="debug-only reports"><h4>Reports</h4>{% for r in c.reports %}<p><span class="muted small">{{ r.date }}</span> {{ r.text }}</p>{% endfor %}</div>{% endif %}
     <div class="debug-only debug-box" data-loaded=""></div>

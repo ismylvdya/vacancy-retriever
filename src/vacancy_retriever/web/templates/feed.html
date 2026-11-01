@@ -42,14 +42,16 @@
 {% if total %}<div class="sheet">
 {% for g in groups %}{% if g.cards %}
 <section class="group{{ ' collapsed' if g.collapsed }}" data-group="{{ g.number }}">
+  <div class="card-head">
   <button class="group-head" aria-expanded="{{ 'false' if g.collapsed else 'true' }}">
     <span class="chev" aria-hidden="true"></span>
     <span class="group-title">{{ g.title }}</span>
     <span class="group-count">{{ g.cards | length }}</span>
     {% if g.note %}<span class="group-note">{{ g.note }}</span>{% endif %}
   </button>
+  {{ head('Permit' if g.permit_column else 'Country') }}
+  </div>
   <div class="group-body">
-    {{ head('Permit' if g.permit_column else 'Country') }}
     {% for c in g.cards %}{{ row(c, permit_column=g.permit_column) }}{% endfor %}
   </div>
 </section>

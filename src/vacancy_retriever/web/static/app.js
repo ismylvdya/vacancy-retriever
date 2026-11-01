@@ -394,6 +394,19 @@ function toggleFullText(row) {
   if (pre) pre.hidden = !pre.hidden;
 }
 
+/* Return: a folded card opens with its full text; on an open card it opens the vacancy's site (the first source),
+   so the thin source line need not be aimed at with the mouse. */
+function enterRow(row) {
+  if (!row.classList.contains("open")) {
+    row.classList.add("open");
+    toggleFullText(row);
+    return;
+  }
+  const site = row.querySelector(".sources a.src[href]");
+  if (site) site.click();  // the link's own target="_blank" rel="noopener noreferrer"
+  else toggleFullText(row);
+}
+
 document.addEventListener("click", (event) => {
   const head = event.target.closest(".group-head");
   if (head) {
@@ -430,7 +443,7 @@ document.addEventListener("keydown", (event) => {
   if (!current) return;
   if (event.repeat) return;
   if (key === "escape") { current.classList.remove("open"); return; }
-  if (key === "enter") { event.preventDefault(); current.classList.add("open"); toggleFullText(current); return; }
+  if (key === "enter") { event.preventDefault(); enterRow(current); return; }
   if (key === "c") { copyText(current); return; }
   if (tab === "feed") {
     const map = { arrowright: "applied", n: "not_now", arrowleft: "skipped" };

@@ -29,7 +29,7 @@
 {% if hidden is defined %}
 {% for run in hidden %}
 <section class="group">
-  <div class="section-head"><h2>Run {{ run.started }}</h2><span class="sub">{{ run.rows | length }}</span></div>
+  <div class="card-head"><div class="section-head"><h2>Run {{ run.started }}</h2><span class="sub">{{ run.rows | length }}</span></div></div>
   <div class="group-body">
     {% for h in run.rows %}
     <div class="hidden-item">
@@ -46,9 +46,11 @@
 {% if active %}<p class="note">{{ total }} matching</p>{% endif %}
 {% for run in runs %}
 <section class="group">
-  <div class="section-head"><h2>Run {{ run.started }}</h2><span class="sub">{{ run.cards | length }}</span></div>
-  <div class="group-body">
+  <div class="card-head">
+    <div class="section-head"><h2>Run {{ run.started }}</h2><span class="sub">{{ run.cards | length }}</span></div>
     <div class="cells cells-processed head"><span>Role</span><span>Status</span><span class="r">Posted</span></div>
+  </div>
+  <div class="group-body">
     {% for c in run.cards %}{{ row(c, processed=True) }}{% endfor %}
   </div>
 </section>

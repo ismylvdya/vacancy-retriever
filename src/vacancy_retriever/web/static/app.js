@@ -407,6 +407,18 @@ function enterRow(row) {
   else toggleFullText(row);
 }
 
+/* Return opens a site only when it is pressed on the page itself or on a card — not on a focused link or button, and
+   not in the first second after the window comes back. 01.11.2026: the sidebar's Obsidian link kept the focus, Return
+   meant for the browser's «Open Obsidian?» reached the page and opened the card's LinkedIn page twice. */
+let windowFocusedAt = 0;
+window.addEventListener("focus", () => { windowFocusedAt = performance.now(); });
+
+function returnOnPage(event) {
+  const target = event.target;
+  const onPage = target === document.body || target === document.documentElement || target.matches(".vac");
+  return onPage && performance.now() - windowFocusedAt > 1000;
+}
+
 document.addEventListener("click", (event) => {
   const head = event.target.closest(".group-head");
   if (head) {
@@ -443,7 +455,12 @@ document.addEventListener("keydown", (event) => {
   if (!current) return;
   if (event.repeat) return;
   if (key === "escape") { current.classList.remove("open"); return; }
-  if (key === "enter") { event.preventDefault(); enterRow(current); return; }
+  if (key === "enter") {
+    if (!returnOnPage(event)) return;  // a focused link or button keeps its own Return
+    event.preventDefault();
+    enterRow(current);
+    return;
+  }
   if (key === "c") { copyText(current); return; }
   if (tab === "feed") {
     const map = { arrowright: "applied", n: "not_now", arrowleft: "skipped" };

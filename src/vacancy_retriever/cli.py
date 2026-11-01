@@ -98,6 +98,29 @@ def cmd_serve(args: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_linkedin_exit(args: argparse.Namespace) -> int:
+    """Checks the private exit of the LinkedIn guest client. Never sends anything to LinkedIn."""
+    from .collectors.egress import EgressError
+    from .collectors.linkedin_guest import create_egress
+
+    egress = create_egress(AppConfig())
+    if egress is None:
+        print("No exit configured: mail.yaml → linkedin_public_pages.exit and the proxy URL in config/.env")
+        return 2
+    try:
+        egress.start()
+        first = egress.verify()
+        egress.verify()
+    except EgressError as exc:
+        print(f"NOT SAFE — LinkedIn would not be opened: {exc}")
+        return 1
+    finally:
+        egress.stop()
+    print(f"OK: {egress.label}; exit {first.v4}{f' / {first.v6}' if first.v6 else ''} is not the home network "
+          "and stays the same between checks (sticky session)")
+    return 0
+
+
 def cmd_drive_login(args: argparse.Namespace) -> int:
     from .apply.drive import GoogleToken
     from .apply.google_auth import login
@@ -219,6 +242,9 @@ def build_parser() -> argparse.ArgumentParser:
     recalc = sub.add_parser("recalculate", help="re-apply config/rules.yaml to stored facts (no LLM)")
     recalc.add_argument("--db")
     recalc.set_defaults(func=cmd_recalculate)
+
+    exit_check = sub.add_parser("linkedin-exit", help="check the private exit for LinkedIn pages (no LinkedIn request)")
+    exit_check.set_defaults(func=cmd_linkedin_exit)
 
     drive = sub.add_parser("drive-login", help="connect Google Drive for the Apply sidebar (one-time, opens a browser)")
     drive.add_argument("--metadata", action="store_true",

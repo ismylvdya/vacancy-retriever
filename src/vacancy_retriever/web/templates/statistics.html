@@ -23,6 +23,13 @@
 
 {#- Wide tables: the column titles and the rows are two boxes that scroll sideways together (data-hsync, app.js), so
     the titles can stick with plain position: sticky like every other heading (28.10.2026). -#}
+{% macro description_split(split, caption) -%}
+<figure class="split" title="Where the descriptions of LinkedIn vacancies from the letters came from">
+  <figcaption class="muted small">{{ caption }} <span class="split-total">{{ split.total }}</span></figcaption>
+  <div class="split-bar">{% for p in split.parts %}<i class="split-seg seg-{{ p.key }}" style="flex-grow: {{ p.count }}"></i>{% endfor %}</div>
+  <ul class="split-legend">{% for p in split.parts %}<li><i class="split-dot seg-{{ p.key }}"></i><span>{{ p.label }}</span><b>{{ p.percent }}%</b></li>{% endfor %}</ul>
+</figure>
+{%- endmacro %}
 {% macro sources_head(key) -%}
 <div class="col-head hsync" data-hsync="{{ key }}"><table class="table src-table">{{ src_cols() }}
   <thead><tr><th>Source</th><th>Status</th><th class="r" title="Fresh posts collected">New</th><th class="r" title="Posts looked through, including old ones">Seen</th><th class="r">To feed</th><th class="r">Time</th><th>Problem</th></tr></thead>
@@ -39,7 +46,8 @@
       <td class="r">{{ r.collected }}</td><td class="r">{{ r.seen if r.seen is not none else '' }}</td><td class="r">{{ r.to_feed }}</td>
       <td class="r muted">{{ r.duration }}</td>
       <td class="problem">{% if r.alert %}<span class="alert">{{ r.alert }}</span>{% endif %}{% if r.error %}<span class="muted">{{ r.error }}</span>{% endif %}
-        {%- if r.linkedin %}<div class="muted small" title="LinkedIn vacancies from the letters whose description was found via Google for Jobs (JSearch)">{{ r.linkedin }}{% if all_time.get(r.source_id) %} · {{ all_time[r.source_id] }}{% endif %}</div>{% endif %}</td>
+        {%- if r.linkedin and r.linkedin.total %}{{ description_split(r.linkedin, "LinkedIn descriptions, this run") }}{% endif %}
+        {%- if all_time.get(r.source_id) and all_time[r.source_id].total %}{{ description_split(all_time[r.source_id], "All time") }}{% endif %}</td>
     </tr>
   {% else %}<tr><td colspan="7" class="muted">No runs yet.</td></tr>{% endfor %}
   </tbody>

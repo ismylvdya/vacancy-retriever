@@ -121,6 +121,7 @@ body.settings-open .app-title { visibility: hidden; }
 .notice { max-width: var(--content); margin: 0 auto 8px; padding: 0 var(--gutter); font-size: 13px; }
 .notice.warn { color: var(--likely); }
 .notice.error { color: var(--danger); }
+.notice.info { color: var(--muted); }
 
 /* ---------- layout ---------- */
 .main { max-width: var(--content); margin: 0 auto; padding: var(--frame) var(--gutter) 48px; }  /* room for the first card's frame */
@@ -476,6 +477,21 @@ body.with-sidebar { padding-right: var(--sidebar-w); }
 /* /drive/pick — choosing the Google Drive folder for vacancy folders */
 .drive-pick { max-width: 640px; padding-top: 64px; }
 .drive-pick h1 { font-size: 22px; margin: 0 0 10px; }
+
+/* Where LinkedIn descriptions came from: a stacked bar and its legend (Statistics) */
+.split { margin: 6px 0 0; max-width: 360px; }
+.split figcaption { display: flex; gap: 6px; }
+.split-total { color: var(--text); }
+.split-bar { display: flex; height: 6px; margin: 4px 0; border-radius: 3px; overflow: hidden; background: var(--line); }
+.split-seg { display: block; min-width: 2px; }
+.split-legend { display: flex; flex-wrap: wrap; gap: 2px 12px; margin: 0; padding: 0; list-style: none; font-size: 12px; }
+.split-legend li { display: inline-flex; align-items: center; gap: 5px; color: var(--muted); }
+.split-legend b { color: var(--text); font-weight: 600; }
+.split-dot { width: 8px; height: 8px; border-radius: 50%; display: inline-block; }
+.seg-google { background: var(--accent); }
+.seg-page { background: var(--ok); }
+.seg-none { background: var(--faint); }
+.seg-waiting { background: var(--likely); }
 
 /* ---------- settings screen (gear): replaces the page under the app bar ---------- */
 body.settings-open .top, body.settings-open .main, body.settings-open .dev-notice,

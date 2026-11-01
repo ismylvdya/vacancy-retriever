@@ -53,6 +53,10 @@ function renderStatus(s) {
   if (!running && (s.last_error || s.phase === "failed")) { text = s.last_error || s.message; kind = "error"; }
   else if (!running && s.pending_llm) { text = `${s.pending_llm} items are waiting for evaluation (LLM limit or error). They go first in the next run.`; }
   else if (!running && llmError) { text = `LLM: ${llmError}`; kind = "error"; }
+  else if (!running && s.waiting_pages) {
+    text = `${s.waiting_pages} LinkedIn vacancies wait for their page — they appear in the feed once it is read.`;
+    kind = "info";
+  }
   notice.hidden = !text;
   notice.textContent = text;
   notice.className = `notice ${kind}`;

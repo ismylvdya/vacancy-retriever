@@ -90,6 +90,7 @@ class RunManager:
             state["owned"] = False
         state["last_run"] = self._last_run()
         state["pending_llm"] = self.storage.items.count_pending()
+        state["waiting_pages"] = self.storage.items.count_waiting_pages()
         state["last_error"] = self.last_error
         return state
 

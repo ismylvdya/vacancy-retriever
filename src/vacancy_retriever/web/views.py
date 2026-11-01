@@ -247,29 +247,66 @@ class HealthRow:
     error: str
     alert: str
     warn: bool
-    linkedin: str = ""  # e-mail sources: how many LinkedIn vacancies got a description via the job API
+    linkedin: DescriptionSplit | None = None  # e-mail sources: where the LinkedIn vacancies got their description
 
 
-def linkedin_descriptions(storage: Storage) -> dict[tuple[int, str], tuple[int, int]]:
-    """(run, e-mail source) → (with a description from Google for Jobs, all LinkedIn vacancies of the letters)."""
+@dataclass
+class SplitPart:
+    key: str
+    label: str
+    count: int
+    percent: int
+
+
+@dataclass
+class DescriptionSplit:
+    """LinkedIn vacancies of the letters by where their description came from (Statistics → Sources / Runs)."""
+
+    google: int = 0
+    page: int = 0
+    none: int = 0
+    waiting: int = 0
+
+    LABELS = (("google", "Google for Jobs"), ("page", "LinkedIn page"), ("none", "Not found"),
+              ("waiting", "Waiting for the page"))
+
+    @property
+    def total(self) -> int:
+        return self.google + self.page + self.none + self.waiting
+
+    def __add__(self, other: DescriptionSplit) -> DescriptionSplit:
+        return DescriptionSplit(self.google + other.google, self.page + other.page, self.none + other.none,
+                                self.waiting + other.waiting)
+
+    @property
+    def parts(self) -> list[SplitPart]:
+        total = self.total or 1
+        return [SplitPart(key, label, getattr(self, key), round(100 * getattr(self, key) / total))
+                for key, label in self.LABELS if getattr(self, key)]
+
+
+def linkedin_descriptions(storage: Storage) -> dict[tuple[int, str], DescriptionSplit]:
+    """(run, e-mail source) → where the descriptions of that run's LinkedIn vacancies came from (current state:
+    a vacancy waiting for its page in one run is counted as found / not found once a later run has read it)."""
     rows = storage.db.query(
         "SELECT run_id, source_id, COUNT(*) AS total,"
-        " SUM(CASE WHEN detail_text LIKE '%Description source: Google for Jobs%' THEN 1 ELSE 0 END) AS found"
-        " FROM raw_items WHERE staged = 0 AND external_id LIKE 'linkedin:%' GROUP BY run_id, source_id")
-    return {(r["run_id"], r["source_id"]): (r["found"] or 0, r["total"]) for r in rows}
+        " SUM(CASE WHEN status = 'waiting_page' THEN 1 ELSE 0 END) AS waiting,"
+        " SUM(CASE WHEN status != 'waiting_page' AND detail_text LIKE '%Description source: Google for Jobs%'"
+        " THEN 1 ELSE 0 END) AS google,"
+        " SUM(CASE WHEN status != 'waiting_page' AND detail_text LIKE '%Description source: LinkedIn public page%'"
+        " THEN 1 ELSE 0 END) AS page"
+        " FROM raw_items WHERE staged = 0 AND external_id LIKE 'linkedin:%' AND status IN ('scored', 'waiting_page')"
+        " GROUP BY run_id, source_id")
+    return {(r["run_id"], r["source_id"]): DescriptionSplit(
+        r["google"] or 0, r["page"] or 0, r["total"] - (r["google"] or 0) - (r["page"] or 0) - (r["waiting"] or 0),
+        r["waiting"] or 0) for r in rows}
 
 
-def linkedin_line(found: int, total: int, prefix: str = "LinkedIn descriptions") -> str:
-    return f"{prefix}: {found} of {total} found via the job API ({round(100 * found / total)}%)" if total else ""
-
-
-def linkedin_all_time(storage: Storage) -> dict[str, str]:
-    """E-mail source → «All time: X of Y found via the job API (Z%)» for Statistics → Sources."""
-    sums: dict[str, list[int]] = defaultdict(lambda: [0, 0])
-    for (_run, source), (found, total) in linkedin_descriptions(storage).items():
-        sums[source][0] += found
-        sums[source][1] += total
-    return {source: linkedin_line(found, total, "All time") for source, (found, total) in sums.items()}
+def linkedin_all_time(storage: Storage) -> dict[str, DescriptionSplit]:
+    sums: dict[str, DescriptionSplit] = defaultdict(DescriptionSplit)
+    for (_run, source), split in linkedin_descriptions(storage).items():
+        sums[source] = sums[source] + split
+    return dict(sums)
 
 
 @dataclass
@@ -315,7 +352,7 @@ def health(config: AppConfig, storage: Storage, limit: int = 60) -> list[HealthR
             health_run.rows.append(HealthRow(
                 source_id, names.get(source_id, source_id), row["status"], row["collected"], row["seen"], row["passed"],
                 row["to_feed"], f"{row['duration_s']:.0f}s", row["error"] or row["note"] or "",
-                ALERT_LABELS.get(alert, alert), warn, linkedin_line(*described.get((run["id"], source_id), (0, 0))),
+                ALERT_LABELS.get(alert, alert), warn, described.get((run["id"], source_id)),
             ))
             health_run.problems += int(warn)
             health_run.collected += row["collected"] or 0

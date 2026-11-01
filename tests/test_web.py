@@ -364,16 +364,23 @@ def test_statistics_applies_tab(client):
 def test_linkedin_description_share_in_statistics(client):
     storage = client.storage
     run_id = storage.runs.start({})
-    for n, detail in ((1, "Data Analyst\nDescription source: Google for Jobs (via LinkedIn)\n\ntext"), (2, None)):
+    for n, detail, status in ((1, "Data Analyst\nDescription source: Google for Jobs (via LinkedIn)\n\ntext", "scored"),
+                              (2, "Data Analyst\nDescription source: LinkedIn public page\n\ntext", "scored"),
+                              (3, None, "scored"), (4, None, "waiting_page")):
         raw = storage.items.insert(run_id, RawItem("gmail", f"linkedin:{n}", f"https://www.linkedin.com/jobs/view/{n}/",
-                                                   "letter", utcnow()), "scored")
+                                                   "letter", utcnow()), status)
         if detail:
             storage.items.set_detail(raw, detail)
     from vacancy_retriever.storage.runs import SourceRunRecord
     storage.runs.record_source(run_id, SourceRunRecord("gmail", "ok", collected=2))
     storage.runs.commit(run_id, {"new_total": 0}, 30)
     page = client.get("/statistics").text
-    assert "LinkedIn descriptions: 1 of 2 found via the job API (50%)" in page and "All time: 1 of 2" in page
+    from vacancy_retriever.web.views import DescriptionSplit, linkedin_descriptions
+
+    assert linkedin_descriptions(storage)[(run_id, "gmail")] == DescriptionSplit(google=1, page=1, none=1, waiting=1)
+    assert "LinkedIn descriptions, this run" in page and "All time" in page
+    for label in ("Google for Jobs", "LinkedIn page", "Not found", "Waiting for the page"):
+        assert f"<span>{label}</span><b>25%</b>" in page
 
 
 def test_claude_limits_ring_and_bubble_in_the_app_bar(client, tmp_paths):

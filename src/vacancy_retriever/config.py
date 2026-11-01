@@ -194,17 +194,25 @@ class MailboxConfig(_Strict):
 
 
 class LinkedInVpn(_Strict):
-    required: bool = True
     server: str = ""
     subscription_env: str = "LINKEDIN_VPN_SUBSCRIPTION"
 
 
+class LinkedInExit(_Strict):
+    kind: Literal["proxy", "vpn"] = "proxy"
+    proxy_env: str = "LINKEDIN_PROXY_URL"
+
+
 class LinkedInPublicPages(_Strict):
     enabled: bool = False
+    exit: LinkedInExit = Field(default_factory=LinkedInExit)
     vpn: LinkedInVpn = Field(default_factory=LinkedInVpn)
-    max_per_run: int = 40
-    min_delay: float = 4.0
-    max_delay: float = 8.0
+    max_per_day: int = Field(default=12, ge=1)
+    min_delay: float = Field(default=60.0, ge=1)
+    max_delay: float = Field(default=180.0, ge=1)
+    pause_days: int = Field(default=2, ge=1)
+    delay_days: int = Field(default=1, ge=0)
+    max_wait_days: int = Field(default=3, ge=1)
 
 
 class JobSearchProvider(_Strict):

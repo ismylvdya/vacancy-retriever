@@ -2,8 +2,8 @@
 
 Decision 2026-10-27: LinkedIn pages must never be requested from the home IP. The tunnel lives only while the
 details stage reads LinkedIn pages, listens on 127.0.0.1 only and nothing else in the app (or on the Mac) uses it.
-Before EVERY LinkedIn page `verify()` checks that Xray is alive and that the exit IP seen through the tunnel is not
-the home IP and has not changed since the tunnel started; any failure → VpnError → LinkedIn is not opened again in
+Before EVERY LinkedIn page `verify()` checks that Xray is alive and runs the shared exit checks (egress.ExitGuard:
+not the home IPv4 / IPv6 /64, unchanged since the start); any failure → VpnError → LinkedIn is not opened again in
 this run. The subscription URL (a secret) comes from config/.env; the Xray config with the server key is written to
 data/xray/ with owner-only permissions and deleted when the tunnel stops.
 """
@@ -11,7 +11,6 @@ data/xray/ with owner-only permissions and deleted when the tunnel stops.
 from __future__ import annotations
 
 import base64
-import ipaddress
 import json
 import logging
 import os
@@ -25,14 +24,14 @@ from urllib.parse import parse_qs, unquote, urlparse
 
 import httpx
 
+from .egress import Egress, EgressError, ExitAddresses, ExitGuard
+
 log = logging.getLogger(__name__)
 
-IP_CHECK_URL = "https://api.ipify.org"
 XRAY_CANDIDATES = ("/opt/homebrew/bin/xray", "/usr/local/bin/xray")
 
 
-class VpnError(Exception):
-    """The tunnel is not usable: LinkedIn must not be opened."""
+VpnError = EgressError
 
 
 @dataclass(frozen=True)
@@ -108,28 +107,23 @@ def _free_port() -> int:
         return sock.getsockname()[1]
 
 
-def _public_ip(text: str) -> str:
-    value = text.strip()
-    address = ipaddress.ip_address(value)  # raises ValueError for anything that is not an IP
-    if address.is_private or address.is_loopback:
-        raise ValueError(f"not a public address: {value}")
-    return value
-
-
-class XrayTunnel:
+class XrayTunnel(Egress):
     def __init__(self, subscription_url: str, server_name: str, work_dir: Path, xray_path: str | None = None,
-                 transport: httpx.BaseTransport | None = None):
+                 transport: httpx.BaseTransport | None = None, guard: ExitGuard | None = None):
         self._subscription_url = subscription_url
         self._server_name = server_name
         self._work_dir = work_dir
         self._xray = xray_path or next((p for p in XRAY_CANDIDATES if Path(p).exists()), None) or shutil.which("xray")
         self._transport = transport
+        self._guard = guard or ExitGuard(transport)
         self._process: subprocess.Popen | None = None
         self._config_path = work_dir / "config.json"
         self.proxy_url: str | None = None
-        self.home_ip: str | None = None
-        self.exit_ip: str | None = None
         self.server: str | None = None
+
+    @property
+    def label(self) -> str:
+        return f"VPN server «{self.server or self._server_name}»"
 
     def start(self) -> None:
         if not self._subscription_url:
@@ -139,9 +133,9 @@ class XrayTunnel:
         try:
             with httpx.Client(timeout=20, transport=self._transport) as client:
                 body = client.get(self._subscription_url.split("happ://add/", 1)[-1]).text
-                self.home_ip = _public_ip(client.get(IP_CHECK_URL).text)
-        except (httpx.HTTPError, ValueError) as exc:
-            raise VpnError(f"subscription or IP check unavailable: {exc}") from exc
+        except httpx.HTTPError as exc:
+            raise VpnError(f"subscription unavailable: {exc}") from exc
+        self._guard.learn_home()
         server = choose_server(parse_subscription(body), self._server_name)
         self.server = server.name
         port = _free_port()
@@ -166,26 +160,18 @@ class XrayTunnel:
         else:
             self.stop()
             raise VpnError("Xray did not open its local port")
-        self.exit_ip = None
-        self.verify()
+        try:
+            self.verify()
+        except VpnError:
+            self.stop()
+            raise
         log.info("VPN for LinkedIn is up: server «%s», exit IP differs from home", self.server)
 
-    def verify(self) -> str:
-        """Before every LinkedIn page: Xray alive, exit IP reachable, not the home IP, unchanged since start."""
-        if self._process is None or self._process.poll() is not None:
+    def verify(self) -> ExitAddresses:
+        """Before every LinkedIn page: Xray alive, then the shared exit checks (egress.ExitGuard)."""
+        if self._process is None or self._process.poll() is not None or not self.proxy_url:
             raise VpnError("Xray is not running")
-        try:
-            with httpx.Client(proxy=self.proxy_url, timeout=15, transport=self._transport) as client:
-                ip = _public_ip(client.get(IP_CHECK_URL).text)
-        except (httpx.HTTPError, ValueError) as exc:
-            raise VpnError(f"VPN does not answer: {exc}") from exc
-        if ip == self.home_ip:
-            raise VpnError("traffic through the VPN leaves from the home IP")
-        if self.exit_ip is None:
-            self.exit_ip = ip
-        elif ip != self.exit_ip:
-            raise VpnError("the VPN exit IP changed during the run")
-        return ip
+        return self._guard.check(self.proxy_url)
 
     def stop(self) -> None:
         if self._process is not None and self._process.poll() is None:

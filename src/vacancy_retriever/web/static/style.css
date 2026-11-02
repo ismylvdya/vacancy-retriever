@@ -22,7 +22,7 @@ body { padding-top: var(--appbar-h); }
   display: grid; grid-template-columns: 1fr auto 1fr; align-items: center; gap: var(--space-3); padding: 0 var(--space-4); }
 .appbar::before, .appbar::after { content: ""; position: absolute; inset: 0; z-index: -1; }
 .appbar::before { background: var(--bg); }
-.appbar::after { left: auto; width: var(--sidebar-w); background: var(--panel); border-left: 1px solid var(--line); display: none; }
+.appbar::after { left: auto; width: var(--sidebar-w); box-sizing: border-box; background: var(--panel); border-left: 1px solid var(--line); display: none; }
 body.with-sidebar:not(.settings-open) .appbar::after { display: block; }
 .appbar-side { display: flex; align-items: center; gap: var(--space-2); min-width: 0; }
 .appbar-right { justify-content: flex-end; }

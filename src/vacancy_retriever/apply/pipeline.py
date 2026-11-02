@@ -19,6 +19,7 @@ from ..config import AppConfig
 from ..storage import Storage
 from ..timeutil import utcnow
 from .drive import CloudFolders, StubDrive
+from .description import LetterDescriptions
 from .models import Application, ApplicationState, ApplyError, VacancyDossier
 from .obsidian import SKILLS_PROPERTY, ObsidianVault
 from .resume import MaterialsWriter, ResumeSkill, insert_cv_link
@@ -39,13 +40,14 @@ class DossierBuilder:
     def __init__(self, config: AppConfig, storage: Storage):
         self._config = config
         self._storage = storage
+        self._descriptions = LetterDescriptions(config, storage)
 
     def build(self, vacancy_id: int) -> VacancyDossier:
         record = self._storage.vacancies.get(vacancy_id)
         if record is None:
             raise ApplyError(f"Vacancy #{vacancy_id} not found")
         raw = self._storage.items.get(record.primary_raw_id)
-        text = raw.full_text.strip() if raw else record.title
+        text = ((raw and self._descriptions.complete(raw)) or raw.full_text).strip() if raw else record.title
         facts = record.facts
         employer_name = record.employer or (facts.employer_name if facts and facts.employer_name != "unknown" else "")
         sources = {s.id: s for s in self._config.sources.sources}

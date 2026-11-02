@@ -31,6 +31,11 @@ class StoredRawItem:
     def full_text(self) -> str:
         return self.detail_text or self.text
 
+    @property
+    def email_only(self) -> bool:
+        """All that is known comes from a job-alert letter: no description was read."""
+        return bool(self.meta.get("email")) and not self.detail_text
+
     @classmethod
     def from_row(cls, row: Any) -> StoredRawItem:
         return cls(
@@ -96,6 +101,11 @@ class RawItemRepository:
 
     def set_status(self, raw_id: int, status: str, skip_reason: str | None = None) -> None:
         self.db.execute("UPDATE raw_items SET status = ?, skip_reason = ? WHERE id = ?", (status, skip_reason, raw_id))
+
+    def email_only_ids(self) -> set[int]:
+        rows = self.db.query("SELECT id FROM raw_items WHERE json_extract(meta_json, '$.email') IS NOT NULL"
+                             " AND (detail_text IS NULL OR detail_text = '')")
+        return {row["id"] for row in rows}
 
     def set_detail(self, raw_id: int, detail_text: str) -> None:
         self.db.execute("UPDATE raw_items SET detail_text = ? WHERE id = ?", (detail_text, raw_id))

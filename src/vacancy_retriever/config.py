@@ -68,6 +68,8 @@ class PenaltyRules(_Strict):
     experience_years_threshold: float = 2
     experience: int = 1
     english_working_max_stars: int | None = None
+    russian_ad_bonus: int = 0
+    email_only_max_stars: int | None = None
 
 
 class GroupInfo(_Strict):

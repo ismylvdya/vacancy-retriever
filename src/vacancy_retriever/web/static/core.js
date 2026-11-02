@@ -27,7 +27,9 @@ async function api(method, url, body) {
 }
 
 async function writeClipboard(text) {
-  if (navigator.clipboard && window.isSecureContext) { await navigator.clipboard.writeText(text); return; }
+  if (navigator.clipboard && window.isSecureContext) {
+    try { await navigator.clipboard.writeText(text); return; } catch (e) { /* not allowed here: the old way below */ }
+  }
   const area = document.createElement("textarea");
   area.value = text;
   document.body.appendChild(area);

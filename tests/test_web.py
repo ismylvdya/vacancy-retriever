@@ -84,12 +84,6 @@ def test_status_buttons_move_card_to_processed(client):
     assert "Junior Data Scientist" in client.get("/").text
 
 
-def test_copy_full_text_returns_original_text_and_link(client):
-    text = client.get(f"/api/vacancies/{client.vacancy_id}/fulltext").json()["text"]
-    assert "Полный текст вакансии" in text
-    assert "https://telegram.me/serbiawork/1" in text
-
-
 def test_post_without_local_origin_is_rejected(client):
     vacancy_id = client.vacancy_id
     assert client.post(f"/api/vacancies/{vacancy_id}/status", json={"status": "applied"}).status_code == 403
@@ -200,14 +194,16 @@ def test_debug_report_explains_the_verdict(client):
     info = client.get(f"/api/vacancies/{client.vacancy_id}/debug").json()
     assert info["id"] == client.vacancy_id
     assert any(line.startswith("Group 1: IT in Serbia") for line in info["explain"])
-    assert f"Vacancy id {client.vacancy_id}" in info["report"] and '"country": "Serbia"' in info["report"]
+    assert '"country": "Serbia"' in info["facts"] and "report" not in info
     assert any("Serbia Work" in line or "serbiawork" in line for line in info["raw"])
     assert client.get("/api/vacancies/999999/debug").status_code == 404
 
 
 def test_debug_controls_are_rendered_and_hidden_tab_works(client):
     feed = client.get("/").text
-    assert 'id="debug-toggle"' in feed and 'data-action="copy-debug"' in feed
+    assert 'id="debug-toggle"' in feed and "copy-debug" not in feed and "Copy text" not in feed and "Copy id" not in feed
+    assert f'data-action="copy-id" title="Copy the id">#{client.vacancy_id}</button>' in feed
+    assert "Run " in feed  # the debug line with the run's date
     run_id = client.storage.runs.start({})
     ad = RawItem("serbiawork", "2", "https://telegram.me/serbiawork/2", "Крипто-карта walllet.com", utcnow())
     raw_id = client.storage.items.insert(run_id, ad, "hidden", skip_reason="Advertisement")
@@ -294,7 +290,11 @@ def test_reports_and_a_reported_vacancy_leaves_the_feed_outside_debug(client):
     reported = client.get("/processed?filter=reported").text
     assert "Junior Data Scientist" in reported and "это удалёнка из РФ" in reported
     assert 'href="/processed?filter=reported"' in reported and "Reported" in reported
-    assert "User report" in client.get(f"/api/vacancies/{vacancy_id}/debug").json()["report"]
+    assert 'data-report="Группа 1 неверна:' in reported, "Report opens what was written"
+    assert client.post(f"/api/vacancies/{vacancy_id}/report", json={"text": "исправлено"}, headers=ORIGIN).json()["reported"] == 1
+    assert len(client.storage.vacancies.reports()[vacancy_id]) == 1, "editing does not add a second report"
+    edited = client.get("/processed?filter=reported").text
+    assert "исправлено" in edited and "это удалёнка из РФ" not in edited
     feed = client.get("/").text
     assert f'class="vac reported" id="vac-{vacancy_id}"' in feed  # hidden by CSS unless debug mode is on
     assert client.get("/api/status").json()["feed_count"] == 0
@@ -404,3 +404,60 @@ def test_unknown_or_skipped_filter_in_the_address_is_ignored(client):
     for query in ("?fit=5", "?reason=x", "?nonsense=1&stars=0"):
         assert client.get(f"/{query}").status_code == 200, query
     assert client.get("/processed?nonsense=1").status_code == 200
+
+
+def set_status_at(client, vacancy_id, status, when):
+    client.storage.db.execute("UPDATE vacancies SET user_status = ?, status_changed_at = ? WHERE id = ?",
+                              (status, when, vacancy_id))
+
+
+def test_all_manually_is_only_what_the_user_did(client):
+    vacancy_id = client.vacancy_id
+    set_status_at(client, vacancy_id, "auto_skipped", "2026-10-20T10:00:00+00:00")
+    page = client.get("/processed").text
+    assert ">All manually<" in page and "Junior Data Scientist" not in page
+    assert 'class="seg debug-only seg-pale' in page and "Auto-skipped" in page
+    assert "Junior Data Scientist" in client.get("/processed?filter=auto_skipped").text
+    set_status_at(client, vacancy_id, "skipped", "2026-10-20T10:00:00+00:00")
+    assert "Junior Data Scientist" in client.get("/processed").text
+    set_status_at(client, vacancy_id, "new", None)
+    assert "Junior Data Scientist" not in client.get("/processed").text
+    client.storage.vacancies.save_report(vacancy_id, "неверно")
+    assert "Junior Data Scientist" in client.get("/processed").text, "a report is a manual action too"
+
+
+def test_manual_tabs_group_by_the_day_of_the_action_auto_skipped_by_run(client):
+    set_status_at(client, client.vacancy_id, "applied", "2026-10-20T10:00:00+00:00")
+    for path in ("/processed", "/processed?filter=applied"):
+        page = client.get(path).text
+        assert "<h2>20 Oct 2026</h2>" in page and "<h2>Run " not in page
+    set_status_at(client, client.vacancy_id, "auto_skipped", "2026-10-20T10:00:00+00:00")
+    page = client.get("/processed?filter=auto_skipped").text
+    assert "<h2>Run " in page and "<h2>20 Oct 2026</h2>" not in page
+    set_status_at(client, client.vacancy_id, "new", None)
+    client.storage.db.execute("INSERT INTO reports(vacancy_id, text, created_at) VALUES (?, 'x', '2026-10-21T09:00:00+00:00')",
+                              (client.vacancy_id,))
+    assert "<h2>21 Oct 2026</h2>" in client.get("/processed?filter=reported").text
+
+
+def test_sidebar_title_opens_the_card_on_its_tab(client):
+    from vacancy_retriever.web.views import _card_url
+
+    set_status_at(client, client.vacancy_id, "applied", "2026-10-20T10:00:00+00:00")
+    record = client.storage.vacancies.get(client.vacancy_id)
+    assert _card_url(record) == f"/processed?filter=applied#vac-{client.vacancy_id}"
+    set_status_at(client, client.vacancy_id, "not_now", "2026-10-20T10:00:00+00:00")
+    assert _card_url(client.storage.vacancies.get(client.vacancy_id)) == f"/processed?filter=not_now#vac-{client.vacancy_id}"
+    assert _card_url(None) is None
+
+
+def test_linkedin_switch_endpoints(client):
+    settings = client.get("/api/settings").json()
+    assert settings["linkedin_pages"]["enabled"] is False and "mail:linkedin_public_pages.enabled" not in settings["values"]
+    refused = client.post("/api/settings/linkedin-pages/on", json={"confirm": "ENABLE LINKEDIN"}, headers=ORIGIN)
+    assert refused.status_code == 422 and "No proxy" in refused.json()["detail"]
+    assert client.post("/api/settings/linkedin-pages/on", json={}, headers=ORIGIN).status_code == 422
+    assert client.post("/api/settings/linkedin-pages/on", json={"confirm": "ENABLE LINKEDIN"}).status_code == 403, "same origin"
+    assert client.post("/api/settings/linkedin-pages/off", headers=ORIGIN).json()["enabled"] is False
+    assert client.get("/api/settings").json()["linkedin_pages"]["enabled"] is False
+

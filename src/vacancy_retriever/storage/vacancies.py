@@ -12,6 +12,7 @@ from .db import Database
 # auto_skipped is accepted only to undo "Return to feed": the vacancy goes back under the rules (user_set = 0).
 USER_STATUSES = {"new", "applied", "skipped", "not_now", "auto_skipped"}
 PROCESSED_FILTERS = {"applied", "skipped", "not_now", "auto_skipped"}
+MANUAL_STATUSES = ("applied", "not_now", "skipped")
 
 
 @dataclass
@@ -60,6 +61,7 @@ class VacancyRecord:
     informal_flag: bool
     published_at: datetime | None
     created_at: datetime | None
+    status_changed_at: datetime | None
     user_status: str
     facts: VacancyFacts | None
     primary_raw_id: int
@@ -86,6 +88,7 @@ class VacancyRecord:
             informal_flag=bool(row["informal_flag"]),
             published_at=from_iso(row["published_at"]),
             created_at=from_iso(row["created_at"]),
+            status_changed_at=from_iso(row["status_changed_at"]),
             user_status=row["user_status"],
             facts=VacancyFacts.model_validate_json(facts_json) if facts_json else None,
             primary_raw_id=row["primary_raw_id"],
@@ -176,10 +179,13 @@ class VacancyRepository:
             records = [VacancyRecord.from_row(r) for r in rows]
             self._load_sources(records)
             return records
-        statuses = [status_filter] if status_filter in PROCESSED_FILTERS else sorted(PROCESSED_FILTERS)
+        # «All manually»: what the user did something with — a status, or a report on a vacancy still in the feed.
+        statuses = [status_filter] if status_filter in PROCESSED_FILTERS else MANUAL_STATUSES
         marks = ",".join("?" * len(statuses))
+        reported = "" if status_filter in PROCESSED_FILTERS else (
+            " OR (user_status = 'new' AND EXISTS (SELECT 1 FROM reports r WHERE r.vacancy_id = vacancies.id))")
         rows = self.db.query(
-            f"SELECT * FROM vacancies WHERE staged = 0 AND user_status IN ({marks})"
+            f"SELECT * FROM vacancies WHERE staged = 0 AND (user_status IN ({marks}){reported})"
             " ORDER BY COALESCE(status_changed_at, created_at) DESC LIMIT ?",
             (*statuses, limit),
         )
@@ -209,11 +215,16 @@ class VacancyRepository:
         )
         return cursor.rowcount > 0
 
-    def add_report(self, vacancy_id: int, text: str) -> bool:
+    def save_report(self, vacancy_id: int, text: str) -> bool:
+        """A vacancy has one comment of the user: the first save writes it, later saves edit the latest one."""
         if not self.db.query_one("SELECT 1 FROM vacancies WHERE id = ? AND staged = 0", (vacancy_id,)):
             return False
-        self.db.execute("INSERT INTO reports(vacancy_id, text, created_at) VALUES (?, ?, ?)",
-                        (vacancy_id, text.strip(), to_iso(utcnow())))
+        latest = self.db.query_one("SELECT id FROM reports WHERE vacancy_id = ? ORDER BY id DESC LIMIT 1", (vacancy_id,))
+        if latest:
+            self.db.execute("UPDATE reports SET text = ? WHERE id = ?", (text.strip(), latest["id"]))
+        else:
+            self.db.execute("INSERT INTO reports(vacancy_id, text, created_at) VALUES (?, ?, ?)",
+                            (vacancy_id, text.strip(), to_iso(utcnow())))
         return True
 
     def reports(self) -> dict[int, list[dict[str, Any]]]:

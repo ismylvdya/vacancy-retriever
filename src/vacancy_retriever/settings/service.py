@@ -3,6 +3,7 @@ from __future__ import annotations
 import os
 import re
 import tempfile
+from collections.abc import Callable
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
@@ -10,6 +11,8 @@ from typing import Any
 import yaml
 from pydantic import BaseModel, ValidationError
 
+from ..collectors.egress import Egress, EgressError
+from ..collectors.linkedin_guest import create_egress
 from ..config import ApplyConfig, AppConfig, LlmConfig, MailConfig, Rules, SourcesFile
 from ..scoring.engine import ScoringEngine
 from ..scoring.facts import VacancyFacts
@@ -19,6 +22,8 @@ from .yaml_patch import PatchError, YamlDocument
 MODELS: dict[str, type[BaseModel]] = {"rules": Rules, "sources": SourcesFile, "mail": MailConfig, "llm": LlmConfig,
                                       "apply": ApplyConfig}
 _CATEGORY = re.compile(r"^rules:categories\.(\w+)\.(kind|base|cap|drop_reason)$")
+LINKEDIN_SWITCH = "linkedin_public_pages.enabled"  # never a Field: the Save button of the screen cannot reach it
+LINKEDIN_CONFIRM = "ENABLE LINKEDIN"
 _GROUP = re.compile(r"^rules:groups\.([1-5])\.(title|note|collapsed)$")
 _SOURCE = re.compile(r"^sources:sources\[([\w.-]+)\]\.enabled$")
 STACKS = (("strong", "Stack matches"), ("partial", "Partly"), ("none", "Does not match"))
@@ -37,14 +42,19 @@ class SaveResult:
     problems: dict[str, str] = field(default_factory=dict)
 
 
+class LinkedInSwitchError(Exception):
+    """LinkedIn public pages stay off: the message says why."""
+
+
 class SettingsService:
     """Reads config/*.yaml for the settings screen and writes changes back, value by value.
 
     Every change is checked twice before a file is replaced: the edited value must be what was asked (yaml_patch),
     and the whole file must pass the same pydantic model as at start-up. Nothing is written when anything fails."""
 
-    def __init__(self, config: AppConfig):
+    def __init__(self, config: AppConfig, egress_factory: Callable[[AppConfig], Egress | None] = create_egress):
         self._config = config
+        self._egress_factory = egress_factory
 
     def _path(self, file: str) -> Path:
         return self._config.paths.config / f"{file}.yaml"
@@ -64,19 +74,55 @@ class SettingsService:
         sources = [{"id": s.id, "name": s.name, "type": s.type, "enabled": s.enabled} for s in self._config.sources.sources]
         return {"sections": [s.as_dict() for s in SECTIONS], "values": values, "categories": categories,
                 "groups": groups, "sources": sources, "kinds": [{"value": v, "label": label} for v, label in KINDS],
-                "fit": self._fit(rules)}
+                "fit": self._fit(rules), "linkedin_pages": self.linkedin_pages()}
 
     # ---------- writing
     def save(self, changes: dict[str, Any]) -> SaveResult:
         docs, touched = self._apply(changes)
         for name in touched:
-            path = self._path(name)
-            fd, temp = tempfile.mkstemp(dir=path.parent, prefix=f".{name}.", suffix=".yaml")
-            with os.fdopen(fd, "w", encoding="utf-8") as handle:
-                handle.write(docs[name].text)
-            os.replace(temp, path)  # atomic: a crash never leaves half a config
-            self._config.__dict__.pop(name, None)  # AppConfig caches each file (cached_property)
+            self._replace(name, docs[name].text)
         return SaveResult(sorted(touched), "rules" in touched)
+
+    def _replace(self, name: str, text: str) -> None:
+        path = self._path(name)
+        fd, temp = tempfile.mkstemp(dir=path.parent, prefix=f".{name}.", suffix=".yaml")
+        with os.fdopen(fd, "w", encoding="utf-8") as handle:
+            handle.write(text)
+        os.replace(temp, path)  # atomic: a crash never leaves half a config
+        self._config.__dict__.pop(name, None)  # AppConfig caches each file (cached_property)
+
+    # ---------- the LinkedIn pages switch: not a field of the screen, it has its own two doors
+    def linkedin_pages(self) -> dict[str, Any]:
+        fresh = AppConfig(self._config.paths)  # config/.env may have changed since the server started
+        egress = self._egress_factory(fresh)
+        return {"enabled": fresh.mail.linkedin_public_pages.enabled, "exit": egress.label if egress else "",
+                "confirm": LINKEDIN_CONFIRM}
+
+    def linkedin_pages_off(self) -> None:
+        """Always possible, needs nothing and touches no network."""
+        self._write_linkedin_switch(False)
+
+    def linkedin_pages_on(self, confirm: str) -> None:
+        """Only with the phrase typed by hand and a private exit that works right now and is not the home network.
+        The exit is checked through IP echo services; LinkedIn itself is not contacted here."""
+        if confirm != LINKEDIN_CONFIRM:
+            raise LinkedInSwitchError(f"Type {LINKEDIN_CONFIRM} to turn this on")
+        egress = self._egress_factory(AppConfig(self._config.paths))
+        if egress is None:
+            raise LinkedInSwitchError("No proxy configured: set LINKEDIN_PROXY_URL in config/.env first")
+        try:
+            egress.start()
+        except EgressError as exc:
+            raise LinkedInSwitchError(f"The proxy did not pass its check: {exc}") from exc
+        finally:
+            egress.stop()
+        self._write_linkedin_switch(True)
+
+    def _write_linkedin_switch(self, enabled: bool) -> None:
+        document = self._documents()["mail"]
+        document.set(LINKEDIN_SWITCH, enabled)
+        MODELS["mail"].model_validate(yaml.safe_load(document.text))
+        self._replace("mail", document.text)
 
     def preview_fit(self, changes: dict[str, Any]) -> dict[str, Any]:
         """Stars of every fact combination with unsaved changes of the rules (nothing is written)."""

@@ -325,13 +325,8 @@ async function loadDebug(row) {
       + (info.facts ? `<details><summary>Facts JSON</summary><pre>${escapeHtml(info.facts)}</pre></details>` : "");
   } catch (e) { box.dataset.loaded = ""; toast(e.message); }
 }
-async function copyDebug(row, what) {
-  try {
-    if (what === "id") { await writeClipboard(row.dataset.id); toast(`Copied id ${row.dataset.id}`); return; }
-    const info = await debugInfo(row);
-    await writeClipboard(info.report);
-    toast("Debug report copied");
-  } catch (e) { toast(e.message); }
+async function copyId(row) {
+  try { await writeClipboard(row.dataset.id); toast(`Copied id ${row.dataset.id}`); } catch (e) { toast(e.message); }
 }
 
 document.querySelectorAll("[data-notice]").forEach((box) => {
@@ -351,10 +346,28 @@ let reportRow = null;
 function openReport(row) {
   reportRow = row;
   $("report-title").textContent = `#${row.dataset.id} · ${rowTitle(row)}`;
-  $("report-text").value = "";
+  $("report-text").value = row.querySelector('[data-action="report"]').dataset.report || "";  // an earlier one: edit it
   $("report-dialog").showModal();
   $("report-text").focus();
 }
+/* The card's Reports block follows the saved text without a reload. */
+function showReport(row, text) {
+  let box = row.querySelector(".reports");
+  if (!box) {
+    box = el("div", "debug-only reports");
+    box.append(el("h4", "", "Reports"));
+    row.querySelector(".debug-box").before(box);
+  }
+  let line = box.querySelector("p:last-child .report-text");
+  if (!line) {
+    const p = el("p");
+    line = el("span", "report-text");
+    p.append(line);
+    box.append(p);
+  }
+  line.textContent = text;
+}
+
 async function submitReport() {
   const text = $("report-text").value.trim();
   if (!text || !reportRow) { toast("Write what is wrong first"); return; }
@@ -362,6 +375,10 @@ async function submitReport() {
     const data = await api("POST", `/api/vacancies/${reportRow.dataset.id}/report`, { text });
     $("report-dialog").close();
     delete debugCache[reportRow.dataset.id];
+    const button = reportRow.querySelector('[data-action="report"]');
+    const edited = Boolean(button.dataset.report);
+    button.dataset.report = text;
+    showReport(reportRow, text);
     const title = reportRow.querySelector(".title");
     if (title && !title.querySelector(".reported")) {
       const flag = document.createElement("span");
@@ -377,21 +394,13 @@ async function submitReport() {
       const feedCount = $("feed-count");
       if (feedCount) feedCount.textContent = Math.max(0, Number(feedCount.textContent) - 1);
     }
-    toast("Reported — see Processed → Reported");
+    toast(edited ? "Report updated" : "Reported — see Processed → Reported");
   } catch (e) { toast(e.message); }
 }
 $("report-submit").addEventListener("click", (event) => { event.preventDefault(); submitReport(); });
 $("report-text").addEventListener("keydown", (event) => {
   if (event.key === "Enter" && (event.metaKey || event.ctrlKey)) { event.preventDefault(); submitReport(); }
 });
-
-async function copyText(row) {
-  try {
-    const data = await api("GET", `/api/vacancies/${row.dataset.id}/fulltext`);
-    await writeClipboard(data.text);
-    toast("Full text copied");
-  } catch (e) { toast(`Couldn't copy: ${e.message}`); }
-}
 
 function toggleFullText(row) {
   const pre = row.querySelector(".fulltext");
@@ -442,9 +451,7 @@ document.addEventListener("click", (event) => {
   if (button) {
     const action = button.dataset.action;
     if (action === "status") setStatus(row, button.dataset.status);
-    if (action === "copy") copyText(row);
-    if (action === "copy-id") copyDebug(row, "id");
-    if (action === "copy-debug") copyDebug(row, "report");
+    if (action === "copy-id") copyId(row);
     if (action === "report") openReport(row);
     if (action === "open-source") openSource(row);
     return;
@@ -470,7 +477,6 @@ document.addEventListener("keydown", (event) => {
     enterRow(current);
     return;
   }
-  if (key === "c") { copyText(current); return; }
   if (tab === "feed") {
     const map = { arrowright: "applied", n: "not_now", arrowleft: "skipped" };
     if (map[key]) { event.preventDefault(); setStatus(current, map[key]); }
@@ -478,6 +484,23 @@ document.addEventListener("keydown", (event) => {
     setStatus(current, "new");
   }
 });
+
+/* /processed?filter=applied#vac-12 (the sidebar's title): that card, open, its top right under the stuck heads. */
+function focusFromHash() {
+  const row = location.hash.startsWith("#vac-") ? document.getElementById(location.hash.slice(1)) : null;
+  if (!row) return;
+  if (document.body.classList.contains("settings-open")) setSettingsOpen(false);  // the card is under the settings screen
+  focusRow(row, { scroll: false });
+  const head = row.closest(".group").querySelector(".card-head");
+  const covered = head ? parseFloat(getComputedStyle(head).top) + head.offsetHeight : 0;
+  window.scrollBy(0, row.getBoundingClientRect().top - covered - 8);
+}
+window.addEventListener("hashchange", focusFromHash);
+if (location.hash.startsWith("#vac-")) {
+  history.scrollRestoration = "manual";  // a reload must not put the page back over the card
+  focusFromHash();
+  window.addEventListener("load", () => setTimeout(focusFromHash));
+}
 
 const recalc = $("recalc-btn");
 if (recalc) {

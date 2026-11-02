@@ -39,6 +39,7 @@
 ```
 
 1. **note** — заметка в Obsidian: свойства, ссылки, описание вакансии. Без LLM.
+   Вакансия только из письма (hh, LinkedIn): перед заметкой полное описание ищется через Google for Jobs (`apply/description.py`, 1–2 запроса JSearch, один раз на вакансию). Найдено — оно идёт в заметку, CV и письмо; нет — остаётся текст письма. Страницы hh и LinkedIn не открываются.
 2. **folder** — папка вакансии в Google Drive (внутри общей папки приложения, доступ «по ссылке — читатель»).
 3. **materials** — **один** вызов LLM (по умолчанию Sonnet по подписке): на входе инструкции скилла
    `resume-tailor` (`SKILL.md`, `references/letters.md`, `references/projects_facts.md`), вывод `build.py catalog`

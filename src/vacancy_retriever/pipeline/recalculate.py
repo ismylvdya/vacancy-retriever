@@ -23,11 +23,13 @@ def recalculate(config: AppConfig, storage: Storage) -> RecalculateResult:
     now = utcnow()
     changed = 0
     records = storage.vacancies.with_facts()
+    email_only = storage.items.email_only_ids()
     for record in records:
         if record.facts is None:
             continue
         collected = local(record.created_at).date() if record.created_at else None
-        verdict = engine.evaluate(record.facts, record.published_at, now, rates.for_date(collected))
+        verdict = engine.evaluate(record.facts, record.published_at, now, rates.for_date(collected),
+                                  record.primary_raw_id in email_only)
         automatic = record.user_status in {"new", "auto_skipped", "hidden"} and not storage.vacancies.user_set(record.id)
         if (verdict.decision, verdict.group, verdict.stars, verdict.skip_reason) != (
             record.decision, record.group_no, record.stars, record.skip_reason

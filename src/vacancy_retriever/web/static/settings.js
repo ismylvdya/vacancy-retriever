@@ -304,6 +304,48 @@ const Settings = (() => {
     return block;
   }
 
+  /* ---------- LinkedIn pages: not part of the draft and of Save. Off in one click; on only with a proxy that passes
+     its check right now and the phrase typed by hand (the server checks both again). ---------- */
+  function linkedinPagesBlock() {
+    const state = snapshot.linkedin_pages;
+    const block = el("div", `li-switch ${state.enabled ? "is-on" : "is-off"}`);
+    const status = el("div", "li-status");
+    status.append(el("span", "li-pill", state.enabled ? "ON" : "OFF"), el("span", "li-status-text", state.enabled
+      ? "The app reads LinkedIn's public pages through the proxy, for vacancies Google for Jobs did not find."
+      : "The app never contacts LinkedIn. LinkedIn vacancies use Google for Jobs only."));
+    block.append(status);
+    block.append(el("p", "setting-help", state.exit
+      ? `Private exit: ${state.exit}. It is checked before every page; if it fails, LinkedIn is not opened at all.`
+      : "No proxy is configured (LINKEDIN_PROXY_URL in config/.env), so this cannot be turned on."));
+    const send = async (button, path, body, busy) => {
+      button.disabled = true;
+      button.textContent = busy;
+      try {
+        snapshot.linkedin_pages = await api("POST", `/api/settings/linkedin-pages/${path}`, body);
+        toast(snapshot.linkedin_pages.enabled ? "LinkedIn pages are ON" : "LinkedIn pages are OFF");
+      } catch (e) { toast(e.message); }
+      render();
+    };
+    if (state.enabled) {
+      const off = el("button", "btn primary", "Turn off");
+      off.type = "button";
+      off.addEventListener("click", () => send(off, "off", {}, "Turning off…"));
+      block.append(off);
+    } else if (state.exit) {
+      const line = el("div", "li-confirm");
+      const input = el("input", "li-phrase");
+      Object.assign(input, { type: "text", placeholder: `Type ${state.confirm}`, autocomplete: "off", spellcheck: false });
+      const on = el("button", "btn", "Check the proxy and turn on");
+      on.type = "button";
+      on.disabled = true;
+      input.addEventListener("input", () => { on.disabled = input.value !== state.confirm; });
+      on.addEventListener("click", () => send(on, "on", { confirm: input.value }, "Checking the proxy…"));
+      line.append(input, on);
+      block.append(line);
+    }
+    return block;
+  }
+
   /* ---------- the screen ---------- */
   function section(s) {
     const card = el("section", "settings-card");
@@ -313,6 +355,10 @@ const Settings = (() => {
     if (s.widget === "fit") card.append(fitBlock());
     if (s.widget === "groups") card.append(groupsBlock());
     if (s.widget === "sources") card.append(sourcesBlock());
+    if (s.widget === "linkedin_pages") {
+      card.classList.add("li-pages");
+      card.append(linkedinPagesBlock());
+    }
     if (s.fields.length) {
       const fields = el("div", "rows");
       if (s.widget === "fit") fields.append(el("h3", "rows-title", "Penalties"));

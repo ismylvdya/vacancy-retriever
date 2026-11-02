@@ -9,7 +9,8 @@
     <a href="/processed{% if params %}?{{ params | join('&') }}{% endif %}" class="seg {{ 'on' if current == key }}">{{ label }}{% if key != 'all' %}<span class="count">{{ counts.get(key, 0) }}</span>{% endif %}</a>
   {% endfor %}
   <a href="/processed?filter=reported" class="seg debug-only {{ 'on' if current == 'reported' }}" title="Debug mode: vacancies you reported as wrongly evaluated">Reported<span class="count">{{ reported_count }}</span></a>
-  <a href="/processed?filter=hidden" class="seg debug-only {{ 'on' if current == 'hidden' }}" title="Debug mode: ads and posts the LLM called “not a vacancy”">Hidden{% if hidden is defined %}<span class="count">{{ hidden | sum(attribute='rows', start=[]) | length }}</span>{% endif %}</a>
+  <a href="/processed?filter=auto_skipped" class="seg debug-only seg-pale {{ 'on' if current == 'auto_skipped' }}" title="Debug mode: skipped by the rules, without you">Auto-skipped<span class="count">{{ counts.get('auto_skipped', 0) }}</span></a>
+  <a href="/processed?filter=hidden" class="seg debug-only seg-pale {{ 'on' if current == 'hidden' }}" title="Debug mode: ads and posts the LLM called “not a vacancy”">Hidden{% if hidden is defined %}<span class="count">{{ hidden | sum(attribute='rows', start=[]) | length }}</span>{% endif %}</a>
 </div>
 
 {% if facets or active %}
@@ -47,7 +48,7 @@
 {% for run in runs %}
 <section class="group">
   <div class="card-head">
-    <div class="section-head"><h2>Run {{ run.started }}</h2><span class="sub">{{ run.cards | length }}</span></div>
+    <div class="section-head"><h2>{{ run.title }}</h2><span class="sub">{{ run.cards | length }}</span></div>
     <div class="cells cells-processed head"><span>Role</span><span>Status</span><span class="r">Posted</span></div>
   </div>
   <div class="group-body">

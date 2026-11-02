@@ -34,9 +34,10 @@ class ScoringEngine:
 
     def evaluate(
         self, facts: VacancyFacts, published_at: datetime | None, now: datetime,
-        rates: dict[str, float] | None = None,
+        rates: dict[str, float] | None = None, email_only: bool = False,
     ) -> Verdict:
-        """rates: RUB per currency unit on the day the vacancy was collected (None = no salary rule)."""
+        """rates: RUB per currency unit on the day the vacancy was collected (None = no salary rule).
+        email_only: all that is known comes from a job-alert letter, there is no description."""
         category = self._category(facts)
         in_serbia = self._works_in_serbia(facts)
         permit, permit_reason = self._residence_permit(facts, in_serbia)
@@ -44,7 +45,7 @@ class ScoringEngine:
         if category.kind == "hidden":
             return Verdict("hidden", "Not a vacancy", None, None, permit, permit_reason, False, False)
         group = self._group(facts, category, in_serbia)
-        stars = self._stars(facts, category)
+        stars = self._stars(facts, category, email_only)
         return Verdict(
             decision="skip" if skip else "show",
             skip_reason=skip,
@@ -72,7 +73,7 @@ class ScoringEngine:
         return None
 
     def explain(self, facts: VacancyFacts, published_at: datetime | None, now: datetime,
-                rates: dict[str, float] | None = None) -> list[str]:
+                rates: dict[str, float] | None = None, email_only: bool = False) -> list[str]:
         """Debug mode: the same decision as evaluate(), step by step, in plain words."""
         category = self._category(facts)
         in_serbia = self._works_in_serbia(facts)
@@ -89,7 +90,7 @@ class ScoringEngine:
                          else f"Salary «{facts.salary_text}»: no floor in a known currency")
         group, why = self._group_with_reason(facts, category, in_serbia)
         lines.append(f"Group {group}: {why}")
-        stars, steps = self._stars_with_steps(facts, category)
+        stars, steps = self._stars_with_steps(facts, category, email_only)
         lines.append(f"Fit {stars}★: {steps}")
         permit, reason, rule = self._permit_decision(facts, in_serbia)
         lines.append(f"Permit {permit}: {rule}" + (f" — “{reason}”" if reason else ""))
@@ -174,10 +175,10 @@ class ScoringEngine:
         return 5, (f"no group rule matched (kind {category.kind}, format {facts.work_format}, "
                    f"employer {facts.employer_type}, russian_speaking_team {facts.russian_speaking_team})")
 
-    def _stars(self, facts: VacancyFacts, category: CategoryRule) -> int:
-        return self._stars_with_steps(facts, category)[0]
+    def _stars(self, facts: VacancyFacts, category: CategoryRule, email_only: bool = False) -> int:
+        return self._stars_with_steps(facts, category, email_only)[0]
 
-    def _stars_with_steps(self, facts: VacancyFacts, category: CategoryRule) -> tuple[int, str]:
+    def _stars_with_steps(self, facts: VacancyFacts, category: CategoryRule, email_only: bool = False) -> tuple[int, str]:
         penalties = self._rules.penalties
         steps: list[str] = []
         minus = 0
@@ -198,10 +199,16 @@ class ScoringEngine:
         if category.kind in {"it", "manual"} and experienced:
             minus += penalties.experience
             steps.append(f"−{penalties.experience} {facts.experience_years:g}+ years required")
+        if facts.ad_language == "ru" and penalties.russian_ad_bonus:
+            minus -= penalties.russian_ad_bonus
+            steps.append(f"+{penalties.russian_ad_bonus} ad in Russian")
         cap = category.cap
         if category.kind == "it" and facts.english_working and penalties.english_working_max_stars is not None:
             cap = min(cap, penalties.english_working_max_stars)
             steps.append(f"English team cap {penalties.english_working_max_stars}")
+        if email_only and penalties.email_only_max_stars is not None:
+            cap = min(cap, penalties.email_only_max_stars)
+            steps.append(f"E-mail only cap {penalties.email_only_max_stars}")
         stars = max(1, min(category.base - minus, cap))
         return stars, " ".join([f"base {category.base}", *steps, f"(cap {cap}, min 1)"])
 

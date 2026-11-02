@@ -18,9 +18,12 @@ PAGE = """<html><head><title>Data Scientist - Acme - LinkedIn</title>
 <li class="description__job-criteria-item"><h3>Employment type</h3><span>Full-time</span></li></ul></body></html>"""
 
 
+NO_EXIT = object()
+
+
 def make(handler, tmp_path, tunnel=None, **settings):
-    """Page-logic tests run without the exit requirement; the exit has its own tests below."""
-    settings.setdefault("require_exit", tunnel is not None)
+    """Page-logic tests use a working fake exit (the client refuses to run without one); the exit has its own tests."""
+    tunnel = None if tunnel is NO_EXIT else tunnel or FakeTunnel()
     seen = []
 
     def recording(request):
@@ -116,9 +119,9 @@ def test_a_cancelled_run_does_not_wait_out_the_pause(tmp_path):
     import threading
 
     stop = threading.Event()
-    fetcher = LinkedInGuestFetcher(GuestSettings(enabled=True, require_exit=False, min_delay=600, max_delay=600),
+    fetcher = LinkedInGuestFetcher(GuestSettings(enabled=True, min_delay=600, max_delay=600),
                                    tmp_path / "s.json", transport=httpx.MockTransport(lambda r: httpx.Response(200, text=PAGE)),
-                                   stop_event=stop)
+                                   stop_event=stop, egress=FakeTunnel())
     assert fetcher.fetch("https://www.linkedin.com/jobs/view/111111/")
     stop.set()
     assert fetcher.fetch("https://www.linkedin.com/jobs/view/222222/") is None and fetcher.fetched == 1
@@ -152,7 +155,7 @@ class FakeTunnel:
         self.calls.append("start")
         if self.fail_start:
             raise VpnError(self.fail_start)
-        # proxy_url stays None here so the mock transport answers; test_pages_go_through_the_tunnel checks the proxy.
+        self.proxy_url = "http://127.0.0.1:10808"
 
     def verify(self):
         from vacancy_retriever.collectors.egress import EgressError as VpnError
@@ -164,10 +167,11 @@ class FakeTunnel:
 
     def stop(self):
         self.calls.append("stop")
+        self.proxy_url = None
 
 
 def test_without_a_vpn_linkedin_is_never_opened(tmp_path):
-    fetcher, seen = make(lambda r: httpx.Response(200, text=PAGE), tmp_path, require_exit=True)
+    fetcher, seen = make(lambda r: httpx.Response(200, text=PAGE), tmp_path, tunnel=NO_EXIT)
     assert fetcher.fetch("https://www.linkedin.com/jobs/view/111111/") is None
     assert seen == [] and "exit problem" in fetcher.alert
 
@@ -301,5 +305,5 @@ def test_pages_go_through_the_tunnel_proxy(tmp_path):
     tunnel.proxy_url = "http://127.0.0.1:10808"
     fetcher._client = None
     client = fetcher._http()
-    assert [str(pattern.pattern) for pattern in client._mounts] == ["all://"], "every request uses the tunnel"
+    assert not client._mounts and type(client._transport._pool).__name__ == "HTTPProxy", "every request uses the tunnel"
     assert client.cookies.jar._policy.allowed_domains() == ()

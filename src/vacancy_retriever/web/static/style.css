@@ -246,7 +246,7 @@ pre { max-width: 100%; overflow-x: auto; }
 .src-email.src-from-yandex .src-ico::after { background-image: url("/static/icons/yandex-mail.png"); }
 .src:hover { color: var(--text); text-decoration: none; }
 .actions .link { margin-left: 12px; }
-/* Secondary card actions (Copy text, Full text, debug tools): outlined like Apply / Not now / Skip, quieter text. */
+/* Secondary card actions (Open source, debug tools): outlined like Apply / Not now / Skip, quieter text. */
 .actions .btn-quiet { color: var(--muted); }
 .actions .btn-quiet:hover { color: var(--text); }
 .sources { display: flex; flex-wrap: wrap; gap: 4px 14px; margin-top: 8px; }
@@ -623,3 +623,36 @@ body.settings-open { padding-right: 0; }
   .setting { grid-template-columns: minmax(0, 1fr); }
   .setting-control { justify-content: flex-start; }
 }
+
+/* The line under a stuck head goes while the group's rounded bottom pushes the head up (shell.js) */
+.head-pushed > .card-head, .head-pushed > .card-head .col-head, .head-pushed > .card-head .table-head,
+.head-pushed > .card-head > .cells.head { border-bottom-color: transparent; }
+
+/* Debug mode */
+button.vac-id { padding: 0; border: 0; background: none; cursor: copy; }
+button.vac-id:hover { color: var(--accent); text-decoration: underline; }
+.title > .flag.reported { margin: 0 8px 0 0; }
+.flag-ru { color: var(--accent); background: color-mix(in srgb, var(--accent) 12%, transparent); }
+
+/* Processed: tabs that are not about what the user did */
+.seg-pale { opacity: .55; }
+.seg-pale:hover, .seg-pale.on { opacity: .85; }
+
+/* The arrow of «Everywhere» stands off the border */
+.search-in { appearance: none; -webkit-appearance: none; padding-right: 26px; background-repeat: no-repeat; background-position: right 9px center;
+  background-size: 10px; background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 10 6'%3E%3Cpath d='M1 1l4 4 4-4' fill='none' stroke='%23888' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E"); }
+
+/* Settings → LinkedIn pages: its own switch, set apart from everything that goes through Save */
+.settings-card.li-pages { box-shadow: 0 0 0 1px var(--danger); }
+.li-switch { display: flex; flex-direction: column; align-items: flex-start; gap: var(--space-3); margin-bottom: var(--space-5); padding: var(--space-4);
+  border-radius: var(--radius); background: color-mix(in srgb, var(--danger) 6%, transparent); }
+.li-switch.is-off { background: color-mix(in srgb, var(--ok) 8%, transparent); }
+.li-status { display: flex; align-items: center; gap: var(--space-3); font-size: var(--font-l); font-weight: 500; }
+.li-pill { flex: none; padding: 3px 12px; border-radius: 6px; font-size: 15px; font-weight: 700; letter-spacing: .04em; color: #fff; background: var(--danger); }
+.is-off .li-pill { background: var(--ok); }
+.li-confirm { display: flex; flex-wrap: wrap; gap: var(--space-2); }
+.li-phrase { font: inherit; font-size: var(--font-m); height: var(--control-h); padding: 0 9px; width: 200px; color: var(--text); background: transparent;
+  border: 1px solid var(--line-strong); border-radius: var(--radius); }
+
+a.app-item-title { color: var(--text); font-weight: 600; }
+a.app-item-title:hover { color: var(--accent); }

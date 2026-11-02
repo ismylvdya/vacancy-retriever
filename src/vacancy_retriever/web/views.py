@@ -99,6 +99,17 @@ class Card:
     ad_language: str = ""          # flag (or code) of the language the ad is written in
     required_languages: list[str] = field(default_factory=list)  # flags with the language name as tooltip
     reports: list[dict[str, str]] = field(default_factory=list)  # debug mode: the user's complaints
+    run_started: str = ""          # debug mode: the run that collected it
+    status_changed_at: datetime | None = None
+    created_at: datetime | None = None
+    last_report_at: datetime | None = None
+
+    def acted_at(self, tab: str | None) -> datetime | None:
+        """When the user did what put the card on this tab (old cards may have no date: when it was collected)."""
+        status_date = self.status_changed_at if self.user_status != "new" else None
+        if tab == "reported":
+            return self.last_report_at or status_date or self.created_at
+        return status_date or self.last_report_at or self.created_at
 
     @property
     def low_fit(self) -> bool:
@@ -113,6 +124,7 @@ class CardBuilder:
         self._hours_per_month = config.rules.salary.hours_per_month
         self._sender_icons = sender_icons(config)
         self._storage = storage
+        self._runs = {r["id"]: r["started_at"] for r in storage.runs.history(1000)}
         latest = storage.runs.last_finished()
         self._latest_run = latest["id"] if latest and latest["status"] == "committed" else None
 
@@ -124,9 +136,10 @@ class CardBuilder:
             flags.append("English team")
         if record.informal_flag:
             flags.append("Informal")
-        if raw and (raw.meta.get("email") or {}).get("parser") == "linkedin" and not raw.detail_text and record.facts:
-            # LinkedIn page not read (off / paused / limit): evaluated from the 1–2 lines of the letter only.
+        if raw and raw.email_only and record.facts:  # evaluated from the 1–2 lines of a job-alert letter only
             flags.append("E-mail only")
+        if facts and facts.ad_language == "ru":
+            flags.append("Russian ad")
         return Card(
             id=record.id,
             title=record.title,
@@ -151,6 +164,10 @@ class CardBuilder:
             skip_reason=record.skip_reason,
             group=record.group_no,
             run_id=record.run_id,
+            run_started=format_local(self._runs[record.run_id]) if record.run_id in self._runs else "",
+            status_changed_at=record.status_changed_at,
+            created_at=record.created_at,
+            last_report_at=max((from_iso(r["created_at"]) for r in self._reports.get(record.id, [])), default=None),
             grade=GRADES.get(facts.seniority, "") if facts else "",
             employer_type=EMPLOYER_TYPES.get(facts.employer_type, "") if facts else "",
             ad_language=_flag(facts.ad_language) if facts and facts.ad_language != "other" else "",
@@ -203,19 +220,7 @@ def sender_icons(config: AppConfig) -> dict[str, str]:
     return icons
 
 
-def full_text(storage: Storage, vacancy_id: int) -> str:
-    record = storage.vacancies.get(vacancy_id)
-    if record is None:
-        return ""
-    raw = storage.items.get(record.primary_raw_id)
-    if raw is None:
-        return record.title
-    parts = [raw.full_text.strip()]
-    if raw.url:
-        parts.append(raw.url)
-    if record.facts and record.facts.link and record.facts.link not in parts:
-        parts.append(record.facts.link)
-    return "\n\n".join(parts)
+
 
 
 def group_feed(cards: list[Card], config: AppConfig) -> list[dict[str, Any]]:
@@ -534,9 +539,17 @@ def group_by_run(cards: list[Card], storage: Storage) -> list[dict[str, Any]]:
     result = []
     for run_id in sorted(by_run, key=lambda r: r or 0, reverse=True):
         run = runs.get(run_id) if run_id else None
-        result.append({"run_id": run_id, "started": format_local(run["started_at"]) if run else "—",
-                       "cards": by_run[run_id]})
+        result.append({"title": f"Run {format_local(run['started_at'])}" if run else "Run —", "cards": by_run[run_id]})
     return result
+
+
+def group_by_action_day(cards: list[Card], tab: str | None) -> list[dict[str, Any]]:
+    """Newest first: the days the user acted on these cards, and the cards of each day by time."""
+    oldest = datetime.min.replace(tzinfo=UTC)
+    days: dict[str, list[Card]] = {}
+    for card in sorted(cards, key=lambda c: c.acted_at(tab) or oldest, reverse=True):
+        days.setdefault(format_local(card.acted_at(tab), "%-d %b %Y") or "—", []).append(card)
+    return [{"title": day, "cards": rows} for day, rows in days.items()]
 
 
 # ---------------------------------------------------------------- statistics: tokens per run
@@ -676,8 +689,10 @@ def debug_info(config: AppConfig, storage: Storage, vacancy_id: int) -> dict[str
         return None
     if record.facts is not None:
         collected = local(record.created_at).date() if record.created_at else None
+        primary = storage.items.get(record.primary_raw_id)
         explain = ScoringEngine(config.rules).explain(record.facts, record.published_at, utcnow(),
-                                                      RatesStore(config.paths).for_date(collected))
+                                                      RatesStore(config.paths).for_date(collected),
+                                                      bool(primary and primary.email_only))
         facts = record.facts.model_dump()
     else:
         explain = [f"Skipped before the LLM (no facts): {record.skip_reason or '—'}"]
@@ -690,17 +705,8 @@ def debug_info(config: AppConfig, storage: Storage, vacancy_id: int) -> dict[str
     verdict = (f"group {record.group_no or '—'} · fit {record.stars or '—'} · permit {record.residence_permit or '—'}"
                f" · decision {record.decision}" + (f" ({record.skip_reason})" if record.skip_reason else "")
                + f" · status {record.user_status}")
-    reports = storage.vacancies.reports().get(record.id, [])
-    report = "\n".join([
-        f"Vacancy id {record.id}: {record.title}" + (f" — {record.employer}" if record.employer else ""),
-        f"Run {record.run_id} · {verdict}",
-        *[f"User report {format_local(r['created_at'], '%-d %b %H:%M')}: {r['text']}" for r in reports],
-        "", "Why:", *[f"- {line}" for line in explain],
-        "", "Raw items:", *[f"- {line}" for line in raw_lines],
-        "", "Facts:", json.dumps(facts, ensure_ascii=False, indent=2) if facts else "none (not analysed)",
-    ])
     return {"id": record.id, "verdict": verdict, "explain": explain, "raw": raw_lines,
-            "facts": json.dumps(facts, ensure_ascii=False, indent=2) if facts else "", "report": report}
+            "facts": json.dumps(facts, ensure_ascii=False, indent=2) if facts else ""}
 
 
 def hidden_items(config: AppConfig, storage: Storage) -> list[dict[str, Any]]:
@@ -728,6 +734,14 @@ STEP_LABELS = {
 }
 
 
+def _card_url(record: VacancyRecord | None) -> str | None:
+    """The sidebar's title opens the vacancy's card on the tab where it is now."""
+    if record is None:
+        return None
+    tab = record.user_status if record.user_status in ("applied", "not_now", "skipped", "auto_skipped") else None
+    return f"/processed?filter={tab}#vac-{record.id}" if tab else f"/processed#vac-{record.id}"
+
+
 def application_item(storage: Storage, application: Application) -> dict[str, Any]:
     """One row of the Apply sidebar."""
     record = storage.vacancies.get(application.vacancy_id)
@@ -750,6 +764,7 @@ def application_item(storage: Storage, application: Application) -> dict[str, An
         status = f"Not now · {status}"
     return {
         "id": application.id, "vacancy_id": application.vacancy_id,
+        "card_url": _card_url(record),
         "title": (record.facts.display_title if record and record.facts else "") or (record.title if record else "?"),
         "employer": record.employer if record else "",
         "state": state, "active": application.state.active, "status": status,

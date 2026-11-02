@@ -25,6 +25,21 @@ document.querySelectorAll("[data-hsync]").forEach((box) => {
   }, { passive: true });
 });
 
+/* A group's rounded bottom has reached its stuck head and pushes it up: the line under the head goes while it does. */
+(() => {
+  let queued = false;
+  const update = () => {
+    queued = false;
+    document.querySelectorAll(".group > .card-head").forEach((head) => {
+      const stuckAt = parseFloat(getComputedStyle(head).top) || 0;
+      head.parentElement.classList.toggle("head-pushed", head.getBoundingClientRect().top < stuckAt - 0.5);
+    });
+  };
+  window.addEventListener("scroll", () => { if (!queued) { queued = true; requestAnimationFrame(update); } }, { passive: true });
+  window.addEventListener("resize", update);
+  update();
+})();
+
 /* ---------- the compact title appears in the app bar once the big one has gone under the bars ---------- */
 (() => {
   const big = $("app-title");
@@ -110,7 +125,12 @@ function applicationRow(item) {
   li.dataset.id = item.id;
   const head = el("div", "app-head");
   if (item.active) head.append(el("span", "spinner"));
-  head.append(el("b", "app-item-title", item.title));
+  const title = el(item.card_url ? "a" : "b", "app-item-title", item.title);
+  if (item.card_url) {
+    title.href = item.card_url;
+    title.title = "Open this vacancy's card";
+  }
+  head.append(title);
   const dismiss = el("button", "icon-btn small app-dismiss");
   Object.assign(dismiss, { title: "Remove from the sidebar (files stay)", type: "button" });
   dismiss.setAttribute("aria-label", "Remove from the sidebar");

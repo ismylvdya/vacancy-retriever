@@ -26,7 +26,7 @@ from ..icons import IconStore
 from ..pipeline.manager import AlreadyRunning, RunManager
 from ..pipeline.recalculate import recalculate
 from ..pipeline.runner import RunOptions
-from ..settings.service import SettingsError, SettingsService
+from ..settings.service import LinkedInSwitchError, SettingsError, SettingsService
 from ..storage import Storage
 from ..storage.llm_calls import LlmCallRecord
 from ..timeutil import format_local, from_iso, local, utcnow
@@ -39,6 +39,10 @@ STATIC_ICONS = WEB_DIR / "static" / "icons"
 
 class StatusChange(BaseModel):
     status: str
+
+
+class LinkedInPagesOn(BaseModel):
+    confirm: str = ""
 
 
 class SettingsChanges(BaseModel):
@@ -170,8 +174,7 @@ def create_app(config: AppConfig, storage: Storage, port: int, manager: RunManag
                     active=bool(chosen) or min_stars != views.FEED_MIN_STARS_DEFAULT,
                     shown=len(built), all_count=len(records))
 
-    processed_tabs = [("all", "All"), ("applied", "Applied"), ("not_now", "Not now"),
-                      ("skipped", "Skipped"), ("auto_skipped", "Auto-skipped")]
+    processed_tabs = [("all", "All manually"), ("applied", "Applied"), ("not_now", "Not now"), ("skipped", "Skipped")]
 
     @app.get("/processed", response_class=HTMLResponse)
     def processed(request: Request, filter: str | None = None) -> HTMLResponse:
@@ -193,7 +196,10 @@ def create_app(config: AppConfig, storage: Storage, port: int, manager: RunManag
         built = [cards.build(record) for record in kept]
         pairs = [(k, v) for k, values in sorted(chosen.items()) for v in sorted(values)]
         query = urlencode(pairs + ([("q", search)] + ([("in", where)] if where != "all" else []) if search else []))
-        return page(request, "processed.html", "processed", runs=views.group_by_run(built, storage),
+        # What the user did is grouped by the day they did it; what the app did by the run that did it.
+        grouped = (views.group_by_run(built, storage) if filter == "auto_skipped"
+                   else views.group_by_action_day(built, filter))
+        return page(request, "processed.html", "processed", runs=grouped,
                     total=len(built), current=filter or "all", counts=storage.vacancies.processed_counts(),
                     filters=processed_tabs, facets=filters, active=bool(chosen or search), query=query,
                     search=search, where=where, search_fields=views.SEARCH_FIELDS,
@@ -383,16 +389,9 @@ def create_app(config: AppConfig, storage: Storage, port: int, manager: RunManag
     def report_vacancy(vacancy_id: int, report: Report) -> dict[str, Any]:
         if not report.text.strip():
             raise HTTPException(400, "Write what is wrong with this evaluation")
-        if not storage.vacancies.add_report(vacancy_id, report.text):
+        if not storage.vacancies.save_report(vacancy_id, report.text):
             raise HTTPException(404, "Vacancy not found")
         return {"ok": True, "reported": storage.vacancies.reports_count()}
-
-    @app.get("/api/vacancies/{vacancy_id}/fulltext")
-    def vacancy_text(vacancy_id: int) -> dict[str, str]:
-        text = views.full_text(storage, vacancy_id)
-        if not text:
-            raise HTTPException(404, "Vacancy not found")
-        return {"text": text}
 
     @app.post("/api/notices/{notice_id}/dismiss")
     def dismiss_notice(notice_id: str) -> dict[str, Any]:
@@ -405,6 +404,19 @@ def create_app(config: AppConfig, storage: Storage, port: int, manager: RunManag
     @app.get("/api/settings")
     def read_settings() -> dict[str, Any]:
         return settings.snapshot()
+
+    @app.post("/api/settings/linkedin-pages/off")
+    def linkedin_pages_off() -> dict[str, Any]:
+        settings.linkedin_pages_off()
+        return settings.linkedin_pages()
+
+    @app.post("/api/settings/linkedin-pages/on")
+    def linkedin_pages_on(body: LinkedInPagesOn) -> dict[str, Any]:
+        try:
+            settings.linkedin_pages_on(body.confirm)
+        except LinkedInSwitchError as exc:
+            raise HTTPException(422, str(exc)) from exc
+        return settings.linkedin_pages()
 
     @app.post("/api/settings/preview")
     def preview_settings(body: SettingsChanges) -> Any:

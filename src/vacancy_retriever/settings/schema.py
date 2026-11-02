@@ -79,6 +79,11 @@ SECTIONS: tuple[Section, ...] = (
             Field("rules", "penalties.experience_years_threshold", "number", "Experience counts from",
                   "Required experience from this many years takes a star away.", unit="years", min=0, max=10, step=0.5),
             _penalty("experience", "Experience required", "IT and hands-on roles."),
+            Field("rules", "penalties.russian_ad_bonus", "number", "Ad in Russian adds",
+                  "All else equal, an ad written in Russian gets this many stars more (never above the category's cap).",
+                  unit="★", min=0, max=4, step=1),
+            Field("rules", "penalties.email_only_max_stars", "stars", "E-mail only: at most",
+                  "Known only from a job-alert letter, no description: the evaluation is less reliable."),
         ),
     ),
     Section(
@@ -124,14 +129,35 @@ SECTIONS: tuple[Section, ...] = (
     Section("sources", "Sources", "Which sources a run collects from. A disabled source keeps its history.",
             widget="sources"),
     Section(
-        "linkedin", "LinkedIn descriptions",
-        "LinkedIn letters carry only a title. The description comes from Google for Jobs; what it does not find is "
-        "evaluated from the letter. LinkedIn itself is never opened.",
+        "linkedin", "LinkedIn: Google for Jobs",
+        "LinkedIn letters carry only a title. The description comes from Google for Jobs, with no requests to LinkedIn; "
+        "what it does not find is evaluated from the letter.",
         groups=(
             ("Google for Jobs", (
                 Field("mail", "linkedin_descriptions.enabled", "toggle", "Look up descriptions",
                       "JSearch, then SerpApi. No requests to LinkedIn."),
                 Field("mail", "linkedin_descriptions.max_per_run", "number", "API requests per run", min=1, max=200, step=1),
+            )),
+        ),
+    ),
+    # The switch itself is not a Field: it has its own endpoints (see SettingsService.linkedin_pages_on).
+    Section(
+        "linkedin-pages", "LinkedIn pages (proxy)",
+        "The second way to get a description: LinkedIn's public page, read through a private proxy, for what Google for "
+        "Jobs did not find. It is the only part of the app that ever talks to LinkedIn.",
+        widget="linkedin_pages",
+        groups=(
+            ("Limits while it is on", (
+                Field("mail", "linkedin_public_pages.max_per_day", "number", "Pages per day", min=1, max=30, step=1),
+                Field("mail", "linkedin_public_pages.min_delay", "number", "Pause between pages from", unit="s",
+                      min=30, max=600, step=10),
+                Field("mail", "linkedin_public_pages.max_delay", "number", "… to", unit="s", min=30, max=900, step=10),
+                Field("mail", "linkedin_public_pages.delay_days", "number", "Not earlier than after the letter",
+                      unit="days", min=0, max=7, step=1),
+                Field("mail", "linkedin_public_pages.max_wait_days", "number", "A vacancy waits at most", unit="days",
+                      min=1, max=14, step=1),
+                Field("mail", "linkedin_public_pages.pause_days", "number", "Pause after LinkedIn refuses", unit="days",
+                      min=1, max=14, step=1),
             )),
         ),
     ),

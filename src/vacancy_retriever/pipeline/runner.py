@@ -455,7 +455,7 @@ class Pipeline:
     def _vacancy_from_facts(self, item: StoredRawItem, facts: VacancyFacts, now: datetime) -> NewVacancy | None:
         if not facts.employer_name or facts.employer_name == "unknown":
             facts.employer_name = item.meta.get("company") or facts.employer_name
-        verdict = self.engine.evaluate(facts, item.published_at, now, getattr(self, "_rates", None))
+        verdict = self.engine.evaluate(facts, item.published_at, now, getattr(self, "_rates", None), item.email_only)
         if verdict.decision == "hidden":
             return None
         title = item.title if (not item.multi and item.title) else facts.display_title

@@ -13,7 +13,7 @@ from ...config import AppConfig, MailboxConfig, SenderRule
 from ...notices import add_once
 from ..linkedin_guest import JOB_URL as LINKEDIN_JOB_URL
 from ..linkedin_guest import GuestSettings, LinkedInGuestFetcher, create_egress
-from ..job_search import JobSearchLookup, ProviderSettings
+from ..job_search import JobSearchLookup, create_lookup
 from ..base import CollectContext, Collector, CollectResult, RawItem, SourceError, SourceNotConfigured
 from ..registry import register
 from .generic import decoded_header, message_date, parse_generic
@@ -104,13 +104,7 @@ class EmailCollector(Collector):
     def _job_search(self) -> JobSearchLookup | None:
         """Google for Jobs lookup (no LinkedIn requests) — the main way to describe LinkedIn vacancies."""
         if self._search is None:
-            config = AppConfig()
-            wanted = config.mail.linkedin_descriptions
-            if not wanted.enabled:
-                return None
-            providers = [ProviderSettings(p.id, config.secrets.get(p.key_env), p.max_per_month) for p in wanted.providers]
-            self._search = JobSearchLookup(providers, config.paths.data / "job_search.json", wanted.max_per_run,
-                                           second_query=wanted.second_query)
+            self._search = create_lookup(AppConfig())
         return self._search
 
     def _linkedin(self) -> LinkedInGuestFetcher:
@@ -118,9 +112,9 @@ class EmailCollector(Collector):
             config = AppConfig()
             pages = config.mail.linkedin_public_pages
             self._guest = LinkedInGuestFetcher(
-                GuestSettings(pages.enabled, pages.max_per_day, pages.min_delay, pages.max_delay, pages.pause_days,
-                              require_exit=True),
-                config.paths.data / "linkedin_guest.json", egress=create_egress(config), stop_event=self._stop)
+                GuestSettings(pages.enabled, pages.max_per_day, pages.min_delay, pages.max_delay, pages.pause_days),
+                config.paths.data / "linkedin_guest.json", egress=create_egress(config), stop_event=self._stop,
+                still_enabled=lambda: AppConfig().mail.linkedin_public_pages.enabled)
         return self._guest
 
     def _guest_ready(self) -> bool:
@@ -142,8 +136,8 @@ class EmailCollector(Collector):
 
     def fetch_deferred(self, item: RawItem, waited_days: int) -> tuple[str | None, bool]:
         """A vacancy Google for Jobs did not find: its public LinkedIn page, through the private exit only."""
-        if not LINKEDIN_JOB_URL.match(item.detail_url or ""):
-            return None, True
+        if not LINKEDIN_JOB_URL.match(item.detail_url or "") or not AppConfig().mail.linkedin_public_pages.enabled:
+            return None, True  # switched off: nothing is opened, a waiting vacancy is evaluated from its letter at once
         guest = self._linkedin()
         gave_up = waited_days >= AppConfig().mail.linkedin_public_pages.max_wait_days
         if not guest.available():

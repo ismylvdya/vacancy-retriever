@@ -6,8 +6,9 @@
 
 {% macro role(c) -%}
 <div class="role">
-  <div class="title"><span class="debug-only vac-id">#{{ c.id }}</span>{% if c.reports %}<span class="debug-only flag reported" title="{{ c.reports | length }} report(s)">Reported</span>{% endif %}{% if c.is_new %}<span class="new" title="New in the last run"></span>{% endif %}{{ c.title }}{% for f in c.flags %}<span class="flag"{% if f == 'E-mail only' %} title="Evaluated from the job-alert letter only (title, company, city): the LinkedIn page was not read — less reliable"{% endif %}>{{ f }}</span>{% endfor %}</div>
+  <div class="title"><button type="button" class="debug-only vac-id" data-action="copy-id" title="Copy the id">#{{ c.id }}</button>{% if c.reports %}<span class="debug-only flag reported" title="{{ c.reports | length }} report(s)">Reported</span>{% endif %}{% if c.is_new %}<span class="new" title="New in the last run"></span>{% endif %}{{ c.title }}{% for f in c.flags %}<span class="flag{{ ' flag-ru' if f == 'Russian ad' }}"{% if f == 'E-mail only' %} title="Evaluated from the job-alert letter only (title, company, city): no description was read — less reliable, at most 4 stars"{% endif %}>{{ f }}</span>{% endfor %}</div>
   {% if c.employer %}<div class="sub">{{ c.employer }}</div>{% endif %}
+  {% if c.run_started %}<div class="sub debug-only">Run {{ c.run_started }}</div>{% endif %}
 </div>
 {%- endmacro %}
 
@@ -59,13 +60,10 @@
         <button class="btn" data-action="status" data-status="applied" title="Applied: CV, cover letter, Obsidian note and Drive folder are made in the sidebar">Apply<kbd>▶</kbd></button>
       {% endif %}
       <span class="spacer"></span>
-      <button class="btn btn-quiet debug-only" data-action="report">Report</button>
-      <button class="btn btn-quiet debug-only" data-action="copy-id">Copy id</button>
-      <button class="btn btn-quiet debug-only" data-action="copy-debug">Copy debug report</button>
-      <button class="btn btn-quiet" data-action="copy">Copy text<kbd>C</kbd></button>
+      <button class="btn btn-quiet debug-only" data-action="report"{% if c.reports %} data-report="{{ c.reports[-1].text }}" title="Edit your report"{% endif %}>Report</button>
       <button class="btn btn-quiet" data-action="open-source" title="The vacancy's site (its first source)">Open source<kbd>↵</kbd></button>
     </div>
-    {% if c.reports %}<div class="debug-only reports"><h4>Reports</h4>{% for r in c.reports %}<p><span class="muted small">{{ r.date }}</span> {{ r.text }}</p>{% endfor %}</div>{% endif %}
+    {% if c.reports %}<div class="debug-only reports"><h4>Reports</h4>{% for r in c.reports %}<p><span class="muted small">{{ r.date }}</span> <span class="report-text">{{ r.text }}</span></p>{% endfor %}</div>{% endif %}
     <div class="debug-only debug-box" data-loaded=""></div>
     <pre class="fulltext" hidden>{{ c.description }}</pre>
   </div>

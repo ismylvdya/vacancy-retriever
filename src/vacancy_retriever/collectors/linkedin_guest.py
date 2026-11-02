@@ -10,8 +10,12 @@ and harmless lives here, in one place (decision 2026-10-27):
 - only job pages, never search, profiles or companies; at most `max_per_day` pages a day, 60–180 s apart;
 - the first 429 / 999 / 401 / 403 / redirect / sign-in wall / captcha pauses LinkedIn for `pause_days`
   (data/linkedin_guest.json) — no retries, no switching exits or addresses after a refusal;
+- switched off by default (mail.yaml → linkedin_public_pages.enabled, Settings → LinkedIn pages); the switch is read
+  again before EVERY page, so turning it off stops a run that is already going;
 - pages go only through the app's private exit (collectors/egress.py: a proxy or the Xray tunnel), checked before
-  EVERY page; no exit or a failed check → LinkedIn is not opened at all in this run (never from the home network);
+  EVERY page; no exit or a failed check → LinkedIn is not opened at all in this run (never from the home network).
+  There is no setting or argument to go without it, and the client has no direct route: its only transport is the proxy,
+  environment and system proxies are ignored (trust_env=False);
 - the employer's apply link is only read from the page («Apply: …» line), never opened.
 If anything goes wrong the vacancy is simply evaluated from the letter.
 """
@@ -50,7 +54,7 @@ SOURCE_LINE = "Description source: LinkedIn public page"
 
 
 class GuestBlocked(Exception):
-    """LinkedIn refused a logged-out request: stop for today."""
+    """A LinkedIn request cannot leave safely: no working private exit."""
 
 
 def job_url(job_id: str) -> str:
@@ -80,7 +84,6 @@ class GuestSettings:
     min_delay: float = 60.0
     max_delay: float = 180.0
     pause_days: int = 2
-    require_exit: bool = True
 
 
 def employer_apply_url(html: str) -> str | None:
@@ -139,8 +142,10 @@ def parse_job_page(html: str) -> str | None:
 class LinkedInGuestFetcher:
     def __init__(self, settings: GuestSettings, state_path: Path, transport: httpx.BaseTransport | None = None,
                  sleep: Callable[[float], object] | None = None, today: Callable[[], date] = date.today,
-                 egress: Egress | None = None, stop_event: threading.Event | None = None):
+                 egress: Egress | None = None, stop_event: threading.Event | None = None,
+                 still_enabled: Callable[[], bool] | None = None):
         self.settings = settings
+        self._still_enabled = still_enabled or (lambda: True)  # the switch as it is now, not as the run started
         self._state_path = state_path
         self._stop_event = stop_event or threading.Event()
         self._sleep = sleep or self._stop_event.wait  # a cancelled run does not wait out a 3-minute pause
@@ -157,19 +162,21 @@ class LinkedInGuestFetcher:
         self.note: str | None = None   # information (limit of the day reached)
 
     def _http(self) -> httpx.Client:
+        """The only way out to LinkedIn. It cannot be built without a proxy: there is no direct route to fall back to."""
+        proxy = self._egress.proxy_url if self._egress is not None and self._egress_up else None
+        if not proxy:
+            raise GuestBlocked("no working private exit: LinkedIn stays closed")
         if self._client is None:
             jar = http.cookiejar.CookieJar(policy=http.cookiejar.DefaultCookiePolicy(allowed_domains=[]))
-            proxy = self._egress.proxy_url if self._egress and self._egress_up else None
             self._client = httpx.Client(
                 headers={"User-Agent": USER_AGENT, "Accept": "text/html", "Accept-Language": "en"},
-                cookies=jar, follow_redirects=False, timeout=25.0, transport=self._transport, proxy=proxy,
+                cookies=jar, follow_redirects=False, timeout=25.0, trust_env=False,
+                transport=self._transport or httpx.HTTPTransport(proxy=proxy, trust_env=False),
             )
         return self._client
 
     def _exit_ok(self) -> bool:
         """The private exit is up and passes its checks right now — otherwise LinkedIn stays closed."""
-        if not self.settings.require_exit:
-            return True
         if self._egress_failed:
             return False
         if self._egress is None:
@@ -230,7 +237,7 @@ class LinkedInGuestFetcher:
         log.warning("LinkedIn guest pages paused until %s: %s", until, reason)
 
     def available(self) -> bool:
-        if not self.settings.enabled or self._egress_failed or self._stop_event.is_set():
+        if not self.settings.enabled or not self._still_enabled() or self._egress_failed or self._stop_event.is_set():
             return False
         paused = self.paused_until()
         if paused and paused > self._today():
@@ -248,7 +255,7 @@ class LinkedInGuestFetcher:
         wait = self._last + random.uniform(self.settings.min_delay, self.settings.max_delay) - time.monotonic()
         if self._last and wait > 0:
             self._sleep(wait)
-            if self._stop_event.is_set():
+            if not self.available():  # stopped or switched off during the pause
                 return None
         if not self._exit_ok():  # checked right before the page, after the pause
             return None
@@ -257,6 +264,9 @@ class LinkedInGuestFetcher:
         try:
             response = self._http().get(url)
             traffic.add(traffic.response_size(response))
+        except GuestBlocked as exc:
+            self._exit_down(str(exc))
+            return None
         except httpx.HTTPError as exc:
             log.info("LinkedIn guest page %s failed: %s", url, exc)
             return None

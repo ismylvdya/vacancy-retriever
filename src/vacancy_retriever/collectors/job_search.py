@@ -27,6 +27,7 @@ from urllib.parse import urlparse
 import httpx
 
 from .. import traffic
+from ..config import AppConfig
 
 log = logging.getLogger(__name__)
 
@@ -312,3 +313,13 @@ class JobSearchLookup:
         if self._client is not None:
             self._client.close()
             self._client = None
+
+
+def create_lookup(config: AppConfig) -> JobSearchLookup | None:
+    """The lookup as mail.yaml describes it; None when LinkedIn descriptions are switched off."""
+    wanted = config.mail.linkedin_descriptions
+    if not wanted.enabled:
+        return None
+    providers = [ProviderSettings(p.id, config.secrets.get(p.key_env), p.max_per_month) for p in wanted.providers]
+    return JobSearchLookup(providers, config.paths.data / "job_search.json", wanted.max_per_run,
+                           second_query=wanted.second_query)

@@ -28,6 +28,7 @@ from ..icons import IconStore
 from ..rates import RatesStore
 from ..llm.base import LlmError, LlmProvider
 from ..scoring.engine import ScoringEngine
+from ..scoring.text_facts import fill_from_text
 from ..scoring.facts import VacancyFacts
 from ..storage import Storage
 from ..storage.items import StoredRawItem
@@ -455,6 +456,7 @@ class Pipeline:
     def _vacancy_from_facts(self, item: StoredRawItem, facts: VacancyFacts, now: datetime) -> NewVacancy | None:
         if not facts.employer_name or facts.employer_name == "unknown":
             facts.employer_name = item.meta.get("company") or facts.employer_name
+        fill_from_text(facts, self.config.rules, item)
         verdict = self.engine.evaluate(facts, item.published_at, now, getattr(self, "_rates", None), item.email_only)
         if verdict.decision == "hidden":
             return None

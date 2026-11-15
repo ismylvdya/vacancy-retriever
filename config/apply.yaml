@@ -46,8 +46,9 @@ obsidian:
 
 resume:
   # Папка скилла resume-tailor (SKILL.md, scripts/build.py, references/).
-  # Скилл синхронизируется из claude.ai в ~/.claude/skills/synced/<id>/resume-tailor (путь меняется при пересинхронизации).
-  skill_dir: ~/.claude/skills/synced/8437cc82-309a-4070-9f7c-de6326094222_f6e7bee1-9ee5-4fe7-b462-2a288701e268/resume-tailor
+  # Актуальная копия скилла из claude.ai лежит в папке Claude; только чтение (путь меняется при пересинхронизации).
+  # Копия в ~/.claude/skills/synced/ устарела (28.10.2026, без правил не-IT писем). Выяснено 02.11.2026.
+  skill_dir: ~/Library/Application Support/Claude/local-agent-mode-sessions/skills-plugin/8437cc82-309a-4070-9f7c-de6326094222/f6e7bee1-9ee5-4fe7-b462-2a288701e268/skills/resume-tailor
   # Папка с xelatex, если его нет в PATH (например /Library/TeX/texbin после brew install --cask basictex).
   # scripts/tex — обёртка «xelatex» над Tectonic (brew install tectonic, без sudo; кэш в .cache/tectonic).
   tex_bin_dir: scripts/tex
@@ -55,6 +56,8 @@ resume:
   max_skills: 10
   # Глубина размышлений модели для резюме и письма (claude_sdk): low | medium | high.
   effort: medium
+  # Работа руками (kind: manual в rules.yaml): резюме и папки на Drive нет — заметка с письмом на русском
+  # (решение пользователя 02.11.2026).
   # Куда класть PDF резюме. Собирается во временной папке, сохраняется только PDF — в data/ ничего не остаётся
   # (решение пользователя 30.10.2026). Имя занято другим файлом — «… 2.pdf». Удалил PDF — «Rebuild PDF» в
   # сайдбаре соберёт его заново без LLM (подборка блоков хранится в базе).

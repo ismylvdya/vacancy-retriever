@@ -5,6 +5,7 @@ from dataclasses import dataclass
 from datetime import datetime, timedelta
 
 from ..config import Rules
+from ..scoring.text_facts import word_pattern
 from ..storage.items import StoredRawItem
 
 _LATIN_WORD = re.compile(r"[a-zčćšžđ]+")
@@ -54,9 +55,9 @@ class Prefilter:
     def __init__(self, rules: Rules):
         self._rules = rules
         prefilter = rules.prefilter
-        self._deny = _word_pattern(prefilter.title_deny_keywords)
-        self._grades = _word_pattern(prefilter.title_grade_keywords)
-        self._junior = _word_pattern(prefilter.title_junior_markers)
+        self._deny = word_pattern(prefilter.title_deny_keywords)
+        self._grades = word_pattern(prefilter.title_grade_keywords)
+        self._junior = word_pattern(prefilter.title_junior_markers)
 
     def check(self, item: StoredRawItem, now: datetime) -> PrefilterResult:
         if item.meta.get("ignore"):
@@ -117,8 +118,3 @@ class Prefilter:
         return KEEP
 
 
-def _word_pattern(words: list[str]) -> re.Pattern[str] | None:
-    if not words:
-        return None
-    ordered = sorted(words, key=len, reverse=True)
-    return re.compile(r"(?<![\w+#])(" + "|".join(re.escape(w.lower()) for w in ordered) + r")(?![\w+#])", re.I)

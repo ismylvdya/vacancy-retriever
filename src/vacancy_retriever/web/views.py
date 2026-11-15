@@ -22,10 +22,7 @@ LANGUAGES = {
     "pt": "Portuguese", "tr": "Turkish", "zh": "Chinese", "ja": "Japanese", "cs": "Czech",
 }
 WORK_FORMATS = {"office": "Office", "hybrid": "Hybrid", "remote": "Remote"}
-FLAGS = {
-    "ru": "🇷🇺", "en": "🇬🇧", "sr": "🇷🇸", "de": "🇩🇪", "fr": "🇫🇷", "es": "🇪🇸", "it": "🇮🇹", "pl": "🇵🇱", "uk": "🇺🇦",
-    "kk": "🇰🇿", "ky": "🇰🇬", "nl": "🇳🇱", "pt": "🇵🇹", "tr": "🇹🇷", "zh": "🇨🇳", "ja": "🇯🇵", "cs": "🇨🇿",
-}
+RUSSIAN_TAG, ENGLISH_TAG = "Russian-speaking", "English team"
 GRADES = {"intern": "Intern", "junior": "Junior", "middle": "Middle", "senior": "Senior", "lead": "Lead"}
 EMPLOYER_TYPES = {
     "serbian": "Serbian company", "ru_with_serbian_entity": "Russian company with a Serbian d.o.o.",
@@ -48,8 +45,8 @@ def _known(value: str | None) -> str:
     return "" if not value or value.strip().lower() in {"unknown", "n/a", "none"} else value.strip()
 
 
-def _flag(code: str) -> str:
-    return FLAGS.get(code, code.upper())
+def _language(code: str) -> str:
+    return LANGUAGES.get(code, code.upper())
 
 
 def _salary(value: str | None) -> str:
@@ -96,8 +93,8 @@ class Card:
     run_id: int | None = None
     grade: str = ""
     employer_type: str = ""
-    ad_language: str = ""          # flag (or code) of the language the ad is written in
-    required_languages: list[str] = field(default_factory=list)  # flags with the language name as tooltip
+    ad_language: str = ""          # name of the language the ad is written in
+    required_languages: list[str] = field(default_factory=list)  # language names
     reports: list[dict[str, str]] = field(default_factory=list)  # debug mode: the user's complaints
     run_started: str = ""          # debug mode: the run that collected it
     status_changed_at: datetime | None = None
@@ -132,14 +129,14 @@ class CardBuilder:
         facts = record.facts
         raw = self._storage.items.get(record.primary_raw_id)
         flags = []
-        if record.english_flag:
-            flags.append("English team")
+        if facts and facts.russian_link:
+            flags.append(RUSSIAN_TAG)
+        elif facts and facts.english_team:
+            flags.append(ENGLISH_TAG)
         if record.informal_flag:
             flags.append("Informal")
         if raw and raw.email_only and record.facts:  # evaluated from the 1–2 lines of a job-alert letter only
             flags.append("E-mail only")
-        if facts and facts.ad_language == "ru":
-            flags.append("Russian ad")
         return Card(
             id=record.id,
             title=record.title,
@@ -170,8 +167,8 @@ class CardBuilder:
             last_report_at=max((from_iso(r["created_at"]) for r in self._reports.get(record.id, [])), default=None),
             grade=GRADES.get(facts.seniority, "") if facts else "",
             employer_type=EMPLOYER_TYPES.get(facts.employer_type, "") if facts else "",
-            ad_language=_flag(facts.ad_language) if facts and facts.ad_language != "other" else "",
-            required_languages=[_flag(code) for code in facts.required_languages] if facts else [],
+            ad_language=_language(facts.ad_language) if facts and facts.ad_language != "other" else "",
+            required_languages=[_language(code) for code in facts.required_languages] if facts else [],
             reports=[{"text": r["text"], "date": format_local(r["created_at"], "%-d %b %H:%M")}
                      for r in self._reports.get(record.id, [])],
         )
@@ -742,16 +739,19 @@ def _card_url(record: VacancyRecord | None) -> str | None:
     return f"/processed?filter={tab}#vac-{record.id}" if tab else f"/processed#vac-{record.id}"
 
 
-def application_item(storage: Storage, application: Application) -> dict[str, Any]:
-    """One row of the Apply sidebar."""
+def application_item(config: AppConfig, storage: Storage, application: Application) -> dict[str, Any]:
+    """One row of the Apply sidebar. Hands-on work (kind: manual) has no CV, so no PDF buttons, even on old rows."""
     record = storage.vacancies.get(application.vacancy_id)
+    rule = config.rules.categories.get(record.category) if record else None
+    manual = bool(rule and rule.kind == "manual")
     state = application.state.value
     if state == "queued":
         status = "Queued" if not application.started else "Continuing…"
     elif state == "working" and application.cancel_requested:
         status = "Stopping after this step…"
     elif state == "working":
-        status = STEP_LABELS.get(application.step or "", "Working…")
+        status = ("Writing the cover letter (Claude)…" if manual and application.step == "materials"
+                  else STEP_LABELS.get(application.step or "", "Working…"))
     elif state == "waiting":
         status = f"Claude limit — retry at {format_local(application.due_at, '%H:%M')}"
     elif state == "failed":
@@ -769,9 +769,9 @@ def application_item(storage: Storage, application: Application) -> dict[str, An
         "employer": record.employer if record else "",
         "state": state, "active": application.state.active, "status": status,
         "error": application.error, "warning": application.warning,
-        "has_pdf": bool(application.pdf_path and Path(application.pdf_path).exists()),
+        "has_pdf": bool(not manual and application.pdf_path and Path(application.pdf_path).exists()),
         # the user deleted the PDF from Downloads: «Rebuild PDF» makes it again without LLM
-        "pdf_removed": bool(state == "done" and application.pdf_path
+        "pdf_removed": bool(not manual and state == "done" and application.pdf_path
                             and not Path(application.pdf_path).exists()), "has_letter": bool(application.letter),
         "note_url": f"obsidian://open?path={quote(application.note_path)}" if application.note_path else None,
         "folder_url": application.folder_url, "pdf_url": application.pdf_url,

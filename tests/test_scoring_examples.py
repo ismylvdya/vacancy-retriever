@@ -36,8 +36,8 @@ EXAMPLES = [
     (7, {"role_category": "data_analyst", "seniority": "middle", "seniority_source": "title",
          "work_format": "remote", "employer_type": "russian", "country": "Russia"},
      ("skip", "Grade: middle", None, None, None, None)),
-    (8, {"role_category": "data_analyst", "experience_years": 2, "stack_overlap": "strong",
-         "employer_type": "russian", "work_format": "remote", "country": "Russia"},
+    (8, {"role_category": "data_analyst", "seniority": "junior", "seniority_source": "title", "experience_years": 2,
+         "stack_overlap": "strong", "employer_type": "russian", "work_format": "remote", "country": "Russia"},
      ("show", None, 3, 4, "no", False)),
     (9, {"role_category": "python_backend", "seniority": "junior", "seniority_source": "title",
          "employer_type": "russian", "work_format": "remote", "stack_overlap": "strong"},
@@ -83,7 +83,8 @@ EXAMPLES = [
      ("show", None, 2, 5, "likely", False)),
     (24, {**BELGRADE, "role_category": "manual_warehouse", "ad_language": "sr", "required_languages": []},
      ("skip", "Ad in Serbian", None, None, None, None)),
-    (25, {**BELGRADE, "role_category": "manual_trades", "employment": "official", "experience_years": 3},
+    (25, {**BELGRADE, "role_category": "manual_trades", "seniority": "junior", "seniority_source": "label",
+          "employment": "official", "experience_years": 2},
      ("show", None, 2, 2, "likely", False)),
     (26, {**BELGRADE, "role_category": "manual_warehouse", "employment": "official"},
      ("show", None, 2, 4, "likely", False)),
@@ -133,12 +134,29 @@ def test_english_company_outside_serbia_is_dropped(engine):
     assert engine.evaluate(facts, NOW, NOW).skip_reason == "English-speaking company outside Serbia"
 
 
-def test_experience_in_text_is_not_a_drop(engine):
-    """"опыт от 3 лет" is not a grade: the LLM leaves seniority unknown, the vacancy stays."""
-    facts = VacancyFacts.model_validate({**CONFIDENT, "role_category": "data_analyst", "seniority": "unknown",
-                                         "experience_years": 3, "employer_type": "russian",
-                                         "work_format": "remote", "stack_overlap": "strong"})
-    assert engine.evaluate(facts, NOW, NOW).decision == "show"
+def test_experience_drop_from_the_users_reports(engine):
+    """03.11.2026: from 3 years always; from 2 years unless the vacancy is marked junior or intern."""
+    def reason(**fields):
+        facts = VacancyFacts.model_validate({**CONFIDENT, "role_category": "data_analyst", "employer_type": "russian",
+                                             "work_format": "remote", "stack_overlap": "strong", **fields})
+        return engine.evaluate(facts, NOW, NOW).skip_reason
+    assert reason(experience_years=3) == "Experience: 3+ years"
+    assert reason(experience_years=3, seniority="junior", seniority_source="label") == "Experience: 3+ years"
+    assert reason(experience_years=2) == "Experience: 2+ years"
+    assert reason(experience_years=2, seniority="junior", seniority_source="label") is None
+    assert reason(experience_years=1) is None and reason() is None
+
+
+@pytest.mark.parametrize("title,reason", [
+    ("Директор склада", "Grade in the title"), ("Заместитель директора", "Grade in the title"),
+    ("Senior Python Developer", "Grade in the title"), ("Product Lead (Web)", "Grade in the title"),
+    ("Бизнес-аналитик / Руководитель проектов", "Grade in the title"),
+    ("Junior/Senior AI-разработчика", None), ("Member of Technical Staff (Analyst)", None), ("Data Analyst", None),
+])
+def test_grade_words_in_the_title(engine, title, reason):
+    facts = VacancyFacts.model_validate({**CONFIDENT, "title_original": title, "role_category": "data_analyst",
+                                         "employer_type": "russian", "work_format": "remote"})
+    assert engine.evaluate(facts, NOW, NOW).skip_reason == reason
 
 
 def test_unknown_enum_values_fall_back_to_defaults():

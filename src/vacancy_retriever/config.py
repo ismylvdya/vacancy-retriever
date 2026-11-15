@@ -72,6 +72,11 @@ class PenaltyRules(_Strict):
     email_only_max_stars: int | None = None
 
 
+class ExperienceDropRules(_Strict):
+    years: float | None = None
+    years_unless_junior: float | None = None
+
+
 class GroupInfo(_Strict):
     title: str
     collapsed: bool = False
@@ -102,6 +107,8 @@ class Rules(_Strict):
     penalties: PenaltyRules = Field(default_factory=PenaltyRules)
     dropped_seniority: list[str] = Field(default_factory=lambda: ["middle", "senior", "lead"])
     drop_seniority_from_text: bool = False
+    experience_drop: ExperienceDropRules = Field(default_factory=ExperienceDropRules)
+    russian_link_words: list[str] = Field(default_factory=list)
     salary: SalaryRules = Field(default_factory=SalaryRules)
     groups: dict[int, GroupInfo]
     prefilter: PrefilterRules = Field(default_factory=PrefilterRules)

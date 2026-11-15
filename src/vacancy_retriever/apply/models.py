@@ -116,3 +116,4 @@ class VacancyDossier:
     labels: list[str]
     company_hint: str = ""
     name_title: str = ""  # the title for the note / folder names: with the grade (DossierBuilder.name_title)  # e.g. the country, helps the LLM choose photo / language
+    manual: bool = False  # hands-on work (kind: manual in rules.yaml): the note and a letter, no CV and no Drive

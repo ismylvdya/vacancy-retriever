@@ -6,7 +6,7 @@
 
 {% macro role(c) -%}
 <div class="role">
-  <div class="title"><button type="button" class="debug-only vac-id" data-action="copy-id" title="Copy the id">#{{ c.id }}</button>{% if c.reports %}<span class="debug-only flag reported" title="{{ c.reports | length }} report(s)">Reported</span>{% endif %}{% if c.is_new %}<span class="new" title="New in the last run"></span>{% endif %}{{ c.title }}{% for f in c.flags %}<span class="flag{{ ' flag-ru' if f == 'Russian ad' }}"{% if f == 'E-mail only' %} title="Evaluated from the job-alert letter only (title, company, city): no description was read — less reliable, at most 4 stars"{% endif %}>{{ f }}</span>{% endfor %}</div>
+  <div class="title"><button type="button" class="debug-only vac-id" data-action="copy-id" title="Copy the id">#{{ c.id }}</button>{% if c.reports %}<span class="debug-only flag reported" title="{{ c.reports | length }} report(s)">Reported</span>{% endif %}{% if c.is_new %}<span class="new" title="New in the last run"></span>{% endif %}{{ c.title }}{% for f in c.flags %}<span class="flag{{ ' flag-ru' if f == 'Russian-speaking' }}{{ ' flag-en' if f == 'English team' }}"{% if f == 'E-mail only' %} title="Evaluated from the job-alert letter only (title, company, city): no description was read — less reliable, at most 4 stars"{% endif %}>{{ f }}</span>{% endfor %}</div>
   {% if c.employer %}<div class="sub">{{ c.employer }}</div>{% endif %}
   {% if c.run_started %}<div class="sub debug-only">Run {{ c.run_started }}</div>{% endif %}
 </div>
@@ -46,7 +46,7 @@
       {%- if c.grade %}<span>{{ c.grade }}</span>{% endif -%}
       {%- if c.employer_type %}<span>{{ c.employer_type }}</span>{% endif -%}
       {%- if c.ad_language %}<span title="Language of the ad">Ad {{ c.ad_language }}</span>{% endif -%}
-      {%- if c.required_languages %}<span title="Required languages">Requires {{ c.required_languages | join(' ') }}</span>{% endif -%}
+      {%- if c.required_languages %}<span title="Required languages">Requires {{ c.required_languages | join(', ') }}</span>{% endif -%}
     </p>
     {% endif %}
     {% if c.sources %}<div class="sources">{% for s in c.sources %}<a class="src src-{{ s.kind }} src-from-{{ s.source_id }}" href="{{ s.url }}" target="_blank" rel="noopener noreferrer"><span class="src-ico"><img src="/icons/{{ s.icon or s.source_id }}" alt="" loading="lazy"></span>{{ s.name }}</a>{% endfor %}</div>{% endif %}

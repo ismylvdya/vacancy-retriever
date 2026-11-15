@@ -19,7 +19,7 @@ Fields of each vacancy (enums are exact lowercase strings):
 - experience_years: number of required years (min of a range) or null
 - stack_overlap: strong|partial|none|n_a — overlap of REQUIRED skills with the candidate profile below (n_a for non-IT roles); matched_skills: candidate skills that matched
 - ad_language: ru|en|sr|other — language the ad is written in (Serbian Latin or Cyrillic → sr)
-- required_languages: ISO codes required of the candidate (ru, en, sr, …); [] if none stated
+- required_languages: ISO codes required of the candidate (ru, en, sr, …); [] if none stated. An ad merely written in English does not require English: list it only when the text asks for it
 - serbian_required: true only if the text explicitly asks for Serbian (e.g. "знание сербского", "srpski jezik obavezan"); a Serbian company name (d.o.o./DOO), a Belgrade address or an ad written in Serbian alone do NOT make it true; required_languages likewise lists only languages the text names
 - english_level: none|basic|b1|b2|c1_plus|unknown; english_working: true only if English is the team's actual working/daily language (not just "B2 desirable", not "read docs")
 - russian_speaking_team: yes|no|unknown

@@ -251,6 +251,9 @@ class VacancyRepository:
         rows = self.db.query("SELECT * FROM vacancies WHERE staged = 0 AND facts_json IS NOT NULL")
         return [VacancyRecord.from_row(r) for r in rows]
 
+    def set_facts(self, vacancy_id: int, facts: VacancyFacts) -> None:
+        self.db.execute("UPDATE vacancies SET facts_json = ? WHERE id = ?", (facts.model_dump_json(), vacancy_id))
+
     def apply_recalculated(self, vacancy_id: int, verdict: Verdict, change_status: bool) -> None:
         decision = verdict.decision
         sets = (

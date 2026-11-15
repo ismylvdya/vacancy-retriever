@@ -35,8 +35,11 @@ document.querySelectorAll("[data-hsync]").forEach((box) => {
       head.parentElement.classList.toggle("head-pushed", head.getBoundingClientRect().top < stuckAt - 0.5);
     });
   };
-  window.addEventListener("scroll", () => { if (!queued) { queued = true; requestAnimationFrame(update); } }, { passive: true });
+  const schedule = () => { if (!queued) { queued = true; requestAnimationFrame(update); } };
+  window.addEventListener("scroll", schedule, { passive: true });
   window.addEventListener("resize", update);
+  // a row leaving or coming back (Undo) moves the heads without any scroll
+  document.querySelectorAll(".group-body").forEach((body) => new MutationObserver(schedule).observe(body, { childList: true }));
   update();
 })();
 
@@ -149,7 +152,7 @@ function applicationRow(item) {
     b.dataset.app = action;
     actions.append(b);
   };
-  if (item.has_pdf) button("reveal", "Show PDF");
+  if (item.has_pdf) button("reveal", "PDF");
   if (item.pdf_removed) button("retry", "Rebuild PDF");
   if (item.has_letter) button("letter", "Cover letter");
   if (item.note_url) {

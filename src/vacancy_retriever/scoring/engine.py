@@ -5,13 +5,12 @@ from datetime import datetime, timedelta
 from typing import Literal
 
 from ..config import CategoryRule, Rules
-from .facts import VacancyFacts
+from .facts import RUSSIAN_EMPLOYERS, VacancyFacts
 from .salary import format_rub, monthly_rub, parse_salary
+from .text_facts import word_pattern
 
 Decision = Literal["show", "skip", "hidden"]
 ResidencePermit = Literal["yes", "likely", "no"]
-
-IT_RUSSIAN_EMPLOYERS = {"russian", "ru_with_serbian_entity", "intl_russian_speaking"}
 
 
 @dataclass(frozen=True)
@@ -31,6 +30,8 @@ class ScoringEngine:
 
     def __init__(self, rules: Rules):
         self._rules = rules
+        self._title_grades = word_pattern(rules.prefilter.title_grade_keywords)
+        self._title_juniors = word_pattern(rules.prefilter.title_junior_markers)
 
     def evaluate(
         self, facts: VacancyFacts, published_at: datetime | None, now: datetime,
@@ -124,6 +125,11 @@ class ScoringEngine:
         grade_sources = {"title", "label", "text"} if self._rules.drop_seniority_from_text else {"title", "label"}
         if facts.seniority in self._rules.dropped_seniority and facts.seniority_source in grade_sources:
             return f"Grade: {facts.seniority}"
+        if self._grade_in_title(facts.title_original):
+            return "Grade in the title"
+        too_long = self._too_much_experience(facts)
+        if too_long:
+            return too_long
         russian_required = "ru" in facts.required_languages
         if facts.ad_language == "sr" and not russian_required:
             return "Ad in Serbian, Russian not required"
@@ -142,6 +148,20 @@ class ScoringEngine:
         if published_at and now - published_at > timedelta(days=self._rules.max_age_days):
             return "Expired"
         return None
+
+    def _grade_in_title(self, title: str) -> bool:
+        """The LLM may leave the grade unknown («Директор склада»); a junior marker keeps «Junior/Senior»."""
+        if not self._title_grades or not self._title_grades.search(title):
+            return False
+        return not (self._title_juniors and self._title_juniors.search(title))
+
+    def _too_much_experience(self, facts: VacancyFacts) -> str | None:
+        years, limits = facts.experience_years, self._rules.experience_drop
+        if years is None:
+            return None
+        junior = facts.seniority in {"intern", "junior"}
+        limit = limits.years if junior or limits.years_unless_junior is None else limits.years_unless_junior
+        return f"Experience: {years:g}+ years" if limit is not None and years >= limit else None
 
     def _office_abroad(self, facts: VacancyFacts, in_serbia: bool) -> bool:
         country = facts.country.strip().lower()
@@ -168,7 +188,7 @@ class ScoringEngine:
         if (
             is_it
             and facts.work_format in {"remote", "unknown"}
-            and (facts.employer_type in IT_RUSSIAN_EMPLOYERS or facts.russian_speaking_team == "yes")
+            and (facts.employer_type in RUSSIAN_EMPLOYERS or facts.russian_speaking_team == "yes")
         ):
             return 3, (f"IT, format {facts.work_format}, employer {facts.employer_type}, "
                        f"russian_speaking_team {facts.russian_speaking_team}")
@@ -203,7 +223,8 @@ class ScoringEngine:
             minus -= penalties.russian_ad_bonus
             steps.append(f"+{penalties.russian_ad_bonus} ad in Russian")
         cap = category.cap
-        if category.kind == "it" and facts.english_working and penalties.english_working_max_stars is not None:
+        english = facts.english_working or (facts.employer_type == "intl_english" and not facts.russian_link)
+        if category.kind == "it" and english and penalties.english_working_max_stars is not None:
             cap = min(cap, penalties.english_working_max_stars)
             steps.append(f"English team cap {penalties.english_working_max_stars}")
         if email_only and penalties.email_only_max_stars is not None:

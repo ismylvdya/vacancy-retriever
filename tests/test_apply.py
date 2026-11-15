@@ -14,7 +14,7 @@ from vacancy_retriever.apply.drive import DriveItem, NoDrive, StubDrive, file_ur
 from vacancy_retriever.apply.models import ApplicationState, ApplyError, Materials
 from vacancy_retriever.apply.obsidian import ObsidianVault, frontmatter, normalize_company, note_file_name
 from vacancy_retriever.apply.pipeline import ApplicationPipeline, ApplyServices, DossierBuilder
-from vacancy_retriever.apply.resume import MaterialsWriter, insert_cv_link
+from vacancy_retriever.apply.resume import MaterialsWriter, ResumeSkill, insert_cv_link
 from vacancy_retriever.apply.service import ApplicationService, ApplicationWorker
 from vacancy_retriever.collectors.base import RawItem
 from vacancy_retriever.collectors.job_search import employer_links
@@ -26,6 +26,7 @@ from vacancy_retriever.storage import Storage
 from vacancy_retriever.storage.vacancies import NewVacancy
 from vacancy_retriever.timeutil import utcnow
 from vacancy_retriever.web.app import create_app
+from vacancy_retriever.web.views import application_item
 
 PORT = 18765
 ORIGIN = {"origin": f"http://127.0.0.1:{PORT}"}
@@ -469,3 +470,67 @@ def test_applied_then_not_now_stops_the_application(env):
     env.service.enqueue(env.vacancy_id, kind="not_now")
     app = env.storage.applications.get(app.id)
     assert app.kind == "apply" and app.state == ApplicationState.CANCELLED
+
+
+MANUAL_LETTER = "Добрый день!\n\nС детства увлекаюсь столярным делом\n\nБуду рад обсудить детали\n\nTelegram / WhatsApp: @ismylvdya"
+
+
+def manual_env(env) -> tuple[list[str], int]:
+    """The vacancy becomes hands-on work; the fake LLM answers like the non-IT letter call and keeps its prompts."""
+    env.storage.db.execute("UPDATE vacancies SET category = 'manual_wood' WHERE id = ?", (env.vacancy_id,))
+    systems: list[str] = []
+
+    async def complete_json(system, user, model, schema=None):
+        systems.append(system)
+        return LlmResponse({"letter": MANUAL_LETTER, "skills": ["Сборка мебели"]}, LlmUsage(100, 50, model="m"), "")
+
+    env.provider.complete_json = complete_json
+    env.skill.letters = lambda: "===== references/letters.md =====\nNon-IT letters"
+    return systems, env.vacancy_id
+
+
+def test_hands_on_work_gets_a_note_with_a_letter_no_cv_and_no_drive(env):
+    systems, vacancy_id = manual_env(env)
+    env.service.enqueue(vacancy_id)
+    app = run_all(env)
+    assert app.state == ApplicationState.DONE and app.warning is None
+    assert env.skill.builds == 0 and env.drive.folders == 0 and not app.pdf_path and not app.folder_url
+    assert len(systems) == 1 and "Non-IT letters" in systems[0] and "ALWAYS in Russian" in systems[0]
+    assert "CATALOG" not in systems[0] and "selection" not in systems[0]
+    assert [c["stage"] for c in env.storage.llm_calls.all()] == ["letter"]
+    text = Path(app.note_path).read_text(encoding="utf-8")
+    meta = frontmatter(text)
+    assert meta["👾лэйблы"] == ["📋не IT"] and meta["👾статус"] == ["откликнулся"]
+    assert "https://telegram.me/serbiawork/1" in text and "**описание вакансии:**" in text
+    assert f"### моё\n**cover letter:**\n```\n{MANUAL_LETTER}" in text
+    assert "Google Drive" not in text and "ВСТАВИТЬ" not in text
+    item = application_item(env.config, env.storage, app)
+    assert item["has_letter"] and not item["has_pdf"] and not item["pdf_removed"]
+
+
+def test_old_hands_on_application_with_a_cv_shows_no_pdf_buttons(env):
+    env.service.enqueue(env.vacancy_id)
+    app = run_all(env)
+    assert application_item(env.config, env.storage, app)["has_pdf"], "IT: the PDF button stays"
+    manual_env(env)
+    assert not application_item(env.config, env.storage, app)["has_pdf"]
+    Path(app.pdf_path).unlink()
+    assert not application_item(env.config, env.storage, app)["pdf_removed"], "no «Rebuild PDF» either"
+
+
+def test_a_skill_copy_without_non_it_rules_stops_with_a_setup_error(tmp_path):
+    skill_dir = tmp_path / "skill"
+    (skill_dir / "scripts").mkdir(parents=True)
+    (skill_dir / "references").mkdir()
+    (skill_dir / "scripts" / "build.py").write_text("", encoding="utf-8")
+    (skill_dir / "references" / "letters.md").write_text("## Short letters\n", encoding="utf-8")
+    with pytest.raises(ApplyError) as error:
+        ResumeSkill(skill_dir).letters()
+    assert error.value.kind == "setup" and "Non-IT" in str(error.value)
+    (skill_dir / "references" / "letters.md").write_text("## Non-IT letters\nrules", encoding="utf-8")
+    assert "rules" in ResumeSkill(skill_dir).letters()
+
+
+def test_real_config_points_to_a_skill_with_non_it_rules():
+    """The app must not read the stale copy of the skill (28.10.2026, without the non-IT rules)."""
+    assert "/skills/synced/" not in AppConfig().apply.resume.skill_dir

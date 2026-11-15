@@ -59,7 +59,8 @@ def test_pages_render(client):
     assert "Junior Data Scientist" in feed
     assert 'class="permit permit-yes">Yes<' in feed
     assert "<span>Junior</span>" in feed and "<span>Russian company with a Serbian d.o.o.</span>" in feed
-    assert "Ad 🇷🇺" in feed and "Requires 🇬🇧 🇷🇺" in feed, "grade, employer type and language flags on the card"
+    assert "Ad Russian" in feed and "Requires English, Russian" in feed, "grade, employer type and languages on the card"
+    assert 'flag flag-ru">Russian-speaking<' in feed and "🇬🇧" not in feed
     assert "IT and data in Serbia" in feed
     assert "1500–2000 €" in feed
     assert "https://telegram.me/serbiawork/1" in feed

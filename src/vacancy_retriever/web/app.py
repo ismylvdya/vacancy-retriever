@@ -347,7 +347,7 @@ def create_app(config: AppConfig, storage: Storage, port: int, manager: RunManag
     @app.get("/api/applications")
     def list_applications() -> dict[str, Any]:
         return {"enabled": applications.enabled,
-                "items": [views.application_item(storage, a) for a in applications.visible()]}
+                "items": [views.application_item(config, storage, a) for a in applications.visible()]}
 
     def _application(application_id: int) -> Any:
         found = applications.get(application_id)

@@ -26,7 +26,7 @@ from .resume import MaterialsWriter, ResumeSkill, insert_cv_link
 
 log = logging.getLogger(__name__)
 
-APPLY, NOT_NOW = "apply", "not_now"  # applications.kind: ▶ (CV, letter, Drive) / N (the note with skills only)
+APPLY, NOT_NOW = "apply", "not_now"  # applications.kind: ▶ (CV, letter, Drive; hands-on work: the letter only) / N (the note with skills only)
 
 RUSSIAN_EMPLOYERS = {"russian", "ru_with_serbian_entity", "intl_russian_speaking"}
 SERBIA = {"serbia", "srbija", "rs", "сербия"}
@@ -67,7 +67,8 @@ class DossierBuilder:
         title = (facts.display_title if facts else "") or record.title
         return VacancyDossier(vacancy_id=record.id, title=title, name_title=self.name_title(title, facts),
                               employer=employer, text=text, links=[(label, url) for url, label in unique.items()],
-                              where=self.where(record.facts), labels=self.labels(record.category), company_hint=hint)
+                              where=self.where(record.facts), labels=self.labels(record.category), company_hint=hint,
+                              manual=self.manual(record.category))
 
     def name_title(self, title: str, facts: Any) -> str:
         """«Junior Data Analyst», «Intern ML Engineer»; an internship at a Russian employer — «Аналитик данных стажа».
@@ -111,11 +112,14 @@ class DossierBuilder:
         label = getattr(labels, f"{'ru' if russian else 'en'}_{place}")
         return [label] if label else []  # an empty label in apply.yaml = leave «👾где» empty
 
+    def manual(self, category: str) -> bool:
+        rule = self._config.rules.categories.get(category)
+        return bool(rule and rule.kind == "manual")
+
     def labels(self, category: str) -> list[str]:
         """«📋не IT» for categories worked by hand (kind: manual); label_retrieved if set (empty: the 🦆 in the name)."""
         obsidian = self._config.apply.obsidian
-        rule = self._config.rules.categories.get(category)
-        return [label for label in (obsidian.label_retrieved, obsidian.label_non_it if rule and rule.kind == "manual"
+        return [label for label in (obsidian.label_retrieved, obsidian.label_non_it if self.manual(category)
                                     else "") if label]
 
 
@@ -199,7 +203,7 @@ class FolderStep(Step):
     name = "folder"
 
     def needed(self, app: Application, ctx: StepContext) -> bool:
-        return app.kind == APPLY and ctx.drive.available and not app.folder_id
+        return app.kind == APPLY and ctx.drive.available and not app.folder_id and not ctx.dossier.manual
 
     def run(self, app: Application, ctx: StepContext) -> dict[str, Any]:
         name = drive_folder_name(ctx.services.folder_name, ctx.dossier.name_title or ctx.dossier.title,
@@ -215,7 +219,8 @@ class MaterialsStep(Step):
         return app.kind == APPLY and not app.materials_json
 
     def run(self, app: Application, ctx: StepContext) -> dict[str, Any]:
-        materials = asyncio.run(ctx.writer.write(ctx.dossier, app.id))
+        write = ctx.writer.write_manual if ctx.dossier.manual else ctx.writer.write
+        materials = asyncio.run(write(ctx.dossier, app.id))
         return {"materials_json": materials.to_json(), "skills": ", ".join(materials.skills)}
 
 
@@ -232,7 +237,7 @@ class PdfStep(Step):
     name = "pdf"
 
     def needed(self, app: Application, ctx: StepContext) -> bool:
-        return app.kind == APPLY and not (app.pdf_path and Path(app.pdf_path).exists())
+        return app.kind == APPLY and not (app.pdf_path and Path(app.pdf_path).exists()) and not ctx.dossier.manual
 
     def run(self, app: Application, ctx: StepContext) -> dict[str, Any]:
         """Built in a temporary folder; only the PDF is kept, in ~/Downloads (user, 30.10.2026: nothing in data/)."""
@@ -251,7 +256,8 @@ class UploadStep(Step):
     name = "upload"
 
     def needed(self, app: Application, ctx: StepContext) -> bool:
-        return app.kind == APPLY and ctx.drive.available and bool(app.folder_id) and not app.pdf_file_id
+        return (app.kind == APPLY and ctx.drive.available and bool(app.folder_id) and not app.pdf_file_id
+                and not ctx.dossier.manual)
 
     def run(self, app: Application, ctx: StepContext) -> dict[str, Any]:
         assert app.folder_id and app.pdf_path
@@ -278,7 +284,7 @@ class FinalizeStep(Step):
         updates: dict[str, Any] = {"letter": letter}
         if note is not None:
             ctx.vault.become_applied(note, ctx.dossier.employer)  # type: ignore[union-attr]  # was «не сейчас»
-            mine = ctx.vault.mine_section(app.folder_url, letter)  # type: ignore[union-attr]
+            mine = ctx.vault.mine_section(app.folder_url, letter, ctx.dossier.manual)  # type: ignore[union-attr]
             if ctx.vault.set_mine(note, mine, app.note_mine):  # app.note_mine: what the app wrote there last time
                 updates["note_mine"] = mine
             else:
@@ -347,7 +353,8 @@ class ApplicationPipeline:
         warnings = list(ctx.warnings)
         if ctx.vault is None:
             warnings.append("Obsidian vault not found (config/apply.yaml → obsidian.vault_dir)")
-        if ctx.kind == APPLY and (not ctx.drive.available or isinstance(ctx.drive, StubDrive)):
+        if (ctx.kind == APPLY and not ctx.dossier.manual
+                and (not ctx.drive.available or isinstance(ctx.drive, StubDrive))):
             warnings.append(ctx.drive.reason or "Google Drive is not connected")
         return warnings
 

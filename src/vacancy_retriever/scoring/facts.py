@@ -26,6 +26,8 @@ Employment = Literal["official", "informal", "freelance_contract", "unknown"]
 VisaSupport = Literal["yes", "no", "not_mentioned"]
 Confidence = Literal["high", "medium", "low"]
 
+RUSSIAN_EMPLOYERS = {"russian", "ru_with_serbian_entity", "intl_russian_speaking"}
+
 _DEFAULTS: dict[str, str] = {
     "seniority": "unknown",
     "seniority_source": "none",
@@ -76,6 +78,19 @@ class VacancyFacts(BaseModel):
     summary_ru: str = ""
     link: str = ""
     confidence: Confidence = "low"
+    russian_mention: bool = False  # not from the LLM: the text has a word of rules.yaml → russian_link_words
+
+    @property
+    def russian_link(self) -> bool:
+        """Any link to Russian: required, the ad is in it, a Russian-speaking team or employer, or the text mentions it."""
+        return ("ru" in self.required_languages or self.ad_language == "ru" or self.russian_speaking_team == "yes"
+                or self.employer_type in RUSSIAN_EMPLOYERS or self.russian_mention)
+
+    @property
+    def english_team(self) -> bool:
+        """No hint of Russian, and English is required, is the team's language, or the employer is international."""
+        return not self.russian_link and ("en" in self.required_languages or self.english_working
+                                          or self.employer_type == "intl_english")
 
     @field_validator(*_DEFAULTS.keys(), mode="before")
     @classmethod

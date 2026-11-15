@@ -36,6 +36,21 @@ Reply with ONE JSON object and nothing else:
             most important first, in the vacancy's terms — not limited to the candidate's skills>]}"""
 
 
+MANUAL_RULES = """You are running inside the Vacancy Retriever app, without tools. This vacancy is NON-IT (manual /
+trade / hands-on work), so by the resume-tailor skill no resume is built: write ONLY the cover letter, following the
+«Non-IT letters» section of references/letters.md below (and the rules that section says still apply).
+
+The letter is ALWAYS in Russian, whatever the language of the vacancy. Never invent what the user has not stated; a
+requirement he cannot honestly cover is simply not claimed.
+
+If the company is not stated, never write "Unknown" (or "unknown", «Неизвестно»): greet neutrally («Добрый день!») and
+do not name a company in the letter.
+
+Reply with ONE JSON object and nothing else:
+{"letter": "<the letter as plain text without a code fence, ending with the verbatim Telegram / WhatsApp line>",
+ "skills": [<3-%(max)d key skills / tools the VACANCY requires, short names, most important first, in Russian>]}"""
+
+
 SKILLS_RULES = """You read one job vacancy and list the key hard skills / tools it requires: 3-%(max)d short canonical
 names (Python, SQL, A/B testing, Airflow), most important first, in the vacancy's own terms. Reply with ONE JSON
 object and nothing else: {"skills": ["…", "…"]}"""
@@ -82,6 +97,16 @@ class ResumeSkill:
             if path.exists():
                 parts.append(f"===== {name} =====\n{path.read_text(encoding='utf-8')}")
         return "\n\n".join(parts)
+
+    def letters(self) -> str:
+        """references/letters.md for a hands-on vacancy; an old copy of the skill without its rules is a setup error."""
+        self._check()
+        path = self.skill_dir / "references" / "letters.md"
+        text = path.read_text(encoding="utf-8") if path.exists() else ""
+        if "Non-IT letters" not in text:
+            raise ApplyError(f"No «Non-IT letters» rules in {path}: an old copy of the skill? "
+                             "(config/apply.yaml → resume.skill_dir)", kind="setup")
+        return f"===== references/letters.md =====\n{text}"
 
     def catalog(self) -> str:
         return self._run("catalog", timeout=60)
@@ -144,6 +169,16 @@ class MaterialsWriter:
         response = await self._call("resume", self.system_prompt(), self.user_prompt(dossier), self._model,
                                     application_id)
         return self.parse(response.data, self._max_skills)
+
+    async def write_manual(self, dossier: VacancyDossier, application_id: int | None = None) -> Materials:
+        """Hands-on work: one call for the letter and the vacancy's skills; no CV selection, no catalog."""
+        system = "\n\n".join([MANUAL_RULES % {"max": self._max_skills}, self._skill.letters()])
+        response = await self._call("letter", system, self.user_prompt(dossier), self._model, application_id)
+        letter = response.data.get("letter")
+        if not isinstance(letter, str) or not letter.strip():
+            raise ApplyError("LLM reply has no cover letter")
+        skills = [str(s).strip() for s in response.data.get("skills") or [] if str(s).strip()]
+        return Materials({}, letter.strip(), skills[: self._max_skills])
 
     async def skills(self, dossier: VacancyDossier, application_id: int | None = None) -> list[str]:
         """Not now: only the vacancy's key skills — a small call with the scoring model, no CV and no letter."""

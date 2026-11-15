@@ -627,12 +627,15 @@ body.settings-open { padding-right: 0; }
 /* The line under a stuck head goes while the group's rounded bottom pushes the head up (shell.js) */
 .head-pushed > .card-head, .head-pushed > .card-head .col-head, .head-pushed > .card-head .table-head,
 .head-pushed > .card-head > .cells.head { border-bottom-color: transparent; }
+/* A group whose last row has just left has nothing to divide from its head, wherever it is on the page */
+.group:has(> .group-body):not(:has(> .group-body > *)) > .card-head > .cells.head { border-bottom-color: transparent; }
 
 /* Debug mode */
 button.vac-id { padding: 0; border: 0; background: none; cursor: copy; }
 button.vac-id:hover { color: var(--accent); text-decoration: underline; }
 .title > .flag.reported { margin: 0 8px 0 0; }
 .flag-ru { color: var(--accent); background: color-mix(in srgb, var(--accent) 12%, transparent); }
+.flag-en { color: var(--orange); background: color-mix(in srgb, var(--orange) 14%, transparent); }
 
 /* Processed: tabs that are not about what the user did */
 .seg-pale { opacity: .55; }

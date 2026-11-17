@@ -47,9 +47,15 @@ MISSED_SLACK = timedelta(hours=2)  # a smaller gap between periods is not worth 
 DEDUP_WINDOW_DAYS = 30
 
 
+def source_wanted(source: SourceConfig, groups: set[int]) -> bool:
+    """A source marked with feed groups is collected only while one of them is on; unmarked ones always are."""
+    return not source.groups or bool(set(source.groups) & groups)
+
+
 @dataclass
 class RunOptions:
     source_ids: list[str] | None = None
+    vacancy_groups: list[int] | None = None  # feed groups wanted in this run (None = every enabled one)
     limit: int | None = None
     since: timedelta | None = None
     backfill: dict[str, datetime] | None = None  # source → collect again from here, ignoring its cursor (missed period)
@@ -59,6 +65,7 @@ class RunOptions:
     def as_dict(self) -> dict[str, Any]:
         return {
             "source_ids": self.source_ids,
+            "vacancy_groups": self.vacancy_groups,
             "limit": self.limit,
             "since_hours": self.since.total_seconds() / 3600 if self.since else None,
             "backfill": {s: to_iso(t) for s, t in self.backfill.items()} if self.backfill else None,
@@ -180,7 +187,13 @@ class Pipeline:
             if unknown:
                 raise ValueError(f"Unknown source ids: {', '.join(sorted(unknown))}")
             sources = [s for s in sources if s.id in wanted]
-        return sources
+        active = set(self.config.rules.enabled_groups)
+        if options.vacancy_groups is not None:
+            active &= set(options.vacancy_groups)
+        skipped = [s.id for s in sources if not source_wanted(s, active)]
+        if skipped:
+            log.info("Not collected: only groups that are off in this run (%s)", ", ".join(skipped))
+        return [s for s in sources if source_wanted(s, active)]
 
     def _check_cancel(self) -> None:
         if self.cancel_event.is_set():
@@ -621,9 +634,8 @@ class Pipeline:
         return result
 
     # ------------------------------------------------------------------ texts
-    @staticmethod
-    def _summary_line(summary: RunSummary) -> str:
-        groups = " / ".join(str(summary.new_by_group.get(g, 0)) for g in range(1, 6))
+    def _summary_line(self, summary: RunSummary) -> str:
+        groups = " / ".join(str(summary.new_by_group.get(g, 0)) for g in self.config.rules.enabled_groups)
         line = f"Run {format_local(summary.started_at)} · new {summary.new_total} ({groups})"
         if summary.errors:
             line += f" · errors {summary.errors}"

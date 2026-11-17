@@ -292,7 +292,7 @@ def test_digest_post_becomes_several_vacancies(env):
               facts("QA intern", "Delta", "qa")]
     FEED["chan_a"] = [post("chan_a", 1, "Digest FACTS:" + json.dumps(digest))]
     summary = run(config, storage, paths, FakeProvider())
-    assert summary.new_by_group == {3: 1}
+    assert summary.new_by_group == {6: 1}, "remote in Russia: group 6 since 15.11.2026"
     assert len(storage.vacancies.processed("auto_skipped")) == 2
 
 

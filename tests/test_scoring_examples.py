@@ -38,7 +38,7 @@ EXAMPLES = [
      ("skip", "Grade: middle", None, None, None, None)),
     (8, {"role_category": "data_analyst", "seniority": "junior", "seniority_source": "title", "experience_years": 2,
          "stack_overlap": "strong", "employer_type": "russian", "work_format": "remote", "country": "Russia"},
-     ("show", None, 3, 4, "no", False)),
+     ("show", None, 6, 4, "no", False)),  # remote in Russia: group 6 since 15.11.2026 (was 3)
     (9, {"role_category": "python_backend", "seniority": "junior", "seniority_source": "title",
          "employer_type": "russian", "work_format": "remote", "stack_overlap": "strong"},
      ("show", None, 3, 1, "no", False)),
@@ -169,7 +169,8 @@ def test_unknown_enum_values_fall_back_to_defaults():
 
 
 @pytest.mark.parametrize(("facts", "skipped"), [
-    ({"country": "Russia", "city": "Moscow", "work_format": "office"}, True),
+    ({"country": "Russia", "city": "Moscow", "work_format": "office"}, False),  # group 7 since 16.11.2026
+    ({"country": "Russia", "city": "Kazan", "work_format": "office"}, True),
     ({"country": "France", "work_format": "hybrid"}, True),
     ({"country": "Russia", "work_format": "remote"}, False),
     ({"country": "unknown", "work_format": "office"}, False),
@@ -179,7 +180,7 @@ def test_office_outside_serbia_is_dropped(engine, facts, skipped):
     verdict = engine.evaluate(
         VacancyFacts.model_validate({**CONFIDENT, "role_category": "data_analyst", "employer_type": "russian",
                                      **facts}), NOW, NOW)
-    assert (verdict.skip_reason == "Office outside Serbia") is skipped
+    assert (verdict.skip_reason == "Office outside Serbia and Moscow") is skipped
 
 
 def test_russian_ad_is_not_dropped_for_serbian_requirement(engine):

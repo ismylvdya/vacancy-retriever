@@ -90,19 +90,35 @@ dropped_seniority: [middle, senior, lead]
 # Отсеивать и по грейду, найденному только в тексте (seniority_source: text) — решение пользователя 2026-10-26.
 drop_seniority_from_text: true
 
-# Группы ленты (заголовки — на английском, это интерфейс).
+# Группы ленты (заголовки — на английском, это интерфейс). Номер — постоянный id группы (он хранится в базе);
+# какая вакансия в какую группу попадает, решает scoring/engine.py. Группа 6 (удалёнка в России) выделена из группы 3
+# 15.11.2026: в группе 3 остались русскоязычные работодатели вне России или со страной неизвестно.
+#   enabled: false — вакансии группы уходят в Auto-skipped («Group off»), её источники (sources.yaml → groups) не
+#                    собираются. Меняется в Settings → Feed groups.
 groups:
-  1: {title: "IT and data in Serbia", note: "With residence permit"}
-  2: {title: "Hands-on work in Serbia", note: "With residence permit"}
-  3: {title: "Remote, Russian-speaking employer", note: "No residence permit"}
-  4: {title: "Informal work in Serbia", note: "No residence permit"}
+  1: {title: "IT and data in Serbia", note: "With residence permit", enabled: false}
+  2: {title: "Hands-on work in Serbia", note: "With residence permit", enabled: false}
+  3: {title: "Remote, Russian-speaking employer", note: "Outside Russia or country unknown"}
+  4: {title: "Informal work in Serbia", note: "No residence permit", enabled: false}
   5: {title: "Unclear", collapsed: true}
+  6: {title: "Remote in Russia", note: "No residence permit"}
+  7: {title: "Office in Moscow", note: "Office or hybrid"}
+
+# Порядок групп в ленте (перетаскивается в Settings → Feed groups). Решения пользователя: 15.11.2026 — Россия первой,
+# 16.11.2026 — очная работа в Москве первой (ищет работу в России, в том числе очную).
+group_order: [7, 6, 1, 3, 2, 4, 5]
+
+# Как в фактах может быть записана Россия (для группы 6, сравнение без учёта регистра).
+russia_country_names: [russia, россия, rf, рф, russian federation]
+# Города России, где подходит офис или гибрид (только IT и данные, группа 7; решение 16.11.2026 — только Москва).
+# Город, не названный в объявлении, считается подходящим. Пусто = офис в России отсеивается, как раньше.
+russia_office_cities: [moscow, москва, moskva, мск, msk]
 
 # Как в фактах может быть записана Сербия (сравнение без учёта регистра).
 serbia_country_names: [serbia, srbija, сербия, србија, rs]
 
-# Отсев «офис или гибрид вне Сербии» (Москва, Париж и т.п.), если страна известна.
-# Удалёнка и вакансии с неизвестной страной не трогаются. Выключить: false.
+# Отсев «офис или гибрид вне Сербии» (Казань, Париж и т.п.), если страна известна. IT в городах из
+# russia_office_cities (Москва) — не отсев. Удалёнка и вакансии с неизвестной страной не трогаются. Выключить: false.
 drop_office_outside_serbia: true
 
 # Предфильтр без LLM. Применяется ТОЛЬКО к элементам "одна вакансия"

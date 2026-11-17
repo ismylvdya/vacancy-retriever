@@ -92,11 +92,14 @@ $("run-btn").addEventListener("click", () => startRun());
 /* Run options: period in days + source groups; the last choice is remembered in this browser. */
 const RUN_KEY = "vr-run-options";
 const groupBoxes = [...document.querySelectorAll(".run-groups input")];
+const feedGroupBoxes = [...document.querySelectorAll(".run-vgroups input")];  // feed groups that are on in Settings
 try {
   const saved = JSON.parse(localStorage.getItem(RUN_KEY) || "null");
   if (saved) {
     $("run-days").value = saved.days || "";
     groupBoxes.forEach((box) => { box.checked = saved.groups.includes(box.value); });
+    // a group turned on in Settings later is checked: only the groups unchecked here stay unchecked
+    feedGroupBoxes.forEach((box) => { box.checked = !(saved.offGroups || []).includes(box.value); });
   }
 } catch (e) { /* no storage */ }
 $("run-more").addEventListener("click", (event) => { event.stopPropagation(); $("run-panel").hidden = !$("run-panel").hidden; });
@@ -105,15 +108,20 @@ $("run-defaults").addEventListener("click", (event) => {  // back to: since the 
   event.stopPropagation();
   $("run-days").value = "";
   groupBoxes.forEach((box) => { box.checked = true; });
+  feedGroupBoxes.forEach((box) => { box.checked = true; });
   try { localStorage.removeItem(RUN_KEY); } catch (e) { /* no storage */ }
 });
 $("run-custom").addEventListener("click", () => {
   const days = parseInt($("run-days").value, 10) || null;
   const groups = groupBoxes.filter((box) => box.checked).map((box) => box.value);
   if (!groups.length) { toast("Choose at least one group of sources"); return; }
-  try { localStorage.setItem(RUN_KEY, JSON.stringify({ days, groups })); } catch (e) { /* no storage */ }
+  const feedGroups = feedGroupBoxes.filter((box) => box.checked).map((box) => box.value);
+  if (feedGroupBoxes.length && !feedGroups.length) { toast("Choose at least one feed group"); return; }
+  const offGroups = feedGroupBoxes.filter((box) => !box.checked).map((box) => box.value);
+  try { localStorage.setItem(RUN_KEY, JSON.stringify({ days, groups, offGroups })); } catch (e) { /* no storage */ }
   const missed = $("run-missed");
-  startRun({ days, groups: groups.length === groupBoxes.length ? null : groups, include_missed: !!(missed && missed.checked) });
+  startRun({ days, groups: groups.length === groupBoxes.length ? null : groups,
+             vacancy_groups: offGroups.length ? feedGroups.map(Number) : null, include_missed: !!(missed && missed.checked) });
 });
 /* Missed period after a break: stays in the panel until it is included in a run or dismissed. */
 if ($("missed-dismiss")) {

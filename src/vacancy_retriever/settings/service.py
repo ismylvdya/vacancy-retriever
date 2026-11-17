@@ -24,8 +24,9 @@ MODELS: dict[str, type[BaseModel]] = {"rules": Rules, "sources": SourcesFile, "m
 _CATEGORY = re.compile(r"^rules:categories\.(\w+)\.(kind|base|cap|drop_reason)$")
 LINKEDIN_SWITCH = "linkedin_public_pages.enabled"  # never a Field: the Save button of the screen cannot reach it
 LINKEDIN_CONFIRM = "ENABLE LINKEDIN"
-_GROUP = re.compile(r"^rules:groups\.([1-5])\.(title|note|collapsed)$")
-_SOURCE = re.compile(r"^sources:sources\[([\w.-]+)\]\.enabled$")
+_GROUP = re.compile(r"^rules:groups\.(\d)\.(title|note|collapsed|enabled)$")
+_SOURCE = re.compile(r"^sources:sources\[([\w.-]+)\]\.(enabled|groups)$")
+GROUP_ORDER = "rules:group_order"
 STACKS = (("strong", "Stack matches"), ("partial", "Partly"), ("none", "Does not match"))
 
 
@@ -69,11 +70,13 @@ class SettingsService:
         rules = self._config.rules
         categories = [{"key": key, "label": rule.label, "kind": rule.kind, "base": rule.base, "cap": rule.cap,
                        "drop_reason": rule.drop_reason or ""} for key, rule in rules.categories.items()]
-        groups = [{"number": n, "title": g.title, "note": g.note or "", "collapsed": g.collapsed}
-                  for n, g in sorted(rules.groups.items())]
-        sources = [{"id": s.id, "name": s.name, "type": s.type, "enabled": s.enabled} for s in self._config.sources.sources]
+        groups = [{"number": n, "title": rules.groups[n].title, "note": rules.groups[n].note or "",
+                   "collapsed": rules.groups[n].collapsed, "enabled": rules.groups[n].enabled}
+                  for n in rules.ordered_groups]
+        sources = [{"id": s.id, "name": s.name, "type": s.type, "enabled": s.enabled, "groups": s.groups}
+                   for s in self._config.sources.sources]
         return {"sections": [s.as_dict() for s in SECTIONS], "values": values, "categories": categories,
-                "groups": groups, "sources": sources, "kinds": [{"value": v, "label": label} for v, label in KINDS],
+                "groups": groups, "group_order": rules.ordered_groups, "sources": sources, "kinds": [{"value": v, "label": label} for v, label in KINDS],
                 "fit": self._fit(rules), "linkedin_pages": self.linkedin_pages()}
 
     # ---------- writing
@@ -161,12 +164,18 @@ class SettingsService:
             kind = {"kind": "choice", "base": "stars", "cap": "stars", "drop_reason": "text"}[match.group(2)]
             options = KINDS if kind == "choice" else ()
             return file, path, _coerce(Field(file, path, kind, "", options=options), raw)  # type: ignore[arg-type]
+        if field_id == GROUP_ORDER:
+            return file, path, _group_list(raw, self._config.rules.groups, whole=True)
         if match := _GROUP.match(field_id):
-            kind = "toggle" if match.group(2) == "collapsed" else "text"
+            if int(match.group(1)) not in self._config.rules.groups:
+                raise ValueError("unknown group")
+            kind = "toggle" if match.group(2) in ("collapsed", "enabled") else "text"
             return file, path, _coerce(Field(file, path, kind, ""), raw)  # type: ignore[arg-type]
         if match := _SOURCE.match(field_id):
             if not any(s.id == match.group(1) for s in self._config.sources.sources):
                 raise ValueError("unknown source")
+            if match.group(2) == "groups":
+                return file, path, _group_list(raw, self._config.rules.groups)
             return file, path, _coerce(Field(file, path, "toggle", ""), raw)
         raise ValueError("this setting cannot be changed here")
 
@@ -200,6 +209,17 @@ def _plain(value: Any) -> Any:
     if isinstance(value, list):
         return [str(v) for v in value]
     return value
+
+
+def _group_list(raw: Any, groups: dict[int, Any], whole: bool = False) -> list[int]:
+    """Feed group numbers: the order of all of them (whole) or the groups of one source (sorted)."""
+    if not isinstance(raw, list) or not all(isinstance(x, int) and not isinstance(x, bool) for x in raw):
+        raise ValueError("must be a list of group numbers")
+    if len(set(raw)) != len(raw) or not set(raw) <= groups.keys():
+        raise ValueError("unknown or repeated group")
+    if whole and set(raw) != groups.keys():
+        raise ValueError("the order must list every group once")
+    return list(raw) if whole else sorted(raw)
 
 
 def _coerce(f: Field, raw: Any) -> Any:

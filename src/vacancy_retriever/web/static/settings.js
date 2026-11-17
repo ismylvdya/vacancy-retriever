@@ -21,10 +21,11 @@ const Settings = (() => {
     if (id in snapshot.values) return snapshot.values[id];
     let match = id.match(/^rules:categories\.(\w+)\.(\w+)$/);
     if (match) { const c = snapshot.categories.find((x) => x.key === match[1]); return c ? c[match[2]] : null; }
+    if (id === "rules:group_order") return snapshot.group_order;
     match = id.match(/^rules:groups\.(\d)\.(\w+)$/);
     if (match) { const g = snapshot.groups.find((x) => String(x.number) === match[1]); return g ? g[match[2]] : null; }
-    match = id.match(/^sources:sources\[(.+)\]\.enabled$/);
-    if (match) { const s = snapshot.sources.find((x) => x.id === match[1]); return s ? s.enabled : null; }
+    match = id.match(/^sources:sources\[(.+)\]\.(enabled|groups)$/);
+    if (match) { const s = snapshot.sources.find((x) => x.id === match[1]); return s ? s[match[2]] : null; }
     return null;
   }
   const value = (id) => (draft.has(id) ? draft.get(id) : original(id));
@@ -263,13 +264,61 @@ const Settings = (() => {
     return panel;
   }
 
+  /* Feed groups: drag a row (or use Alt+↑ / Alt+↓ on it) to change the order; the checkbox turns a group off. */
   function groupsBlock() {
-    const list = el("div", "rows");
-    snapshot.groups.forEach((g) => {
+    const list = el("div", "rows group-list");
+    const order = value("rules:group_order");
+    const move = (number, to) => {
+      const next = order.filter((n) => n !== number);
+      next.splice(Math.max(0, Math.min(next.length, to)), 0, number);
+      change("rules:group_order", next, { rerender: true });
+    };
+    let dragged = null;
+    order.map((n) => snapshot.groups.find((g) => g.number === n)).filter(Boolean).forEach((g, index) => {
       const prefix = `rules:groups.${g.number}`;
-      const line = el("div", "group-setting");
+      const on = value(`${prefix}.enabled`) !== false;
+      const line = el("div", `group-setting${on ? "" : " is-off"}`);
       line.dataset.field = `${prefix}.title`;
-      line.append(el("span", "group-number", String(g.number)));
+      line.draggable = true;
+      line.tabIndex = 0;
+      line.setAttribute("aria-label", `Group ${g.number}, position ${index + 1}. Alt+Up / Alt+Down to move`);
+      line.addEventListener("dragstart", (event) => {
+        if (event.target.closest("input:not([type=checkbox])")) { event.preventDefault(); return; }
+        dragged = g.number;
+        line.classList.add("dragging");
+        event.dataTransfer.effectAllowed = "move";
+        event.dataTransfer.setData("text/plain", String(g.number));
+      });
+      line.addEventListener("dragend", () => { line.classList.remove("dragging"); dragged = null; });
+      line.addEventListener("dragover", (event) => {
+        if (dragged === null || dragged === g.number) return;
+        event.preventDefault();
+        const below = event.offsetY > line.offsetHeight / 2;
+        line.classList.toggle("drop-before", !below);
+        line.classList.toggle("drop-after", below);
+      });
+      line.addEventListener("dragleave", () => line.classList.remove("drop-before", "drop-after"));
+      line.addEventListener("drop", (event) => {
+        event.preventDefault();
+        const below = line.classList.contains("drop-after");
+        line.classList.remove("drop-before", "drop-after");
+        if (dragged === null || dragged === g.number) return;
+        const rest = order.filter((n) => n !== dragged);
+        move(dragged, rest.indexOf(g.number) + (below ? 1 : 0));
+      });
+      line.addEventListener("keydown", (event) => {
+        if (!event.altKey || !["ArrowUp", "ArrowDown"].includes(event.key) || event.target !== line) return;
+        event.preventDefault();
+        move(g.number, index + (event.key === "ArrowUp" ? -1 : 1));
+        requestAnimationFrame(() => root.querySelector(`.group-setting[data-field="${prefix}.title"]`)?.focus());
+      });
+      const handle = el("span", "drag-handle", "⠿");
+      handle.setAttribute("aria-hidden", "true");
+      const box = el("input");
+      Object.assign(box, { type: "checkbox", checked: on, title: on ? "Searched — uncheck to turn the group off" : "Off — not searched" });
+      box.setAttribute("aria-label", `Search group ${g.number}`);
+      box.addEventListener("change", () => change(`${prefix}.enabled`, box.checked, { rerender: true }));
+      line.append(handle, box, el("span", "group-number", String(g.number)));
       const title = text(`${prefix}.title`, value(`${prefix}.title`));
       title.setAttribute("aria-label", `Group ${g.number} title`);
       const note = text(`${prefix}.note`, value(`${prefix}.note`));
@@ -298,10 +347,37 @@ const Settings = (() => {
         Object.assign(icon, { src: `/icons/${encodeURIComponent(s.id)}`, alt: "", loading: "lazy" });
         line.append(icon, el("span", "source-name", s.name), toggle(id, value(id)));
         column.append(line);
+        column.append(sourceGroups(s));
       });
       block.append(column);
     });
     return block;
+  }
+
+  /* The feed groups a source gives: one small button per group, in the feed's order. None pressed = always collected. */
+  function sourceGroups(s) {
+    const id = `sources:sources[${s.id}].groups`;
+    const chosen = value(id) || [];
+    const row = el("div", "source-groups");
+    row.dataset.field = id;
+    value("rules:group_order").forEach((n) => {
+      const g = snapshot.groups.find((x) => x.number === n);
+      if (!g) return;
+      const pressed = chosen.includes(n);
+      const off = value(`rules:groups.${n}.enabled`) === false;
+      const b = el("button", `group-chip${pressed ? " is-on" : ""}${off ? " group-off" : ""}`, String(n));
+      b.type = "button";
+      b.title = `${g.title}${off ? " (off)" : ""}`;
+      b.setAttribute("aria-pressed", String(pressed));
+      b.addEventListener("click", () => {
+        const next = pressed ? chosen.filter((x) => x !== n) : [...chosen, n].sort((a, b2) => a - b2);
+        change(id, next, { rerender: true });
+      });
+      row.append(b);
+    });
+    const skipped = chosen.length && chosen.every((n) => value(`rules:groups.${n}.enabled`) === false);
+    row.append(el("span", "source-groups-note", !chosen.length ? "always collected" : skipped ? "not collected: its groups are off" : ""));
+    return row;
   }
 
   /* ---------- LinkedIn pages: not part of the draft and of Save. Off in one click; on only with a proxy that passes

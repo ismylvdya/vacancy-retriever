@@ -40,3 +40,14 @@ def no_network(monkeypatch):
     monkeypatch.setattr(httpx.HTTPTransport, "handle_request", refuse)
     # The pipeline asks for today's rates on every run: in tests there are none (salary tests use saved files).
     monkeypatch.setattr("vacancy_retriever.rates.RatesStore._download", staticmethod(lambda http: None))
+
+
+@pytest.fixture(autouse=True)
+def every_feed_group_on(request, monkeypatch):
+    """Tests read the real config/rules.yaml, where the user turns feed groups on and off (Settings → Feed groups).
+    Those switches must not change what other tests check; test_feed_groups.py checks the switches themselves."""
+    if request.module.__name__.endswith("test_feed_groups"):
+        return
+    from vacancy_retriever.config import GroupInfo
+
+    monkeypatch.setattr(GroupInfo, "enabled", property(lambda self: True, lambda self, value: None), raising=False)

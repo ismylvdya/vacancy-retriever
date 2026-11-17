@@ -1,9 +1,9 @@
-"""hh.ru (noreply@hh.ru): saved-search ("автопоиск") mailings; "Подходящие вакансии для резюме" are skipped.
+"""hh.ru (noreply@hh.ru): saved-search ("автопоиск") mailings and "Подходящие вакансии для резюме".
 
-The resume recommendations do not say whether a job is remote and hh pages cannot be fetched, so most of them would
-be Moscow offices shown as remote work (decision 2026-10-26): they are a known non-vacancy template. The user keeps
-saved searches with the "Удалённая работа" filter instead; their vacancies get the hint work_format=remote when the
-letter mentions remote work or the saved search is named "… vacancy-retriever …".
+Since 16.11.2026 the user looks for work in Russia, office in Moscow included, so the resume recommendations are read
+too (until then they were skipped: office or remote was unknown). Hints for the LLM: work_format=remote when the
+letter says remote work; work_format=office for a row whose address has a metro station («Москва, м. Арбатская»).
+The name of a saved search no longer means remote: «для 🦆 vacancy-retriever (…)» brought Moscow offices as well.
 
 Every vacancy is a table row: title link to hh.ru/vacancy/<id>, optional salary, company, "Посмотреть вакансию".
 Links in these letters carry `loginkey=` — a token that logs into the user's hh account. It must never be stored,
@@ -22,9 +22,8 @@ _VACANCY = re.compile(r"hh\.ru/vacancy/(\d+)")
 _SALARY = re.compile(r"^(от|до)$|^[\d\s\u00a0\u202f]+$|₽|руб\.|\$|€|\bUSD\b|\bEUR\b|\bKZT\b|₸|за\s+месяц", re.I)
 _BUTTONS = {"Посмотреть вакансию", "Откликнуться"}
 _RESUME_PICKS = re.compile(r"подходящие вакансии для резюме", re.I)
-# Remote work is either stated in the letter, or the saved search carries the "vacancy-retriever" mark in its name:
-# the user names remote-only saved searches "для 🦆 vacancy-retriever (…)" (2026-10-26).
-_REMOTE = re.compile(r"удал[её]нн?(ая|о)\s+работ|удал[её]нно|удал[её]нка|vacancy-retriever", re.I)
+_REMOTE = re.compile(r"удал[её]нн?(ая|о)\s+работ|удал[её]нно|удал[её]нка", re.I)
+_METRO = re.compile(r"(?:^|,\s*)м\.\s")  # «Москва, м. Арбатская»: an address in the city, not remote
 
 
 def _row_lines(link) -> list[str]:
@@ -38,8 +37,7 @@ def _row_lines(link) -> list[str]:
 
 @register_parser("hh_ru")
 def parse(message: Message) -> list[ParsedVacancy]:
-    if _RESUME_PICKS.search(subject(message)):
-        raise IgnoreLetter("hh.ru resume recommendations (office / remote unknown)")
+    picks = bool(_RESUME_PICKS.search(subject(message)))
     soup = html_soup(message)
     remote = bool(_REMOTE.search(soup.get_text(" ")))
     seen: set[str] = set()
@@ -59,12 +57,14 @@ def parse(message: Message) -> list[ParsedVacancy]:
         # the real saved-search letter (28.10.2026) has «Работодатель, Город, м. Метро» in one line
         company, _, location = place.partition(", ")
         url = f"https://hh.ru/vacancy/{job_id}"
-        text = "\n".join(filter(None, [title, company, location, f"Зарплата: {salary}" if salary else "",
-                                       "hh.ru — автопоиск (вакансии по подписке)"]))
+        origin = "hh.ru — подходящие вакансии для резюме" if picks else "hh.ru — автопоиск (вакансии по подписке)"
+        work_format = "remote" if remote else "office" if _METRO.search(location) else None
+        text = "\n".join(filter(None, [title, company, location, f"Зарплата: {salary}" if salary else "", origin]))
         vacancies.append(ParsedVacancy(title=title, url=url, company=company, location=location, text=text,
                                        key=f"hh:{job_id}",
-                                       extra={"template": "hh_saved_search", **({"salary": salary} if salary else {}),
-                                              **({"work_format": "remote"} if remote else {})}))
+                                       extra={"template": "hh_resume_picks" if picks else "hh_saved_search",
+                                              **({"salary": salary} if salary else {}),
+                                              **({"work_format": work_format} if work_format else {})}))
     if not vacancies:
         raise UnknownLetter("hh.ru letter without vacancy list")
     return vacancies

@@ -28,6 +28,7 @@ class SourceConfig(_Strict):
     posts_per_day: float = 1.0
     icon: str | None = None
     disabled_reason: str | None = None
+    groups: list[int] = Field(default_factory=list)  # feed groups it gives; none = unknown, always collected
     params: dict[str, Any] = Field(default_factory=dict)
 
     @field_validator("id")
@@ -77,10 +78,14 @@ class ExperienceDropRules(_Strict):
     years_unless_junior: float | None = None
 
 
+GROUP_NUMBERS = (1, 2, 3, 4, 5, 6, 7)  # the groups scoring/engine.py can set
+
+
 class GroupInfo(_Strict):
     title: str
     collapsed: bool = False
     note: str | None = None
+    enabled: bool = True  # false: its vacancies are skipped ("Group off") and its own sources are not collected
 
 
 class PrefilterRules(_Strict):
@@ -111,9 +116,29 @@ class Rules(_Strict):
     russian_link_words: list[str] = Field(default_factory=list)
     salary: SalaryRules = Field(default_factory=SalaryRules)
     groups: dict[int, GroupInfo]
+    group_order: list[int] = Field(default_factory=list)  # the feed's order; groups missing here follow by number
     prefilter: PrefilterRules = Field(default_factory=PrefilterRules)
     serbia_country_names: list[str] = Field(default_factory=lambda: ["serbia", "сербия", "srbija"])
+    russia_country_names: list[str] = Field(default_factory=lambda: ["russia", "россия", "rf", "рф"])
+    russia_office_cities: list[str] = Field(default_factory=list)  # IT in the office here is welcome (group 7)
     drop_office_outside_serbia: bool = False
+
+    @field_validator("groups")
+    @classmethod
+    def _has_every_group(cls, value: dict[int, GroupInfo]) -> dict[int, GroupInfo]:
+        missing = sorted(set(GROUP_NUMBERS) - value.keys())
+        if missing:
+            raise ValueError(f"groups {', '.join(map(str, missing))} are required (scoring/engine.py sets them)")
+        return value
+
+    @property
+    def ordered_groups(self) -> list[int]:
+        known = [n for n in dict.fromkeys(self.group_order) if n in self.groups]
+        return known + sorted(n for n in self.groups if n not in known)
+
+    @property
+    def enabled_groups(self) -> list[int]:
+        return [n for n in self.ordered_groups if self.groups[n].enabled]
 
     @field_validator("categories")
     @classmethod

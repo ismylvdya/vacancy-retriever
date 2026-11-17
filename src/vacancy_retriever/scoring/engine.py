@@ -46,6 +46,7 @@ class ScoringEngine:
         if category.kind == "hidden":
             return Verdict("hidden", "Not a vacancy", None, None, permit, permit_reason, False, False)
         group = self._group(facts, category, in_serbia)
+        skip = skip or self._group_off(group)
         stars = self._stars(facts, category, email_only)
         return Verdict(
             decision="skip" if skip else "show",
@@ -85,6 +86,7 @@ class ScoringEngine:
         skip = self._skip_reason(facts, category, in_serbia, published_at, now) or self._salary_too_high(facts, rates)
         if category.kind == "hidden":
             return [*lines, "Decision: hidden (not a vacancy)"]
+        skip = skip or self._group_off(self._group(facts, category, in_serbia))
         floor = self.salary_floor_rub(facts, rates)
         if facts.salary_text:
             lines.append(f"Salary «{facts.salary_text}»: floor ≈ {format_rub(floor)}/month" if floor is not None
@@ -143,11 +145,18 @@ class ScoringEngine:
             and not in_serbia
         ):
             return "English-speaking company outside Serbia"
-        if self._rules.drop_office_outside_serbia and self._office_abroad(facts, in_serbia):
-            return "Office outside Serbia"
+        if self._rules.drop_office_outside_serbia and self._office_abroad(facts, category, in_serbia):
+            return "Office outside Serbia and Moscow" if self._rules.russia_office_cities else "Office outside Serbia"
         if published_at and now - published_at > timedelta(days=self._rules.max_age_days):
             return "Expired"
         return None
+
+    def _group_off(self, group: int) -> str | None:
+        info = self._rules.groups.get(group)
+        return f"Group off: {info.title}" if info is not None and not info.enabled else None
+
+    def _in_russia(self, facts: VacancyFacts) -> bool:
+        return facts.country.strip().lower() in self._rules.russia_country_names
 
     def _grade_in_title(self, title: str) -> bool:
         """The LLM may leave the grade unknown («Директор склада»); a junior marker keeps «Junior/Senior»."""
@@ -163,10 +172,19 @@ class ScoringEngine:
         limit = limits.years if junior or limits.years_unless_junior is None else limits.years_unless_junior
         return f"Experience: {years:g}+ years" if limit is not None and years >= limit else None
 
-    def _office_abroad(self, facts: VacancyFacts, in_serbia: bool) -> bool:
+    def _office_abroad(self, facts: VacancyFacts, category: CategoryRule, in_serbia: bool) -> bool:
         country = facts.country.strip().lower()
         known_country = country not in {"", "unknown", "n/a", "remote"}
+        if category.kind == "it" and self._russian_office_city(facts):
+            return False  # IT in the office in Moscow (decision 15.11.2026): group 7
         return facts.work_format in {"office", "hybrid"} and known_country and not in_serbia
+
+    def _russian_office_city(self, facts: VacancyFacts) -> bool:
+        """In Russia and in one of rules.yaml → russia_office_cities; a city the ad does not name counts too."""
+        if not self._in_russia(facts) or not self._rules.russia_office_cities:
+            return False
+        city = facts.city.strip().lower()
+        return city in {"", "unknown"} or city in self._rules.russia_office_cities
 
     def _group(self, facts: VacancyFacts, category: CategoryRule, in_serbia: bool) -> int:
         return self._group_with_reason(facts, category, in_serbia)[0]
@@ -185,6 +203,10 @@ class ScoringEngine:
             facts.employment == "informal" or facts.employer_type == "private_person"
         ):
             return 4, f"manual work in Serbia, {facts.employment} / {facts.employer_type}"
+        if is_it and facts.work_format in {"office", "hybrid"} and self._russian_office_city(facts):
+            return 7, f"IT, {facts.work_format} in {facts.city or 'Russia'}"
+        if is_it and facts.work_format in {"remote", "unknown"} and self._in_russia(facts):
+            return 6, f"IT, format {facts.work_format}, country {facts.country}"
         if (
             is_it
             and facts.work_format in {"remote", "unknown"}

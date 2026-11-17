@@ -62,6 +62,9 @@
           <label><input type="checkbox" value="sites" checked> Sites</label>
           <label><input type="checkbox" value="email" checked> E-mail</label>
         </div>
+        <div class="run-vgroups" title="Sources that give only unchecked groups are not collected in this run">
+          {% for g in run_groups %}<label><input type="checkbox" value="{{ g.number }}" checked> {{ g.title }}</label>{% endfor %}
+        </div>
         <p class="muted small">The <b>Run</b> button next to ▾ always takes everything since the last run from all sources.
           These options are only for the Run below and are remembered in this browser
           (<button class="link quiet small" id="run-defaults" type="button">reset</button>). Each source still starts

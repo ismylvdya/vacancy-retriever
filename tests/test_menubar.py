@@ -48,9 +48,11 @@ def test_browser_shortcut_script_and_config():
 
     settings = BrowserSettings(app="Arc", shortcut_before_open="Ctrl+2")
     assert settings.shortcut_before_open == "ctrl+2"
-    script = shortcut_script("Arc", settings.shortcut_before_open)
+    script = shortcut_script(settings.shortcut_before_open, app="Arc")
     assert 'tell application "Arc" to activate' in script
     assert 'keystroke "2" using {control down}' in script
+    default = shortcut_script("ctrl+2", bundle_id="app.zen-browser.zen")
+    assert 'tell application id "app.zen-browser.zen" to activate' in default
     assert BrowserSettings(shortcut_before_open="").shortcut_before_open is None
     with pytest.raises(ValidationError):
         BrowserSettings(shortcut_before_open="hyper+22")
@@ -59,4 +61,31 @@ def test_browser_shortcut_script_and_config():
 def test_project_app_yaml_is_valid():
     from vacancy_retriever.config import AppConfig
 
-    assert AppConfig().ui.browser.app == "Arc"
+    browser = AppConfig().ui.browser
+    assert browser.app is None and browser.shortcut_before_open == "ctrl+2", "default browser + Ctrl+2 (17.11.2026)"
+
+
+def test_default_browser_is_read_from_launch_services(tmp_path):
+    import plistlib
+
+    from vacancy_retriever.menubar.browser import SAFARI, default_browser_id
+
+    plist = tmp_path / "ls.plist"
+    plist.write_bytes(plistlib.dumps({"LSHandlers": [
+        {"LSHandlerContentType": "public.html", "LSHandlerRoleAll": "com.other"},
+        {"LSHandlerURLScheme": "https", "LSHandlerRoleAll": "app.zen-browser.zen"}]}))
+    assert default_browser_id(plist) == "app.zen-browser.zen"
+    assert default_browser_id(tmp_path / "missing.plist") == SAFARI
+
+
+def test_feed_opens_in_the_default_browser_after_the_shortcut(monkeypatch):
+    from vacancy_retriever.config import BrowserSettings
+    from vacancy_retriever.menubar import browser
+
+    calls = []
+    monkeypatch.setattr(browser.subprocess, "run", lambda cmd, **kw: calls.append(cmd) or type("R", (), {"returncode": 0})())
+    monkeypatch.setattr(browser.time, "sleep", lambda s: None)
+    monkeypatch.setattr(browser, "default_browser_id", lambda: "app.zen-browser.zen")
+    browser.open_feed("http://127.0.0.1:18765/", BrowserSettings(shortcut_before_open="ctrl+2"))
+    assert calls[0][0] == "osascript" and 'application id "app.zen-browser.zen"' in calls[0][2]
+    assert calls[1] == ["open", "http://127.0.0.1:18765/"]

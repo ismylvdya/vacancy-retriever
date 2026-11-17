@@ -120,14 +120,15 @@ def is_bulk(message: Message) -> bool:
 _SERBIA = ("serbia", "srbija", "сербия", "србија", "belgrade", "beograd", "белград", "београд", "novi sad", "нови сад",
            "нови-сад", "niš", "ниш", "kragujevac", "subotica")
 _REMOTE = ("удал", "дистанц", "remote", "любой")
+_MOSCOW = ("москв", "moscow", "moskva")  # office in Moscow is welcome (decision 16.11.2026)
 
 
 def office_abroad(city: str, work_format: str) -> bool:
-    """A fixed city outside Serbia and a format that is not remote (office / hybrid / not stated)."""
+    """A fixed city outside Serbia and Moscow and a format that is not remote (office / hybrid / not stated)."""
     city_l, format_l = city.lower(), work_format.lower()
     if not city_l or any(word in city_l for word in _REMOTE) or any(word in format_l for word in _REMOTE):
         return False
-    return not any(word in city_l for word in _SERBIA)
+    return not any(word in city_l for word in (*_SERBIA, *_MOSCOW))
 
 
 def field_value(text: str, label: str) -> str:

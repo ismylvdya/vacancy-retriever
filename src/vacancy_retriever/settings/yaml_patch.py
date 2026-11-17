@@ -161,7 +161,7 @@ class YamlDocument:
 
     def _replace_list(self, current: CommentedSeq, line: int, col: int, value: Any) -> None:
         items = [yaml_scalar(v) for v in value]
-        if current.fa.flow_style():
+        if current.fa.flow_style() or self._lines()[line][col:col + 1] == "[":  # «[]» is not marked as flow
             text = self._lines()[line]
             end = text.index("]", col) + 1
             self._replace_span(line, col, end, "[" + ", ".join(items) + "]")
@@ -188,4 +188,5 @@ class YamlDocument:
             i += 1
         else:
             raise PatchError("a multi-line flow mapping cannot be edited here")
-        self._replace_span(line, i, i, f", {key}: {yaml_scalar(value)}")
+        text_value = ("[" + ", ".join(yaml_scalar(v) for v in value) + "]") if isinstance(value, list) else yaml_scalar(value)
+        self._replace_span(line, i, i, f", {key}: {text_value}")

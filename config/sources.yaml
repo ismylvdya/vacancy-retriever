@@ -10,6 +10,9 @@
 #   posts_per_day — примерно постов в день; стартовый вес в прогресс-баре
 #   icon          — своя иконка: путь относительно config/icons/ (необязательно;
 #                   файл config/icons/<id>.png|svg|ico подхватывается и без этого поля)
+#   groups        — группы ленты, которые даёт источник (rules.yaml → groups). Если все они выключены — в прогоне
+#                   источник не опрашивается. Пусто = неизвестно, опрашивается всегда. Заполнено 15.11.2026 по истории
+#                   базы (группа учтена, если вакансий в ней больше 2); правится в Settings → Sources.
 #   params        — параметры конкретного сборщика
 #
 # Добавить Telegram-канал = одна строка по образцу ниже
@@ -17,71 +20,71 @@
 
 sources:
   # ---------- Telegram (публичное веб-превью telegram.me/s/<канал>) ----------
-  - {id: serbiawork,             type: telegram, name: "Serbia Work",            url: "https://telegram.me/serbiawork",             posts_per_day: 2,   max_pages: 5}
-  - {id: rabotavserbii,          type: telegram, name: "Работа в Сербии",        url: "https://telegram.me/rabotavserbii",          posts_per_day: 5,   max_pages: 5}
-  - {id: serbiarabotavacancies,  type: telegram, name: "Сербия вакансии",        url: "https://telegram.me/serbiarabotavacancies",  posts_per_day: 0.5, max_pages: 3}
-  - {id: youritjob,              type: telegram, name: "Your IT Job (LENKEP)",   url: "https://telegram.me/youritjob",              posts_per_day: 2,   max_pages: 5}
-  - {id: revacancy,              type: telegram, name: "RVC СНГ",                url: "https://telegram.me/revacancy",              posts_per_day: 35,  max_pages: 20}
-  - {id: revacancy_global,       type: telegram, name: "RVC Global",             url: "https://telegram.me/revacancy_global",       posts_per_day: 1000, max_pages: 110}
-  - {id: jobifys,                type: telegram, name: "Jobifys",                url: "https://telegram.me/jobifys",                posts_per_day: 3,   max_pages: 5}
-  - {id: evacuatejobs,           type: telegram, name: "Remocate",               url: "https://telegram.me/evacuatejobs",           posts_per_day: 5,   max_pages: 5}
-  - {id: myitjob,                type: telegram, name: "My IT Job",              url: "https://telegram.me/myitjob",                posts_per_day: 5,   max_pages: 5}
-  - {id: juno_jobs,              type: telegram, name: "Juno Jobs",              url: "https://telegram.me/juno_jobs",              posts_per_day: 4,   max_pages: 5}
-  - {id: jobs_juniors_remote,    type: telegram, name: "Jobs Juniors Remote",    url: "https://telegram.me/jobs_juniors_remote",    posts_per_day: 1,   max_pages: 3}
-  - {id: yuniorapp,              type: telegram, name: "Yunior",                 url: "https://telegram.me/yuniorapp",              posts_per_day: 4,   max_pages: 5}
-  - {id: agilefluent,            type: telegram, name: "Agile Fluent",           url: "https://telegram.me/agilefluent",            posts_per_day: 1,   max_pages: 3}
-  - {id: dev_connectablejobs,    type: telegram, name: "Connectable Jobs",       url: "https://telegram.me/dev_connectablejobs",    posts_per_day: 2,   max_pages: 5}
-  - {id: zarubezhom_jobs,        type: telegram, name: "Работа за рубежом",      url: "https://telegram.me/zarubezhom_jobs",        posts_per_day: 3,   max_pages: 5}
-  - {id: IT_iGaming,             type: telegram, name: "IT iGaming (LENKEP)",    url: "https://telegram.me/IT_iGaming",             posts_per_day: 1,   max_pages: 3}
-  - {id: datasciencejobs,        type: telegram, name: "Data Science Jobs",      url: "https://telegram.me/datasciencejobs",        posts_per_day: 1,   max_pages: 3}
-  - {id: young_relocate,         type: telegram, name: "Young Relocate",         url: "https://telegram.me/young_relocate",         posts_per_day: 2,   max_pages: 5}
-  - {id: rusukrjobs,             type: telegram, name: "RusUkr Jobs",            url: "https://telegram.me/rusukrjobs",             posts_per_day: 0.5, max_pages: 3}
-  - {id: job_for_relocation,     type: telegram, name: "Job for Relocation",     url: "https://telegram.me/job_for_relocation",     posts_per_day: 1,   max_pages: 3}
-  - {id: opento_cyprus,          type: telegram, name: "Open to Cyprus",         url: "https://telegram.me/opento_cyprus",          posts_per_day: 1,   max_pages: 3}
-  - {id: futru_it,               type: telegram, name: "Futru IT",               url: "https://telegram.me/futru_it",               posts_per_day: 1,   max_pages: 3}
-  - {id: jobforjunior,           type: telegram, name: "Job for Junior",         url: "https://telegram.me/jobforjunior",           posts_per_day: 3,   max_pages: 5}
-  - {id: JobOfferInside,         type: telegram, name: "Job Offer Inside",       url: "https://telegram.me/JobOfferInside",         posts_per_day: 4,   max_pages: 5}
-  - {id: talentmove_channel,     type: telegram, name: "TalentMove",             url: "https://telegram.me/talentmove_channel",     posts_per_day: 1,   max_pages: 3}
-  - {id: young_june,             type: telegram, name: "Young June",             url: "https://telegram.me/young_june",             posts_per_day: 4,   max_pages: 5}
-  - {id: young_intern,           type: telegram, name: "Young Intern",           url: "https://telegram.me/young_intern",           posts_per_day: 3,   max_pages: 5}
-  - {id: job_analyst_datascience, type: telegram, name: "Analyst & DS Jobs",     url: "https://telegram.me/job_analyst_datascience", posts_per_day: 1,  max_pages: 3}
-  - {id: juniors_rabota_jobs,    type: telegram, name: "Juniors Rabota",         url: "https://telegram.me/juniors_rabota_jobs",    posts_per_day: 2,   max_pages: 5}
-  - {id: choicy_work,            type: telegram, name: "Choicy Work",            url: "https://telegram.me/choicy_work",            posts_per_day: 1,   max_pages: 3}
+  - {id: serbiawork,             type: telegram, name: "Serbia Work",            url: "https://telegram.me/serbiawork",             posts_per_day: 2,   max_pages: 5, groups: [1, 2, 4]}
+  - {id: rabotavserbii,          type: telegram, name: "Работа в Сербии",        url: "https://telegram.me/rabotavserbii",          posts_per_day: 5,   max_pages: 5, groups: [2]}
+  - {id: serbiarabotavacancies,  type: telegram, name: "Сербия вакансии",        url: "https://telegram.me/serbiarabotavacancies",  posts_per_day: 0.5, max_pages: 3, groups: [2]}
+  - {id: youritjob,              type: telegram, name: "Your IT Job (LENKEP)",   url: "https://telegram.me/youritjob",              posts_per_day: 2,   max_pages: 5, groups: [1]}
+  - {id: revacancy,              type: telegram, name: "RVC СНГ",                url: "https://telegram.me/revacancy",              posts_per_day: 35,  max_pages: 20, groups: [3, 5, 6, 7]}
+  - {id: revacancy_global,       type: telegram, name: "RVC Global",             url: "https://telegram.me/revacancy_global",       posts_per_day: 1000, max_pages: 110, groups: [], enabled: false, disabled_reason: "Отключён 16.11.2026: за всю историю ни одной вакансии в ленте; поиск теперь Россия (вкл. — Settings → Sources)"}
+  - {id: jobifys,                type: telegram, name: "Jobifys",                url: "https://telegram.me/jobifys",                posts_per_day: 3,   max_pages: 5, groups: []}
+  - {id: evacuatejobs,           type: telegram, name: "Remocate",               url: "https://telegram.me/evacuatejobs",           posts_per_day: 5,   max_pages: 5, groups: []}
+  - {id: myitjob,                type: telegram, name: "My IT Job",              url: "https://telegram.me/myitjob",                posts_per_day: 5,   max_pages: 5, groups: [6, 7]}
+  - {id: juno_jobs,              type: telegram, name: "Juno Jobs",              url: "https://telegram.me/juno_jobs",              posts_per_day: 4,   max_pages: 5, groups: [3, 5, 6, 7]}
+  - {id: jobs_juniors_remote,    type: telegram, name: "Jobs Juniors Remote",    url: "https://telegram.me/jobs_juniors_remote",    posts_per_day: 1,   max_pages: 3, groups: []}
+  - {id: yuniorapp,              type: telegram, name: "Yunior",                 url: "https://telegram.me/yuniorapp",              posts_per_day: 4,   max_pages: 5, groups: [3, 5, 6, 7]}
+  - {id: agilefluent,            type: telegram, name: "Agile Fluent",           url: "https://telegram.me/agilefluent",            posts_per_day: 1,   max_pages: 3, groups: [], enabled: false, disabled_reason: "Отключён 16.11.2026: за всю историю ни одной вакансии в ленте; поиск теперь Россия (вкл. — Settings → Sources)"}
+  - {id: dev_connectablejobs,    type: telegram, name: "Connectable Jobs",       url: "https://telegram.me/dev_connectablejobs",    posts_per_day: 2,   max_pages: 5, groups: []}
+  - {id: zarubezhom_jobs,        type: telegram, name: "Работа за рубежом",      url: "https://telegram.me/zarubezhom_jobs",        posts_per_day: 3,   max_pages: 5, groups: [5]}
+  - {id: IT_iGaming,             type: telegram, name: "IT iGaming (LENKEP)",    url: "https://telegram.me/IT_iGaming",             posts_per_day: 1,   max_pages: 3, groups: [], enabled: false, disabled_reason: "Отключён 16.11.2026: за всю историю ни одной вакансии в ленте; поиск теперь Россия (вкл. — Settings → Sources)"}
+  - {id: datasciencejobs,        type: telegram, name: "Data Science Jobs",      url: "https://telegram.me/datasciencejobs",        posts_per_day: 1,   max_pages: 3, groups: []}
+  - {id: young_relocate,         type: telegram, name: "Young Relocate",         url: "https://telegram.me/young_relocate",         posts_per_day: 2,   max_pages: 5, groups: [5]}
+  - {id: rusukrjobs,             type: telegram, name: "RusUkr Jobs",            url: "https://telegram.me/rusukrjobs",             posts_per_day: 0.5, max_pages: 3, groups: [], enabled: false, disabled_reason: "Отключён 16.11.2026: за всю историю ни одной вакансии в ленте; поиск теперь Россия (вкл. — Settings → Sources)"}
+  - {id: job_for_relocation,     type: telegram, name: "Job for Relocation",     url: "https://telegram.me/job_for_relocation",     posts_per_day: 1,   max_pages: 3, groups: [], enabled: false, disabled_reason: "Отключён 16.11.2026: за всю историю ни одной вакансии в ленте; поиск теперь Россия (вкл. — Settings → Sources)"}
+  - {id: opento_cyprus,          type: telegram, name: "Open to Cyprus",         url: "https://telegram.me/opento_cyprus",          posts_per_day: 1,   max_pages: 3, groups: [5]}
+  - {id: futru_it,               type: telegram, name: "Futru IT",               url: "https://telegram.me/futru_it",               posts_per_day: 1,   max_pages: 3, groups: []}
+  - {id: jobforjunior,           type: telegram, name: "Job for Junior",         url: "https://telegram.me/jobforjunior",           posts_per_day: 3,   max_pages: 5, groups: []}
+  - {id: JobOfferInside,         type: telegram, name: "Job Offer Inside",       url: "https://telegram.me/JobOfferInside",         posts_per_day: 4,   max_pages: 5, groups: []}
+  - {id: talentmove_channel,     type: telegram, name: "TalentMove",             url: "https://telegram.me/talentmove_channel",     posts_per_day: 1,   max_pages: 3, groups: []}
+  - {id: young_june,             type: telegram, name: "Young June",             url: "https://telegram.me/young_june",             posts_per_day: 4,   max_pages: 5, groups: [3, 5, 6, 7]}
+  - {id: young_intern,           type: telegram, name: "Young Intern",           url: "https://telegram.me/young_intern",           posts_per_day: 3,   max_pages: 5, groups: [3, 5, 6, 7]}
+  - {id: job_analyst_datascience, type: telegram, name: "Analyst & DS Jobs",     url: "https://telegram.me/job_analyst_datascience", posts_per_day: 1,  max_pages: 3, groups: []}
+  - {id: juniors_rabota_jobs,    type: telegram, name: "Juniors Rabota",         url: "https://telegram.me/juniors_rabota_jobs",    posts_per_day: 2,   max_pages: 5, groups: []}
+  - {id: choicy_work,            type: telegram, name: "Choicy Work",            url: "https://telegram.me/choicy_work",            posts_per_day: 1,   max_pages: 3, groups: []}
 
   # ---------- Почта (ящики и отправители — config/mail.yaml, пароли — config/.env) ----------
-  - {id: gmail,  type: email, name: "Gmail", params: {mailbox: gmail}}
-  - {id: yandex, type: email, name: "Yandex Mail", params: {mailbox: yandex}}
+  - {id: gmail,  type: email, name: "Gmail", params: {mailbox: gmail}, groups: [1]}
+  - {id: yandex, type: email, name: "Yandex Mail", params: {mailbox: yandex}, groups: [5, 6, 7]}
 
   # ---------- Сайты с открытым JSON API ----------
-  # getmatch: seniority пусто = все грейды (с [junior] было ~1 вакансия в неделю). Грейд в названии
+  # getmatch: locations moscow — офис и гибрид в Москве (16.11.2026). seniority пусто = все грейды (с [junior] было ~1 вакансия в неделю). Грейд в названии
   # (Senior, Lead, Head, Старший…) отсеивается предфильтром, остальное — по тексту после LLM.
-  - {id: getmatch, type: getmatch, name: "getmatch", url: "https://getmatch.ru/api/offers", max_pages: 3, posts_per_day: 5, params: {period: "30d", seniority: [], specializations: [data_engineering, data_science, python, data_analyst_bi], locations: [remote, relocate], page_size: 50}}
+  - {id: getmatch, type: getmatch, name: "getmatch", url: "https://getmatch.ru/api/offers", max_pages: 3, posts_per_day: 5, params: {period: "30d", seniority: [], specializations: [data_engineering, data_science, python, data_analyst_bi], locations: [remote, relocate, moscow], page_size: 50}, groups: []}
   # habr: s = специализации (43 Data Analyst, 44 Data Scientist, 76 Data Engineer, 125 ML Engineer, 129 MLOps),
   #       qid = грейды (1 Intern, 3 Junior).
-  - {id: habr, type: habr, name: "Habr Career", url: "https://career.habr.com/api/frontend/vacancies", max_pages: 3, posts_per_day: 10, params: {specializations: [43, 44, 76, 125, 129], qualifications: [], remote_only: false}}
-  # geekjob: tags 52 = "Аналитика, Data Science, Big Data"; remote = только удалёнка.
-  - {id: geekjob, type: geekjob, name: "GeekJob", url: "https://geekjob.ru/json/find/vacancy", max_pages: 3, posts_per_day: 0.7, params: {tags: [52], remote: true, relocate: false}}
+  - {id: habr, type: habr, name: "Habr Career", url: "https://career.habr.com/api/frontend/vacancies", max_pages: 3, posts_per_day: 10, params: {specializations: [43, 44, 76, 125, 129], qualifications: [], remote_only: false}, groups: [6, 7]}
+  # geekjob: tags 52 = "Аналитика, Data Science, Big Data"; remote = только удалёнка (false с 16.11.2026: нужна и Москва).
+  - {id: geekjob, type: geekjob, name: "GeekJob", url: "https://geekjob.ru/json/find/vacancy", max_pages: 3, posts_per_day: 0.7, params: {tags: [52], remote: false, relocate: false}, groups: []}
 
   # ---------- HTML-сайты ----------
   # ovdejobs: категории не фильтруются по умолчанию (часть подходящих вакансий без категории);
   # при желании params.categories: [it, construction, warehousing, ...].
-  - {id: ovdejobs, type: ovdejobs, name: "Ovde Jobs", url: "https://ovdejobs.com/vacancies/?_job_city=belgrade", max_pages: 3, posts_per_day: 3, params: {cities: [belgrade, remote]}}
-  - {id: changellenge, type: changellenge, name: "Changellenge", url: "https://changellenge.com/vacancy/filter/work_experience-is-less_year-or-no_experience/type_vacancy-is-vacancy/indystry-is-analytics/apply/", max_pages: 2, posts_per_day: 0.3}
+  - {id: ovdejobs, type: ovdejobs, name: "Ovde Jobs", url: "https://ovdejobs.com/vacancies/?_job_city=belgrade", max_pages: 3, posts_per_day: 3, params: {cities: [belgrade, remote]}, groups: [2]}
+  - {id: changellenge, type: changellenge, name: "Changellenge", url: "https://changellenge.com/vacancy/filter/work_experience-is-less_year-or-no_experience/type_vacancy-is-vacancy/indystry-is-analytics/apply/", max_pages: 2, posts_per_day: 0.3, groups: []}
   # youngjunior: собственный JSON API сайта; specialities = разделы (ml_engineer, data_scientist, analyst_data).
-  - {id: youngjunior, type: youngjunior, name: "YoungJunior", url: "https://youngjunior.ru/ml-engineer/jobs?sortMode=date", max_pages: 3, posts_per_day: 9, params: {specialities: [ml_engineer, data_scientist, analyst_data], remote: true}}
+  - {id: youngjunior, type: youngjunior, name: "YoungJunior", url: "https://youngjunior.ru/ml-engineer/jobs?sortMode=date", max_pages: 3, posts_per_day: 9, params: {specialities: [ml_engineer, data_scientist, analyst_data], remote: false}, groups: [3, 6, 7]}
   # hirify: listings — ссылки фильтров сайта hirify.me (их можно скопировать из адресной строки браузера).
-  - {id: hirify, type: hirify, name: "Hirify", url: "https://hirify.me/?countries=serbia&grade=junior,trainee", max_pages: 3, posts_per_day: 3, params: {listings: ["https://hirify.me/?countries=serbia&grade=junior,trainee", "https://hirify.me/?specializations=data_science,machine_learning,data_analytics,ai_engineering,product_analyst&grade=junior,trainee&work_format=remote&vacancy_language=ru"]}}
+  - {id: hirify, type: hirify, name: "Hirify", url: "https://hirify.me/?countries=serbia&grade=junior,trainee", max_pages: 3, posts_per_day: 3, params: {listings: ["https://hirify.me/?countries=serbia&grade=junior,trainee", "https://hirify.me/?specializations=data_science,machine_learning,data_analytics,ai_engineering,product_analyst&grade=junior,trainee&work_format=remote&vacancy_language=ru"]}, groups: [1, 3, 5, 6, 7]}
   # talentmove: RSS-лента вакансий; filters — параметры фильтра сайта.
-  - {id: talentmove, type: talentmove, name: "TalentMove", url: "https://talent-move.ru/seniority/junior/", max_pages: 5, posts_per_day: 4, params: {filters: {seniority: junior, job_category: "data,analytics,ai"}}}
-  - {id: hirehi, type: hirehi, name: "HireHi", enabled: false, disabled_reason: "Открывается (2026-10-14), но по фильтру «Сербия» выдаёт ~26 вакансий, почти все — продажи / PM / сисадмин; сборщик не написан (низкая ценность)", url: "https://hirehi.ru/?level=intern&level=junior&industry=it_tech&industry=igaming&industry=gamedev&industry=fintech&industry=ai&industry=ecommerce&industry=other&country=Serbia"}
+  - {id: talentmove, type: talentmove, name: "TalentMove", url: "https://talent-move.ru/seniority/junior/", max_pages: 5, posts_per_day: 4, params: {filters: {seniority: junior, job_category: "data,analytics,ai"}}, groups: [3, 5, 6, 7]}
+  - {id: hirehi, type: hirehi, name: "HireHi", enabled: false, disabled_reason: "Открывается (2026-10-14), но по фильтру «Сербия» выдаёт ~26 вакансий, почти все — продажи / PM / сисадмин; сборщик не написан (низкая ценность)", url: "https://hirehi.ru/?level=intern&level=junior&industry=it_tech&industry=igaming&industry=gamedev&industry=fintech&industry=ai&industry=ecommerce&industry=other&country=Serbia", groups: []}
   # Отключены: защита Cloudflare (403 + JS-челлендж / WAF-блок) даже на robots.txt. Сборщики не написаны.
   # infostud: Next.js-данные страницы, фильтр по дате на стороне сайта. Категории — из ссылки пользователя
   # (IT, bankarstvo, održavanje, mašinstvo, magacin, fizika/matematika) + proizvodnja i montaža (69), građevina (11).
   # serbian_needs_russian: объявления на сербском без упоминания русского отсеиваются ДО LLM (бесплатно).
-  - {id: infostud, type: infostud, name: "Infostud", url: "https://poslovi.infostud.com/oglasi-za-posao/beograd", max_pages: 6, posts_per_day: 20, params: {city: beograd, dist: 50, categories: [5, 58, 68, 7, 61, 37, 69, 11], serbian_needs_russian: true}}
+  - {id: infostud, type: infostud, name: "Infostud", url: "https://poslovi.infostud.com/oglasi-za-posao/beograd", max_pages: 6, posts_per_day: 20, params: {city: beograd, dist: 50, categories: [5, 58, 68, 7, 61, 37, 69, 11], serbian_needs_russian: true}, groups: [1, 2]}
   # startuj.infostud.com — это раздел «Poslovi za mlade» того же infostud (те же id вакансий).
-  - {id: startuj, type: infostud, name: "Startuj", url: "https://startuj.infostud.com/poslovi-za-mlade/it/beograd", max_pages: 6, posts_per_day: 15, params: {city: beograd, youth: true, categories: [5, 14, 30, 69, 11, 37], serbian_needs_russian: true}}
-  - {id: helloworld, type: helloworld, name: "HelloWorld", enabled: false, disabled_reason: "Те же вакансии, что infostud (общая платформа, совпадают id) — собираются источником infostud (IT, категория 5)", url: "https://helloworld.rs/oglasi-za-posao/"}
+  - {id: startuj, type: infostud, name: "Startuj", url: "https://startuj.infostud.com/poslovi-za-mlade/it/beograd", max_pages: 6, posts_per_day: 15, params: {city: beograd, youth: true, categories: [5, 14, 30, 69, 11, 37], serbian_needs_russian: true}, groups: [1]}
+  - {id: helloworld, type: helloworld, name: "HelloWorld", enabled: false, disabled_reason: "Те же вакансии, что infostud (общая платформа, совпадают id) — собираются источником infostud (IT, категория 5)", url: "https://helloworld.rs/oglasi-za-posao/", groups: []}
 
 # Домены, с которых разрешено докачивать полное описание вакансии (этап "докачка").
 # Ссылки из Telegram-постов не открываются никогда; linkedin.com — никогда.

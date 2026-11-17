@@ -62,6 +62,7 @@ class RunRequest(BaseModel):
 
     days: int | None = None
     groups: list[str] | None = None
+    vacancy_groups: list[int] | None = None  # feed groups of this run (None = every group that is on)
     include_missed: bool = False  # also collect the missed periods of the chosen sources (banner in the panel)
 
 
@@ -69,7 +70,7 @@ SOURCE_GROUPS = {"telegram": lambda s: s.type == "telegram", "email": lambda s: 
                  "sites": lambda s: s.type not in ("telegram", "email")}
 
 
-def describe_status(state: dict[str, Any]) -> dict[str, Any]:
+def describe_status(state: dict[str, Any], order: list[int] | None = None) -> dict[str, Any]:
     """Adds the header texts: 'Last run: 13 Oct 08:12 (14 min)' and the run summary line."""
     last = state.get("last_run")
     state["last_run_line"] = "No runs yet"
@@ -86,7 +87,7 @@ def describe_status(state: dict[str, Any]) -> dict[str, Any]:
             state["summary_line"] = f"Run {format_local(started)} failed"
         else:
             by_group = summary.get("new_by_group") or {}
-            groups = " / ".join(str(by_group.get(str(g), 0)) for g in range(1, 6))
+            groups = " / ".join(str(by_group.get(str(g), 0)) for g in order or sorted(int(k) for k in by_group))
             line = f"Run {format_local(started)} · new {summary.get('new_total', 0)} ({groups})"
             if summary.get("errors"):
                 line += f" · errors {summary['errors']}"
@@ -130,13 +131,14 @@ def create_app(config: AppConfig, storage: Storage, port: int, manager: RunManag
     app.mount("/static", StaticFiles(directory=str(WEB_DIR / "static")), name="static")
 
     def full_status() -> dict[str, Any]:
-        return describe_status(manager.status())
+        return describe_status(manager.status(), config.rules.enabled_groups)
 
     def page(request: Request, template: str, tab: str, **context: Any) -> HTMLResponse:
         return templates.TemplateResponse(request, template, {
             "tab": tab, "feed_count": storage.vacancies.feed_count(), "status": full_status(),
             "health_problems": health_problems(), "notices": notices.active(config.paths.notices),
             "max_days": config.rules.max_age_days, "missed": missed_summary(),
+            "run_groups": [{"number": n, "title": config.rules.groups[n].title} for n in config.rules.enabled_groups],
             "limits": views.claude_limits(config), **context,
         })
 
@@ -249,13 +251,20 @@ def create_app(config: AppConfig, storage: Storage, port: int, manager: RunManag
                 raise HTTPException(400, "Choose at least one of: telegram, sites, email")
             source_ids = [s.id for s in config.sources.sources if s.enabled
                           and any(SOURCE_GROUPS[g](s) for g in request.groups)]
+        vacancy_groups = None
+        if request.vacancy_groups is not None:
+            enabled = set(config.rules.enabled_groups)
+            if not request.vacancy_groups or not set(request.vacancy_groups) <= enabled:
+                raise HTTPException(400, "Choose at least one feed group that is on in Settings")
+            vacancy_groups = sorted(set(request.vacancy_groups))
         since = timedelta(days=request.days) if request.days else None
         backfill = None
         if request.include_missed:
             chosen = set(source_ids) if source_ids is not None else {s.id for s in config.sources.sources if s.enabled}
             backfill = {s: start for s, (start, _) in storage.runs.missed().items() if s in chosen} or None
         try:
-            manager.start(RunOptions(source_ids=source_ids, since=since, backfill=backfill, trigger="ui"))
+            manager.start(RunOptions(source_ids=source_ids, vacancy_groups=vacancy_groups, since=since,
+                                     backfill=backfill, trigger="ui"))
         except AlreadyRunning as exc:
             raise HTTPException(409, str(exc)) from exc
         return {"started": True}

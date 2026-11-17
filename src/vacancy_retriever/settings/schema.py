@@ -105,8 +105,10 @@ SECTIONS: tuple[Section, ...] = (
                       min=1, max=30, step=1),
             )),
             ("Place and money", (
-                Field("rules", "drop_office_outside_serbia", "toggle", "Skip office / hybrid outside Serbia",
-                      "Only when the country is known. Remote work and unknown countries stay."),
+                Field("rules", "drop_office_outside_serbia", "toggle", "Skip office / hybrid outside Serbia and Moscow",
+                      "Only when the country is known. Remote work and unknown countries stay; IT in Moscow stays."),
+                Field("rules", "russia_office_cities", "chips", "Office in Russia is fine in",
+                      "IT and data only (group «Office in Moscow»). A city the ad does not name counts too."),
                 Field("rules", "salary.max_floor_rub", "number", "Skip when the salary floor is above",
                       "Per month, converted at the rate of the day it was collected. Empty — no limit.",
                       unit="₽ / month", min=0, step=5000, nullable=True),
@@ -115,7 +117,10 @@ SECTIONS: tuple[Section, ...] = (
             )),
         ),
     ),
-    Section("groups", "Feed groups", "Titles and notes of the five groups of the feed, in this order.", widget="groups"),
+    Section("groups", "Feed groups",
+            "Drag to change the order of the feed. An unchecked group is not searched: its vacancies go to Processed → "
+            "Auto-skipped as «Group off», and sources that give only unchecked groups are not collected.",
+            widget="groups"),
     Section(
         "prefilter", "Pre-filter (no LLM)",
         "Cheap rules applied to single vacancies (site cards, RVC posts) before any LLM call. Whole words, any case.",
@@ -130,7 +135,9 @@ SECTIONS: tuple[Section, ...] = (
                   "Saves about a third of the LLM work on RVC Global."),
         ),
     ),
-    Section("sources", "Sources", "Which sources a run collects from. A disabled source keeps its history.",
+    Section("sources", "Sources", "Which sources a run collects from, and the feed groups each one gives "
+            "(a source is skipped while all its groups are off; none marked — always collected). "
+            "A disabled source keeps its history.",
             widget="sources"),
     Section(
         "linkedin", "LinkedIn: Google for Jobs",

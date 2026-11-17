@@ -35,8 +35,9 @@ def test_linkedin_location_hints():
 
 
 def test_office_abroad():
-    assert office_abroad("Москва", "Комбинированный")
-    assert office_abroad("Москва", "")
+    assert office_abroad("Казань", "Комбинированный")
+    assert office_abroad("Санкт-Петербург", "")
+    assert not office_abroad("Москва", "Комбинированный"), "office in Moscow is welcome since 16.11.2026"
     assert not office_abroad("Москва", "Удалённо")
     assert not office_abroad("Любой", "Комбинированный")
     assert not office_abroad("Белград", "Офис")
@@ -52,10 +53,10 @@ def test_changellenge_tracker_links_are_decoded():
     assert real_url(href) == "https://changellenge.com/vacancy/intern-ai-psb-moscow/"
 
 
-def test_vk_detail_drops_closed_and_moscow_office():
+def test_vk_detail_keeps_moscow_office_and_drops_closed():
     load_parsers()
     office = DETAIL_PARSERS["vk_internship"]((DETAILS / "vk_office_moscow.html").read_text(encoding="utf-8"))
-    assert office.skip_reason == "Office outside Serbia" and "Город:" in office.text and "*" not in office.text
+    assert office.skip_reason is None and "Город:" in office.text and "*" not in office.text
     closed = DETAIL_PARSERS["vk_internship"]((DETAILS / "vk_closed_remote.html").read_text(encoding="utf-8"))
     assert closed.skip_reason == "Recruitment closed"
 
@@ -63,7 +64,7 @@ def test_vk_detail_drops_closed_and_moscow_office():
 def test_changellenge_detail_moscow_office():
     load_parsers()
     result = DETAIL_PARSERS["changellenge"]((DETAILS / "changellenge_moscow.html").read_text(encoding="utf-8"))
-    assert result.skip_reason == "Office outside Serbia" and "Компания: ПСБ" in result.text
+    assert result.skip_reason is None and "Компания: ПСБ" in result.text, "office in Moscow is welcome since 16.11.2026"
 
 
 def test_hh_links_keep_only_the_vacancy_id():
@@ -116,22 +117,23 @@ def test_prefilter_hides_ignored_letters(config):
     assert (result.action, result.reason) == ("hide", "SuperJob promo without vacancies")
 
 
-def test_hh_resume_recommendations_are_skipped():
-    import pytest
-
-    from vacancy_retriever.collectors.email.parsers import IgnoreLetter
-
+def test_hh_resume_recommendations_are_read_since_moscow_offices_fit():
     load_parsers()
     html = "<table><tr><td><a href='https://hh.ru/vacancy/1'>Аналитик</a><p>Монетка</p></td></tr></table>"
-    with pytest.raises(IgnoreLetter):
-        PARSERS["hh_ru"](letter("hh.ru <noreply@hh.ru>", html, "Подходящие вакансии для резюме: «Data Scientist»"))
+    [vacancy] = PARSERS["hh_ru"](letter("hh.ru <noreply@hh.ru>", html, "Подходящие вакансии для резюме: «Data Scientist»"))
+    assert vacancy.url == "https://hh.ru/vacancy/1" and vacancy.extra["template"] == "hh_resume_picks"
+    assert "подходящие вакансии для резюме" in vacancy.text
 
 
-def test_hh_saved_search_marked_vacancy_retriever_is_remote():
+def test_hh_work_format_hints():
     load_parsers()
-    html = ("<p>Новые вакансии по автопоиску «для 🦆 vacancy-retriever ( Data Scientist )»</p>"
-            "<table><tr><td><a href='https://hh.ru/vacancy/9'>Data Scientist</a><p>Acme</p></td></tr></table>")
-    [vacancy] = PARSERS["hh_ru"](letter("hh.ru <noreply@hh.ru>", html, "Новые вакансии"))
+    name = "<p>Новые вакансии по автопоиску «для 🦆 vacancy-retriever ( Data Scientist )»</p>"
+    row = "<table><tr><td><a href='https://hh.ru/vacancy/{n}'>Data Scientist {n}</a><p>Acme, {place}</p></td></tr></table>"
+    vacancies = PARSERS["hh_ru"](letter("hh.ru <noreply@hh.ru>", name + row.format(n=9, place="Москва, м. Арбатская")
+                                        + row.format(n=10, place="Казань"), "Новые вакансии"))
+    assert [v.extra.get("work_format") for v in vacancies] == ["office", None], "the search name no longer means remote"
+    remote = "<p>Удалённая работа</p>" + row.format(n=11, place="Москва")
+    [vacancy] = PARSERS["hh_ru"](letter("hh.ru <noreply@hh.ru>", remote, "Новые вакансии"))
     assert vacancy.extra["work_format"] == "remote"
 
 

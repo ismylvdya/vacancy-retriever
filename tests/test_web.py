@@ -70,7 +70,7 @@ def test_pages_render(client):
 def test_status_does_not_start_a_run(client):
     status = client.get("/api/status").json()
     assert status["running"] is False
-    assert status["summary_line"].endswith("· new 1 (1 / 0 / 0 / 0 / 0)")
+    assert status["summary_line"].endswith("· new 1 (0 / 0 / 1 / 0 / 0 / 0 / 0)"), "groups in the feed's order: 7, 6, 1…"
     assert client.get("/api/status").json()["running"] is False
 
 
@@ -267,7 +267,12 @@ def test_run_panel_passes_period_and_source_groups(client, monkeypatch):
     assert types == {"telegram", "email"}
     assert client.post("/api/run", json={"days": 99}, headers=ORIGIN).status_code == 400
     assert client.post("/api/run", json={"groups": []}, headers=ORIGIN).status_code == 400
-    assert 'id="run-more"' in client.get("/").text
+    response = client.post("/api/run", json={"vacancy_groups": [6, 3]}, headers=ORIGIN)
+    assert response.status_code == 200 and started[-1].vacancy_groups == [3, 6], "feed groups of this run"
+    assert client.post("/api/run", json={"vacancy_groups": []}, headers=ORIGIN).status_code == 400
+    assert client.post("/api/run", json={"vacancy_groups": [9]}, headers=ORIGIN).status_code == 400
+    page = client.get("/").text
+    assert 'id="run-more"' in page and 'class="run-vgroups"' in page and "Remote in Russia</label>" in page
 
 
 def test_salary_in_another_currency_shows_rub(client, tmp_paths):

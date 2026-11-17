@@ -7,6 +7,7 @@ Allowed direct inferences (they are facts of the text, not guesses):
 - ad written in Russian and nothing says the team works in another language → russian_speaking_team "yes"
 - employer is clearly Russian (ООО/АО, Russian city, salary in ₽, Russian bank/retailer/tech company) → employer_type "russian"; with a Serbian d.o.o. or Serbian office → "ru_with_serbian_entity"
 - ad mentions a city in Serbia (Beograd/Белград, Novi Sad…) as the workplace → country "Serbia"
+- an address with a metro station («Москва, м. Арбатская») or an office address in a Russian city → country "Russia", city in English ("Moscow"), work_format "office" unless the ad says hybrid or remote
 
 Output ONLY minified JSON, no prose, no markdown:
 {"results":[{"input_id":<id>,"vacancies":[{...fields...}]}]}

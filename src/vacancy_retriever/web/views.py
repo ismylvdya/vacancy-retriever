@@ -228,7 +228,8 @@ def group_feed(cards: list[Card], config: AppConfig) -> list[dict[str, Any]]:
     for card in cards:
         by_group[card.group or 5].append(card)
     groups = []
-    for number, info in sorted(config.rules.groups.items()):
+    for number in config.rules.enabled_groups:
+        info = config.rules.groups[number]
         groups.append({"number": number, "title": info.title, "collapsed": info.collapsed, "note": info.note,
                        "permit_column": number in PERMIT_GROUPS, "cards": by_group.get(number, [])})
     return groups

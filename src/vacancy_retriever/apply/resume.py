@@ -21,19 +21,25 @@ APP_RULES = """You are running inside the Vacancy Retriever app, without tools: 
 Everything the resume-tailor skill would make you look up is given below: SKILL.md, references/letters.md,
 references/projects_facts.md and the output of `build.py catalog`. The app runs `build.py build` itself.
 
-The user has explicitly asked for BOTH the tailored resume and a cover letter for the vacancy in the user message
-(the short cover-letter type, unless the vacancy is an internship with a selection process). Follow the skill's
-decisions and honesty rules exactly.
+%(request)s Follow the skill's decisions and honesty rules exactly.
 
 If the company is not stated, never write "Unknown" (or "unknown", «Неизвестно») anywhere: leave "company" empty
 ("") in the selection, greet neutrally (RU «Добрый день!», EN «Dear Hiring Team,») and do not name a company in the
 letter or the CV title.
 
 Reply with ONE JSON object and nothing else:
-{"selection": <selection.json exactly as in the skill's schema, valid JSON without comments>,
- "letter": "<the letter as plain text without a code fence, ending with the verbatim Резюме/CV ❗️ВСТАВИТЬ❗️ and GitHub lines>",
+{"selection": <selection.json exactly as in the skill's schema, valid JSON without comments>,%(letter_key)s
  "skills": [<3-%(max)d key hard skills / tools the VACANCY requires, short canonical names (Python, SQL, A/B testing),
             most important first, in the vacancy's terms — not limited to the candidate's skills>]}"""
+
+
+WITH_LETTER = {
+    "request": "The user has explicitly asked for BOTH the tailored resume and a cover letter for the vacancy in the user "
+               "message (the short cover-letter type, unless the vacancy is an internship with a selection process).",
+    "letter_key": '\n "letter": "<the letter as plain text without a code fence, ending with the verbatim Резюме/CV '
+                  '❗️ВСТАВИТЬ❗️ and GitHub lines>",',
+}
+CV_ONLY = {"request": "The user has asked ONLY for the tailored resume: no cover letter.", "letter_key": ""}
 
 
 MANUAL_RULES = """You are running inside the Vacancy Retriever app, without tools. This vacancy is NON-IT (manual /
@@ -151,9 +157,10 @@ class MaterialsWriter:
         self._max_skills = max_skills
         self._max_input_chars = max_input_chars
 
-    def system_prompt(self) -> str:
-        return "\n\n".join([APP_RULES % {"max": self._max_skills}, self._skill.instructions(),
-                            f"===== build.py catalog =====\n{self._skill.catalog()}"])
+    def system_prompt(self, letter: bool = True) -> str:
+        """The CV alone when the letter's box was not checked at Generate (user, 19.11.2026)."""
+        rules = APP_RULES % {"max": self._max_skills, **(WITH_LETTER if letter else CV_ONLY)}
+        return "\n\n".join([rules, self._skill.instructions(), f"===== build.py catalog =====\n{self._skill.catalog()}"])
 
     def user_prompt(self, dossier: VacancyDossier) -> str:
         head = [f"Vacancy: {dossier.title}"]
@@ -165,10 +172,11 @@ class MaterialsWriter:
             head.append(dossier.company_hint)
         return "\n".join([*head, "", dossier.text[: self._max_input_chars]])
 
-    async def write(self, dossier: VacancyDossier, application_id: int | None = None) -> Materials:
-        response = await self._call("resume", self.system_prompt(), self.user_prompt(dossier), self._model,
+    async def write(self, dossier: VacancyDossier, application_id: int | None = None,
+                    letter: bool = True) -> Materials:
+        response = await self._call("resume", self.system_prompt(letter), self.user_prompt(dossier), self._model,
                                     application_id)
-        return self.parse(response.data, self._max_skills)
+        return self.parse(response.data, self._max_skills, letter)
 
     async def write_manual(self, dossier: VacancyDossier, application_id: int | None = None) -> Materials:
         """Hands-on work: one call for the letter and the vacancy's skills; no CV selection, no catalog."""
@@ -201,14 +209,14 @@ class MaterialsWriter:
         return response
 
     @staticmethod
-    def parse(data: dict[str, Any], max_skills: int = 10) -> Materials:
-        selection, letter = data.get("selection"), data.get("letter")
+    def parse(data: dict[str, Any], max_skills: int = 10, with_letter: bool = True) -> Materials:
+        selection, letter = data.get("selection"), data.get("letter") if with_letter else ""
         if not isinstance(selection, dict) or not {"lang", "company", "role_abbr"} <= selection.keys():
             raise ApplyError("LLM reply has no valid selection (lang, company, role_abbr)")
-        if not isinstance(letter, str) or not letter.strip():
+        if with_letter and (not isinstance(letter, str) or not letter.strip()):
             raise ApplyError("LLM reply has no cover letter")
         skills = [str(s).strip() for s in data.get("skills") or [] if str(s).strip()]
-        return Materials(selection, letter.strip(), skills[:max_skills])
+        return Materials(selection, str(letter).strip(), skills[:max_skills])
 
     def _record(self, stage: str, model: str, started: float, response: Any, error: str | None,
                 application_id: int | None) -> None:

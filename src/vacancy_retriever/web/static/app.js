@@ -29,7 +29,6 @@ function renderSources(s) {
   }
 }
 function renderStatus(s) {
-  renderLimits(s.limits);
   const running = !!s.running;
   document.body.classList.toggle("running", running);
   $("run-group").hidden = running;

@@ -13,7 +13,7 @@ from fastapi.testclient import TestClient
 from vacancy_retriever.apply.drive import DriveItem, NoDrive, StubDrive, file_url, folder_url
 from vacancy_retriever.apply.models import ApplicationState, ApplyError, Materials
 from vacancy_retriever.apply.obsidian import ObsidianVault, frontmatter, normalize_company, note_file_name
-from vacancy_retriever.apply.pipeline import ApplicationPipeline, ApplyServices, DossierBuilder
+from vacancy_retriever.apply.pipeline import ApplicationPipeline, ApplyServices, DossierBuilder, english_title
 from vacancy_retriever.apply.resume import MaterialsWriter, ResumeSkill, insert_cv_link
 from vacancy_retriever.apply.service import ApplicationService, ApplicationWorker
 from vacancy_retriever.collectors.base import RawItem
@@ -140,8 +140,16 @@ def run_all(e) -> Any:
     return e.storage.applications.for_vacancy(e.vacancy_id)
 
 
+def apply_now(e, vacancy_id: int | None = None, cv: bool = True, letter: bool = True) -> Any:
+    """▶ (the vacancy waits in the sidebar's purgatory), then «Generate Obsidian note» with these boxes checked."""
+    app = e.service.enqueue(vacancy_id or e.vacancy_id)
+    assert app.state == ApplicationState.DRAFT, "▶ alone makes nothing (18.11.2026)"
+    assert e.service.generate(app.id, cv, letter)
+    return e.storage.applications.get(app.id)
+
+
 def test_full_pipeline_makes_note_cv_letter_and_folder(env):
-    env.service.enqueue(env.vacancy_id)
+    apply_now(env)
     app = run_all(env)
     assert app.state == ApplicationState.DONE and app.error is None and app.warning is None
     assert app.letter.endswith(f"Резюме: {file_url('P1')}\nGitHub: https://github.com/x")
@@ -171,7 +179,7 @@ def test_full_pipeline_makes_note_cv_letter_and_folder(env):
 
 def test_claude_limit_waits_then_resumes_without_redoing_steps(env):
     env.provider.fail = LlmError("usage limit reached", kind="limit", retryable=False)
-    env.service.enqueue(env.vacancy_id)
+    apply_now(env)
     app = run_all(env)
     assert app.state == ApplicationState.WAITING and app.step == "materials"
     assert app.due_at > utcnow() + timedelta(minutes=29) and app.note_path and app.folder_id
@@ -184,7 +192,7 @@ def test_claude_limit_waits_then_resumes_without_redoing_steps(env):
 
 
 def test_restart_continues_interrupted_work(env):
-    app = env.service.enqueue(env.vacancy_id)
+    app = apply_now(env)
     env.storage.applications.update(app.id, state=ApplicationState.WORKING, step="pdf",
                                     materials_json=Materials(REPLY["selection"], LETTER, ["Python"]).to_json())
     assert env.storage.applications.recover() == 1
@@ -195,14 +203,14 @@ def test_restart_continues_interrupted_work(env):
 def test_a_taken_note_name_gets_a_number(env):
     taken = env.vault.root / "Junior Data Scientist • Acme d.o.o. 🦆.md"
     taken.write_text("my own note", encoding="utf-8")
-    env.service.enqueue(env.vacancy_id)
+    apply_now(env)
     app = run_all(env)
     assert Path(app.note_path).name == "Junior Data Scientist • Acme d.o.o. 2 🦆.md"
     assert taken.read_text(encoding="utf-8") == "my own note"
 
 
 def test_user_edits_in_the_note_are_kept(env):
-    env.service.enqueue(env.vacancy_id)
+    apply_now(env)
     app = run_all(env)
     note = Path(app.note_path)
     renamed = note.with_name("Моё имя.md")
@@ -221,7 +229,7 @@ def test_user_edits_in_the_note_are_kept(env):
 
 
 def test_cv_pdf_goes_to_downloads_and_is_rebuilt_without_llm(env):
-    env.service.enqueue(env.vacancy_id)
+    apply_now(env)
     app = run_all(env)
     pdf = Path(app.pdf_path)
     assert pdf.parent == env.services.out_dir and pdf.exists()  # ~/Downloads in the app, a temp folder here
@@ -243,7 +251,7 @@ def test_a_taken_downloads_name_gets_a_number(tmp_path):
 
 def test_mine_section_follows_the_app_until_the_user_edits_it(env):
     env.services.drive = NoDrive("Google Drive not connected")
-    env.service.enqueue(env.vacancy_id)
+    apply_now(env)
     app = run_all(env)
     note = Path(app.note_path)
     assert "Google Drive не подключён" in note.read_text(encoding="utf-8")
@@ -257,7 +265,7 @@ def test_mine_section_follows_the_app_until_the_user_edits_it(env):
 
 def test_without_drive_the_rest_is_done_and_letter_keeps_the_marker(env):
     env.services.drive = NoDrive("Google Drive not connected")
-    env.service.enqueue(env.vacancy_id)
+    apply_now(env)
     app = run_all(env)
     assert app.state == ApplicationState.DONE and app.warning == "Google Drive not connected"
     assert "ВСТАВИТЬ" in app.letter and app.folder_url is None
@@ -266,7 +274,7 @@ def test_without_drive_the_rest_is_done_and_letter_keeps_the_marker(env):
 
 def test_drive_stub_gives_obviously_fake_links_and_a_warning(env):
     env.services.drive = StubDrive()
-    env.service.enqueue(env.vacancy_id)
+    apply_now(env)
     app = run_all(env)
     assert app.state == ApplicationState.DONE and "stub" in app.warning
     assert app.folder_url.startswith("https://drive-stub.invalid/") and "ВСТАВИТЬ" not in app.letter
@@ -278,30 +286,29 @@ def test_setup_error_fails_with_retry(env):
         raise ApplyError("xelatex not found", kind="setup")
 
     env.skill.build = broken
-    env.service.enqueue(env.vacancy_id)
+    apply_now(env)
     app = run_all(env)
     assert app.state == ApplicationState.FAILED and app.step == "pdf" and "xelatex" in app.error
 
 
-def test_undo_and_stop_leave_a_stopped_row(env):
+def test_undo_and_stop(env):
     first = env.service.enqueue(env.vacancy_id)
-    env.service.withdraw(env.vacancy_id)  # Undo before the start: stays in the sidebar as «Stopped»
-    assert env.storage.applications.get(first.id).state == ApplicationState.CANCELLED
-    app = env.service.enqueue(env.vacancy_id)
-    assert app.id == first.id and app.state == ApplicationState.QUEUED
+    assert first.state == ApplicationState.DRAFT and env.storage.applications.next_due(utcnow()) is None
+    env.service.withdraw(env.vacancy_id)  # Undo while in the purgatory: nothing was made, the row goes
+    assert env.storage.applications.for_vacancy(env.vacancy_id) is None
+    app = apply_now(env)
     env.storage.applications.update(app.id, state=ApplicationState.WORKING)
     assert env.service.stop(app.id) and env.storage.applications.get(app.id).cancel_requested  # after this step
-    env.storage.applications.update(app.id, state=ApplicationState.QUEUED, cancel_requested=0)
-    env.storage.applications.update(app.id, state=ApplicationState.FAILED, note_path="/x.md")
+    env.storage.applications.update(app.id, state=ApplicationState.FAILED, note_path="/x.md", cancel_requested=0)
     env.service.withdraw(env.vacancy_id)
-    assert env.storage.applications.get(app.id).state == ApplicationState.CANCELLED
+    assert env.storage.applications.get(app.id).state == ApplicationState.CANCELLED, "started: stays as Stopped"
     env.service.enqueue(env.vacancy_id)
-    assert env.storage.applications.get(app.id).state == ApplicationState.QUEUED
+    assert env.storage.applications.get(app.id).state == ApplicationState.DRAFT, "▶ again: back to the purgatory"
 
 
-def test_start_delay_gives_time_for_undo(env):
+def test_not_now_starts_after_the_undo_window(env):
     service = ApplicationService(env.storage.applications, True, 60)
-    service.enqueue(env.vacancy_id)
+    service.enqueue(env.vacancy_id, kind="not_now")
     assert env.storage.applications.next_due(utcnow()) is None
     assert env.storage.applications.next_due(utcnow() + timedelta(seconds=61)) is not None
 
@@ -344,18 +351,49 @@ def test_apply_from_the_feed_and_sidebar_api(env):
     with TestClient(app, base_url=f"http://127.0.0.1:{PORT}") as client:
         response = client.post(f"/api/vacancies/{env.vacancy_id}/status", json={"status": "applied"}, headers=ORIGIN)
         assert response.status_code == 200
-        items = client.get("/api/applications").json()["items"]
-        assert [i["state"] for i in items] == ["queued"] and items[0]["title"] == "Junior Data Scientist"
-        assert client.get(f"/api/applications/{items[0]['id']}/letter").status_code == 404
+        sections = client.get("/api/applications").json()["sections"]
+        assert [s["key"] for s in sections] == ["purgatory"] and sections[0]["current"]
+        [item] = sections[0]["items"]
+        assert item["draft"] and item["state"] == "draft" and item["title"] == "Junior Data Scientist"
+        assert run_all(env).state == ApplicationState.DRAFT and env.provider.calls == 0, "nothing until Generate"
+        ok = client.post(f"/api/applications/{item['id']}/generate", json={"cv": True, "letter": True}, headers=ORIGIN)
+        assert ok.status_code == 200
+        assert client.post(f"/api/applications/{item['id']}/generate", json={}, headers=ORIGIN).status_code == 409
         run_all(env)
-        item = client.get("/api/applications").json()["items"][0]
+        sections = client.get("/api/applications").json()["sections"]
+        assert [s["key"] for s in sections] == ["applied"]
+        item = sections[0]["items"][0]
         assert item["status"] == "Ready" and item["has_pdf"] and item["has_letter"] and item["folder_url"]
         assert item["note_url"].startswith("obsidian://open?path=")
         assert "ВСТАВИТЬ" not in client.get(f"/api/applications/{item['id']}/letter").json()["text"]
-        assert client.post(f"/api/applications/{item['id']}/dismiss", headers=ORIGIN).status_code == 200
-        assert client.get("/api/applications").json()["items"] == []
+        assert client.post(f"/api/applications/{item['id']}/dismiss", headers=ORIGIN).status_code == 404, "no ×"
         client.post(f"/api/vacancies/{env.vacancy_id}/status", json={"status": "new"}, headers=ORIGIN)
         assert env.storage.applications.for_vacancy(env.vacancy_id).state == ApplicationState.DONE
+
+
+def test_generate_without_cv_makes_the_note_only(env):
+    app = apply_now(env, cv=False)
+    app = run_all(env)
+    assert app.state == ApplicationState.DONE and app.warning is None
+    assert env.skill.builds == 0 and env.drive.folders == 0 and not app.letter and not app.folder_url
+    assert [c["stage"] for c in env.storage.llm_calls.all()] == ["skills"], "one small call for the note's skills"
+    text = Path(app.note_path).read_text(encoding="utf-8")
+    meta = frontmatter(text)
+    assert meta["👾статус"] == ["откликнулся"] and meta["👾необходимые скилы"] and meta["👾FK"] == "[[Acme (IT)]]"
+    assert "### моё" not in text and "cover letter" not in text and "Google Drive" not in text
+    assert "https://telegram.me/serbiawork/1" in text and "**описание вакансии:**" in text
+
+
+def test_sidebar_sections(env):
+    from vacancy_retriever.web.views import sidebar_sections
+
+    app = env.service.enqueue(env.vacancy_id)
+    [section] = sidebar_sections(env.config, env.storage, env.service.visible())
+    assert section["key"] == "purgatory"
+    env.service.generate(app.id, True, True)
+    run_all(env)
+    keys = [s["key"] for s in sidebar_sections(env.config, env.storage, env.service.visible())]
+    assert keys == ["applied"]
 
 
 def test_obsidian_settings_defaults_match_the_vault_format():
@@ -455,7 +493,7 @@ def test_not_now_makes_a_note_with_skills_then_apply_turns_it_into_an_applicatio
     assert app.stats["steps"].keys() >= {"note", "skills", "finalize"}
     assert env.storage.applications.visible() == [], "a finished Not now leaves the sidebar"
 
-    env.service.enqueue(env.vacancy_id)  # ▶ later: the same note becomes the application
+    apply_now(env)  # ▶ later: the same note becomes the application
     app = run_all(env)
     assert app.kind == "apply" and app.state == ApplicationState.DONE and env.skill.builds == 1
     text = Path(app.note_path).read_text(encoding="utf-8")
@@ -464,7 +502,7 @@ def test_not_now_makes_a_note_with_skills_then_apply_turns_it_into_an_applicatio
 
 
 def test_applied_then_not_now_stops_the_application(env):
-    env.service.enqueue(env.vacancy_id)
+    apply_now(env)
     app = run_all(env)
     env.storage.applications.update(app.id, state=ApplicationState.FAILED)
     env.service.enqueue(env.vacancy_id, kind="not_now")
@@ -491,7 +529,7 @@ def manual_env(env) -> tuple[list[str], int]:
 
 def test_hands_on_work_gets_a_note_with_a_letter_no_cv_and_no_drive(env):
     systems, vacancy_id = manual_env(env)
-    env.service.enqueue(vacancy_id)
+    apply_now(env, vacancy_id)
     app = run_all(env)
     assert app.state == ApplicationState.DONE and app.warning is None
     assert env.skill.builds == 0 and env.drive.folders == 0 and not app.pdf_path and not app.folder_url
@@ -509,7 +547,7 @@ def test_hands_on_work_gets_a_note_with_a_letter_no_cv_and_no_drive(env):
 
 
 def test_old_hands_on_application_with_a_cv_shows_no_pdf_buttons(env):
-    env.service.enqueue(env.vacancy_id)
+    apply_now(env)
     app = run_all(env)
     assert application_item(env.config, env.storage, app)["has_pdf"], "IT: the PDF button stays"
     manual_env(env)
@@ -534,3 +572,66 @@ def test_a_skill_copy_without_non_it_rules_stops_with_a_setup_error(tmp_path):
 def test_real_config_points_to_a_skill_with_non_it_rules():
     """The app must not read the stale copy of the skill (28.10.2026, without the non-IT rules)."""
     assert "/skills/synced/" not in AppConfig().apply.resume.skill_dir
+
+
+@pytest.mark.parametrize("title,expected", [
+    ("Аналитик данных (Data Analyst)", "Data Analyst"),                       # РЖД, 18.11.2026
+    ("Технический проджект менеджер/Technical project manager", "Technical project manager"),
+    ("BI Developer/BI разработчик", "BI Developer"),
+    ("Инженер по роботизации (RPA engineer)", "RPA engineer"),
+    ("Менеджер продукта (Computer Vision)", "Менеджер продукта (Computer Vision)"),   # a domain, not the role
+    ("Data Scientist (РСХБ-Экосистема)", "Data Scientist (РСХБ-Экосистема)"),
+    ("Инженер-программист робототехнических комплексов (Node.js / TypeScript / Python)",
+     "Инженер-программист робототехнических комплексов (Node.js / TypeScript / Python)"),
+    ("Дизайнер / AI-креатор / ГК Марфа", "Дизайнер / AI-креатор / ГК Марфа"),
+    ("Аналитик данных", "Аналитик данных"), ("Junior Data Analyst", "Junior Data Analyst"),
+])
+def test_note_and_folder_names_use_one_language(title, expected):
+    assert english_title(title) == expected
+
+
+def test_grade_goes_before_the_english_name(env):
+    facts = VacancyFacts.model_validate({"title_original": "Аналитик данных (Data Analyst)", "seniority": "junior",
+                                         "employer_type": "russian"})
+    builder = DossierBuilder(env.config, env.storage)
+    assert builder.name_title(english_title(facts.display_title), facts) == "Junior Data Analyst"
+
+
+def test_sidebar_sessions_split_at_six_hours(env):
+    from vacancy_retriever.web.views import sidebar_section
+
+    apply_now(env)
+    app = run_all(env)
+    assert app.state == ApplicationState.DONE
+    assert sidebar_section(env.config, app, app.created_at + timedelta(hours=5)) == "applied"
+    assert sidebar_section(env.config, app, app.created_at + timedelta(hours=7)) == "previous"
+    draft = env.storage.applications.get(app.id)
+    env.storage.applications.update(app.id, state=ApplicationState.DRAFT)
+    draft = env.storage.applications.get(app.id)
+    assert sidebar_section(env.config, draft, draft.created_at + timedelta(hours=1)) == "purgatory"
+
+
+def test_generate_the_cv_without_the_letter(env):
+    systems = []
+    real = env.provider.complete_json
+
+    async def spy(system, user, model, schema=None):
+        systems.append(system)
+        return await real(system, user, model, schema)
+
+    env.provider.complete_json = spy
+    app = apply_now(env, cv=True, letter=False)
+    app = run_all(env)
+    assert app.state == ApplicationState.DONE and app.pdf_path and app.folder_url and not app.letter
+    assert "ONLY for the tailored resume" in systems[0] and '"letter"' not in systems[0]
+    text = Path(app.note_path).read_text(encoding="utf-8")
+    assert f"### моё\n[папка на Google Drive]({folder_url('F1')})" in text
+    assert "cover letter" not in text, "the folder, no letter section"
+
+
+def test_the_letter_needs_the_cv_for_it_work(env):
+    app = env.service.enqueue(env.vacancy_id)
+    assert env.service.generate(app.id, False, True)
+    app = env.storage.applications.get(app.id)
+    assert not app.with_cv and not app.with_letter, "no CV — no letter (it carries the CV's link)"
+    assert not env.service.generate(app.id, True, True), "only a row waiting in the purgatory"

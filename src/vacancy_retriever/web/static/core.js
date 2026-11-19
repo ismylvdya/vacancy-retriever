@@ -59,16 +59,3 @@ function toast(text, undo) {
   toastTimer = setTimeout(hideToast, undo ? UI.toast.undoMs : UI.toast.plainMs);
 }
 function hideToast() { $("toast").hidden = true; }
-
-/* A popover anchored to a button: opens / closes on click, closes on Escape or a click outside. */
-function popover(button, panel, { onOpen } = {}) {
-  const set = (open) => {
-    panel.hidden = !open;
-    button.setAttribute("aria-expanded", String(open));
-    if (open && onOpen) onOpen();
-  };
-  button.addEventListener("click", (event) => { event.stopPropagation(); set(panel.hidden); });
-  document.addEventListener("click", (event) => { if (!panel.hidden && !panel.contains(event.target)) set(false); });
-  document.addEventListener("keydown", (event) => { if (event.key === "Escape" && !panel.hidden) set(false); });
-  return { close: () => set(false) };
-}

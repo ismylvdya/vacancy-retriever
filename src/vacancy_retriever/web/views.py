@@ -3,7 +3,7 @@ from __future__ import annotations
 import json
 from collections import defaultdict
 from dataclasses import dataclass, field
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from typing import Any
 from urllib.parse import quote
@@ -14,7 +14,7 @@ from ..storage import Storage
 from ..storage.vacancies import VacancyRecord
 from ..rates import RatesStore
 from ..scoring.salary import format_rub, monthly_rub, parse_salary
-from ..timeutil import format_local, from_iso, local
+from ..timeutil import format_local, from_iso, local, utcnow
 
 LANGUAGES = {
     "ru": "Russian", "en": "English", "sr": "Serbian", "de": "German", "fr": "French", "es": "Spanish",
@@ -97,6 +97,7 @@ class Card:
     required_languages: list[str] = field(default_factory=list)  # language names
     reports: list[dict[str, str]] = field(default_factory=list)  # debug mode: the user's complaints
     run_started: str = ""          # debug mode: the run that collected it
+    description_note: str = ""     # debug mode: where the description came from and how much of it the LLM reads
     status_changed_at: datetime | None = None
     created_at: datetime | None = None
     last_report_at: datetime | None = None
@@ -121,6 +122,7 @@ class CardBuilder:
         self._hours_per_month = config.rules.salary.hours_per_month
         self._sender_icons = sender_icons(config)
         self._storage = storage
+        self._llm = config.llm
         self._runs = {r["id"]: r["started_at"] for r in storage.runs.history(1000)}
         latest = storage.runs.last_finished()
         self._latest_run = latest["id"] if latest and latest["status"] == "committed" else None
@@ -156,6 +158,7 @@ class CardBuilder:
             flags=flags,
             sources=self._links(record),
             description=raw.full_text if raw else "",
+            description_note=self._description_note(raw) if raw else "",
             user_status=record.user_status,
             status_label=STATUS_LABELS.get(record.user_status, record.user_status),
             skip_reason=record.skip_reason,
@@ -172,6 +175,18 @@ class CardBuilder:
             reports=[{"text": r["text"], "date": format_local(r["created_at"], "%-d %b %H:%M")}
                      for r in self._reports.get(record.id, [])],
         )
+
+    def _description_note(self, raw: Any) -> str:
+        """«From the vacancy's page · 5 207 characters · the LLM reads the first 4 000»."""
+        if raw.meta.get("email"):
+            origin = "Full description found by Google for Jobs" if raw.detail_text else "The job-alert letter only"
+        else:
+            origin = "From the vacancy's page" if raw.detail_text else "The post / card text"
+        llm = self._llm
+        limit = llm.max_input_chars_multi if raw.multi else llm.max_input_chars
+        size = len(raw.full_text)
+        read = f"the LLM reads the first {limit:,}".replace(",", " ") if size > limit else "the LLM reads all of it"
+        return f"{origin} · {size:,} characters · {read}".replace(",", " ")
 
     def _salary_rub(self, record: VacancyRecord) -> str:
         """Monthly RUB by the rates of the day the vacancy was collected; only for ads in another currency."""
@@ -619,32 +634,6 @@ def tokens(config: AppConfig, storage: Storage) -> dict[str, Any]:
     }
 
 
-def claude_limits(config: AppConfig) -> dict[str, Any] | None:
-    """The limits ring and its bubble, like Claude's own: «5-hour limit · Resets in 2 h 10 min · 58%», «Weekly …»."""
-    if config.llm.provider != "claude_sdk":
-        return None
-    from ..llm import limits
-
-    saved = limits.load(config.paths.data / "claude_limits.json")
-    if not saved:
-        return {"bars": [], "updated": "never"}
-    now = datetime.now(UTC).timestamp()
-    bars = []
-    for key, label, sublabel in limits.WINDOWS:
-        window = (saved.get("windows") or {}).get(key) or {}
-        resets = window.get("resetsAt")
-        used = float(window.get("utilization") or 0) if resets and resets > now else 0.0
-        if not resets or resets <= now:
-            note = "Starts with your first message" if key == "five_hour" else "Resets soon"
-        elif key == "five_hour":
-            minutes = int((resets - now) // 60)
-            note = f"Resets in {minutes // 60} h {minutes % 60} min" if minutes >= 60 else f"Resets in {minutes} min"
-        else:
-            note = "Resets " + format_local(datetime.fromtimestamp(resets, UTC), "%a %H:%M")
-        bars.append({"key": key, "label": label, "sublabel": sublabel, "note": note, "percent": round(used * 100)})
-    ago = int((now - saved.get("observed_at", now)) // 60)
-    updated = "just now" if ago < 1 else f"{ago} min ago" if ago < 120 else f"{ago // 60} h ago"
-    return {"bars": bars, "updated": updated}
 
 
 STEP_SHORT = {"note": "note", "folder": "Drive folder", "materials": "CV + letter (Claude)",
@@ -740,13 +729,15 @@ def _card_url(record: VacancyRecord | None) -> str | None:
     return f"/processed?filter={tab}#vac-{record.id}" if tab else f"/processed#vac-{record.id}"
 
 
-def application_item(config: AppConfig, storage: Storage, application: Application) -> dict[str, Any]:
+def application_item(config: AppConfig, storage: Storage, application: Application,
+                     now: datetime | None = None) -> dict[str, Any]:
     """One row of the Apply sidebar. Hands-on work (kind: manual) has no CV, so no PDF buttons, even on old rows."""
     record = storage.vacancies.get(application.vacancy_id)
-    rule = config.rules.categories.get(record.category) if record else None
-    manual = bool(rule and rule.kind == "manual")
+    manual = is_manual(config, record)
     state = application.state.value
-    if state == "queued":
+    if state == "draft":
+        status = "Choose what to make"
+    elif state == "queued":
         status = "Queued" if not application.started else "Continuing…"
     elif state == "working" and application.cancel_requested:
         status = "Stopping after this step…"
@@ -776,4 +767,39 @@ def application_item(config: AppConfig, storage: Storage, application: Applicati
                             and not Path(application.pdf_path).exists()), "has_letter": bool(application.letter),
         "note_url": f"obsidian://open?path={quote(application.note_path)}" if application.note_path else None,
         "folder_url": application.folder_url, "pdf_url": application.pdf_url,
+        "draft": state == "draft", "manual": manual, "with_cv": application.with_cv,
+        "with_letter": application.with_letter,
+        "section": sidebar_section(config, application, now or utcnow()),
     }
+
+
+def is_manual(config: AppConfig, record: VacancyRecord | None) -> bool:
+    """Hands-on work (kind: manual in rules.yaml): a cover letter, never a CV."""
+    rule = config.rules.categories.get(record.category) if record else None
+    return bool(rule and rule.kind == "manual")
+
+
+# The sidebar's sections, top to bottom (user, 18.11.2026). «current» ones are counted on the sidebar button.
+SIDEBAR_SECTIONS = (
+    {"key": "applied", "title": "Applied", "current": True},
+    {"key": "purgatory", "title": "Purgatory", "current": True},
+    {"key": "previous", "title": "Previous sessions", "current": False},
+)
+
+
+def sidebar_section(config: AppConfig, application: Application, now: datetime) -> str:
+    """Older than apply.yaml → current_session_hours since ▶ / N: «previous» (work in progress stays current);
+    otherwise «applied» once done, «purgatory» while waiting for Generate, in work, stopped or failed."""
+    in_work = application.state.active
+    if not in_work and application.created_at is not None and \
+            now - application.created_at >= timedelta(hours=config.apply.current_session_hours):
+        return "previous"
+    return "applied" if application.state.value == "done" else "purgatory"
+
+
+def sidebar_sections(config: AppConfig, storage: Storage, applications: list[Application]) -> list[dict[str, Any]]:
+    """The sections with their rows, in order; an empty section is left out."""
+    now = utcnow()
+    items = [application_item(config, storage, a, now) for a in applications]
+    sections = [{**s, "items": [i for i in items if i["section"] == s["key"]]} for s in SIDEBAR_SECTIONS]
+    return [s for s in sections if s["items"]]

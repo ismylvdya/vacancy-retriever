@@ -10,6 +10,7 @@ from ..timeutil import from_iso
 
 
 class ApplicationState(StrEnum):
+    DRAFT = "draft"          # ▶ put it in the sidebar's purgatory: nothing is made until Generate (18.11.2026)
     QUEUED = "queued"
     WORKING = "working"
     WAITING = "waiting"      # stopped by the Claude limit; continues at due_at
@@ -70,7 +71,9 @@ class Application:
     dismissed: bool = False
     created_at: datetime | None = None
     updated_at: datetime | None = None
-    kind: str = "apply"           # apply (▶) | not_now (N: the note only, with the vacancy's skills)
+    kind: str = "apply"           # apply (▶) | not_now (N: the Obsidian note only, with the vacancy's skills)
+    with_cv: bool = True          # Generate: the CV (+ the Drive folder)
+    with_letter: bool = True      # Generate: the cover letter (IT: only with the CV, it carries the CV's link)
     note_mine: str | None = None  # what the app last wrote into «### моё»
     stats_json: str | None = None
 
@@ -99,6 +102,7 @@ class Application:
             error=row["error"], warning=row["warning"], cancel_requested=bool(row["cancel_requested"]),
             dismissed=bool(row["dismissed"]), created_at=from_iso(row["created_at"]),
             updated_at=from_iso(row["updated_at"]), kind=row["kind"] or "apply", note_mine=row["note_mine"],
+            with_cv=bool(row["with_cv"]), with_letter=bool(row["with_letter"]),
             stats_json=row["stats_json"],
         )
 

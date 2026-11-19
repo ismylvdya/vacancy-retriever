@@ -68,7 +68,7 @@ class ApplicationWorker:
 
 
 class ApplicationService:
-    """What the UI may do with applications. ▶ = enqueue; Undo of ▶ = withdraw."""
+    """What the UI may do with applications. ▶ = enqueue (purgatory), Generate = generate; Undo of ▶ = withdraw."""
 
     def __init__(self, repo: ApplicationRepository, enabled: bool, start_delay_seconds: int,
                  worker: ApplicationWorker | None = None, clock: Callable[[], datetime] = utcnow):
@@ -91,39 +91,61 @@ class ApplicationService:
             self._worker.wake()
 
     def enqueue(self, vacancy_id: int, kind: str = "apply") -> Application | None:
-        """▶ (kind apply) or N (kind not_now: the Obsidian note with the skills). A «не сейчас» note, then ▶:
-        the same application becomes an apply and goes on from there (the note is reused)."""
+        """▶ (kind apply) puts the vacancy into the sidebar's purgatory: nothing is made until Generate (user,
+        18.11.2026). N (kind not_now: the Obsidian note with the skills) starts by itself after the Undo window.
+        A «не сейчас» note, then ▶: the same application becomes an apply and waits for Generate (the note is reused)."""
         if not self.enabled:
             return None
         app = self._repo.for_vacancy(vacancy_id)
         due = self._clock() + self._delay
+        state = ApplicationState.DRAFT if kind == "apply" else ApplicationState.QUEUED
         if app is None:
-            app = self._repo.create(vacancy_id, due, kind)
+            app = self._repo.create(vacancy_id, due, kind, state)
         elif app.kind != kind:
             if kind == "not_now" and app.started:  # applied earlier, now Not now: the apply stops, its files stay
                 self.stop(app.id)
                 return self._repo.get(app.id)
-            self._repo.update(app.id, kind=kind, state=ApplicationState.QUEUED, due_at=due, dismissed=0,
-                              cancel_requested=0, error=None)
+            self._repo.update(app.id, kind=kind, state=state, due_at=due, dismissed=0, cancel_requested=0, error=None)
         elif app.state == ApplicationState.CANCELLED:
-            self._repo.update(app.id, state=ApplicationState.QUEUED, due_at=due, dismissed=0, cancel_requested=0,
-                              error=None)
+            self._repo.update(app.id, state=state, due_at=due, dismissed=0, cancel_requested=0, error=None)
         else:
             self._repo.update(app.id, dismissed=0, cancel_requested=0)
         self._wake()
         return self._repo.get(app.id)
 
+    def generate(self, application_id: int, with_cv: bool, with_letter: bool, manual: bool = False) -> bool:
+        """«Generate Obsidian note» in the purgatory: the note always, plus the CV (+ Drive folder) and / or the cover
+        letter if checked. For IT the letter comes only with the CV (it carries the CV's link); hands-on work has a
+        letter and no CV (user, 19.11.2026)."""
+        if manual:
+            with_cv = False
+        elif not with_cv:
+            with_letter = False
+        app = self._repo.get(application_id)
+        if app is None or app.kind != "apply" or app.state != ApplicationState.DRAFT:
+            return False
+        self._repo.update(app.id, state=ApplicationState.QUEUED, due_at=self._clock(), with_cv=int(with_cv),
+                          with_letter=int(with_letter), error=None, cancel_requested=0)
+        self._wake()
+        return True
+
     def withdraw(self, vacancy_id: int) -> None:
-        """Undo of ▶: the application stops and stays in the sidebar as «Stopped» (what is created stays; Retry
-        continues, × removes the row). User, 30.10.2026: Undo and Stop end the same way."""
+        """Undo of ▶ / another status: a row still in the purgatory goes away (nothing was made); one that has
+        started stops and stays as «Stopped» (what is made stays; Retry continues). User, 30.10.2026."""
         app = self._repo.for_vacancy(vacancy_id)
-        if app is not None:
+        if app is None:
+            return
+        if app.state == ApplicationState.DRAFT and not app.started:
+            self._repo.delete(app.id)
+        elif app.state == ApplicationState.DRAFT:  # a «не сейчас» note was there: it stays, the row shows Stopped
+            self._repo.update(app.id, state=ApplicationState.CANCELLED)
+        else:
             self.stop(app.id)
 
     def stop(self, application_id: int) -> bool:
         """Stop button / Undo. A step in progress (a Claude call) finishes first, then nothing more is done."""
         app = self._repo.get(application_id)
-        if app is None or app.state in (ApplicationState.DONE, ApplicationState.CANCELLED):
+        if app is None or app.state in (ApplicationState.DONE, ApplicationState.CANCELLED, ApplicationState.DRAFT):
             return False
         if app.state == ApplicationState.WORKING:
             self._repo.update(app.id, cancel_requested=1)
@@ -137,13 +159,6 @@ class ApplicationService:
             return False
         self._repo.update(app.id, state=ApplicationState.QUEUED, due_at=self._clock(), error=None, cancel_requested=0)
         self._wake()
-        return True
-
-    def dismiss(self, application_id: int) -> bool:
-        app = self._repo.get(application_id)
-        if app is None:
-            return False
-        self._repo.update(app.id, dismissed=1)
         return True
 
     def get(self, application_id: int) -> Application | None:

@@ -1,10 +1,7 @@
 from __future__ import annotations
 
-import asyncio
 import hashlib
 import logging
-import threading
-import time
 from datetime import timedelta
 from urllib.parse import urlencode
 from pathlib import Path
@@ -28,7 +25,6 @@ from ..pipeline.recalculate import recalculate
 from ..pipeline.runner import RunOptions
 from ..settings.service import LinkedInSwitchError, SettingsError, SettingsService
 from ..storage import Storage
-from ..storage.llm_calls import LlmCallRecord
 from ..timeutil import format_local, from_iso, local, utcnow
 from . import views
 
@@ -51,6 +47,13 @@ class SettingsChanges(BaseModel):
 
 class Report(BaseModel):
     text: str
+
+
+class GenerateChoice(BaseModel):
+    """Purgatory → «Generate Obsidian note»: the note always, the CV and the letter if checked."""
+
+    cv: bool = True      # the CV (+ the Drive folder)
+    letter: bool = True  # the cover letter (IT: only together with the CV)
 
 
 class DriveChoice(BaseModel):
@@ -139,7 +142,7 @@ def create_app(config: AppConfig, storage: Storage, port: int, manager: RunManag
             "health_problems": health_problems(), "notices": notices.active(config.paths.notices),
             "max_days": config.rules.max_age_days, "missed": missed_summary(),
             "run_groups": [{"number": n, "title": config.rules.groups[n].title} for n in config.rules.enabled_groups],
-            "limits": views.claude_limits(config), **context,
+            **context,
         })
 
     def missed_summary() -> dict[str, Any] | None:
@@ -236,7 +239,6 @@ def create_app(config: AppConfig, storage: Storage, port: int, manager: RunManag
     def status() -> dict[str, Any]:
         state = full_status()
         state["feed_count"] = storage.vacancies.feed_count()
-        state["limits"] = views.claude_limits(config)
         return state
 
     @app.post("/api/run")
@@ -268,30 +270,6 @@ def create_app(config: AppConfig, storage: Storage, port: int, manager: RunManag
         except AlreadyRunning as exc:
             raise HTTPException(409, str(exc)) from exc
         return {"started": True}
-
-    @app.post("/api/claude-limits/refresh")
-    def refresh_claude_limits() -> dict[str, Any]:
-        """One tiny Claude call (Haiku): the subscription limits come back with every reply (llm/limits.py)."""
-        if config.llm.provider != "claude_sdk":
-            raise HTTPException(409, "Limits are shown only for the Claude subscription (llm.yaml → provider)")
-        from ..llm.factory import create_provider
-
-        def probe() -> None:
-            started = time.monotonic()
-            try:
-                response = asyncio.run(create_provider(config).complete_json('Reply with exactly {"ok": true}', "{}",
-                                                                              "haiku"))
-            except Exception as exc:  # noqa: BLE001 - the bars just stay as they were
-                log.info("Claude limits refresh failed: %s", exc)
-                return
-            usage = response.usage  # recorded like any call: real tokens, and a «before» point for measured %
-            storage.llm_calls.record(LlmCallRecord(
-                None, "limits", "claude_sdk", usage.model or "haiku", 0, usage.input_tokens, usage.output_tokens,
-                usage.cache_read_tokens, usage.cache_creation_tokens, True, time.monotonic() - started,
-                five_hour=usage.five_hour, seven_day=usage.seven_day, five_hour_resets_at=usage.five_hour_resets_at))
-
-        threading.Thread(target=probe, name="claude-limits", daemon=True).start()
-        return {"ok": True}
 
     @app.post("/api/missed/dismiss")
     def dismiss_missed() -> dict[str, Any]:
@@ -356,7 +334,7 @@ def create_app(config: AppConfig, storage: Storage, port: int, manager: RunManag
     @app.get("/api/applications")
     def list_applications() -> dict[str, Any]:
         return {"enabled": applications.enabled,
-                "items": [views.application_item(config, storage, a) for a in applications.visible()]}
+                "sections": views.sidebar_sections(config, storage, applications.visible())}
 
     def _application(application_id: int) -> Any:
         found = applications.get(application_id)
@@ -375,9 +353,12 @@ def create_app(config: AppConfig, storage: Storage, port: int, manager: RunManag
     def stop_application(application_id: int) -> dict[str, Any]:
         return {"ok": applications.stop(_application(application_id).id)}
 
-    @app.post("/api/applications/{application_id}/dismiss")
-    def dismiss_application(application_id: int) -> dict[str, Any]:
-        applications.dismiss(_application(application_id).id)
+    @app.post("/api/applications/{application_id}/generate")
+    def generate_application(application_id: int, choice: GenerateChoice) -> dict[str, Any]:
+        found = _application(application_id)
+        manual = views.is_manual(config, storage.vacancies.get(found.vacancy_id))
+        if not applications.generate(application_id, choice.cv, choice.letter, manual):
+            raise HTTPException(409, "Only a vacancy waiting in the purgatory can be generated")
         return {"ok": True}
 
     @app.post("/api/applications/{application_id}/reveal")

@@ -65,6 +65,8 @@
     </div>
     {% if c.reports %}<div class="debug-only reports"><h4>Reports</h4>{% for r in c.reports %}<p><span class="muted small">{{ r.date }}</span> <span class="report-text">{{ r.text }}</span></p>{% endfor %}</div>{% endif %}
     <div class="debug-only debug-box" data-loaded=""></div>
+    {#- debug mode: what the retriever parsed as the description is always shown in an open card (user, 18.11.2026) -#}
+    <h4 class="debug-only parsed-title">Parsed description <span class="muted">· {{ c.description_note }}</span></h4>
     <pre class="fulltext" hidden>{{ c.description }}</pre>
   </div>
 </article>

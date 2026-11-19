@@ -17,7 +17,7 @@
 <div class="segmented" role="tablist">
   <a href="/statistics" class="seg {{ 'on' if view == 'sources' }}">Sources</a>
   <a href="/statistics?view=runs" class="seg {{ 'on' if view == 'runs' }}">Runs<span class="count">{{ runs | length }}</span></a>
-  <a href="/statistics?view=applies" class="seg {{ 'on' if view == 'applies' }}" title="▶ Apply and Not now: steps, Claude calls, tokens">Applies<span class="count">{{ applies_count }}</span></a>
+  <a href="/statistics?view=applies" class="seg {{ 'on' if view == 'applies' }}" title="“▶” Apply and Not now: steps, Claude calls, tokens">Applies<span class="count">{{ applies_count }}</span></a>
 </div>
 </div>
 
@@ -67,7 +67,7 @@
 {% elif view == 'applies' %}
 <section class="group">
   <div class="card-head">
-    <div class="section-head"><h2>Applies</h2><span class="sub">▶ Apply and Not now — time of every step, Claude calls and tokens</span></div>
+    <div class="section-head"><h2>Applies</h2><span class="sub">“▶” Apply and Not now — time of every step, Claude calls and tokens</span></div>
     <div class="col-head hsync" data-hsync="applies"><table class="table apply-table">{{ apply_cols() }}
       <thead><tr><th>Started</th><th>Vacancy</th><th>Kind</th><th>State</th><th class="r">Time</th><th>Steps</th><th class="r">Claude calls</th><th class="r">Tokens</th><th class="r">±% of 5h Pro Limit</th></tr></thead>
     </table></div>
@@ -86,7 +86,7 @@
         <td class="r">{{ "{:,}".format(a.tokens) }}</td>
         <td class="r">{% if a.limit_share is not none %}{{ a.limit_share }}%{% else %}—{% endif %}</td>
       </tr>
-    {% else %}<tr><td colspan="9" class="muted">No applications yet — ▶ or N in the feed.</td></tr>{% endfor %}
+    {% else %}<tr><td colspan="9" class="muted">No applications yet — “▶” or N in the feed.</td></tr>{% endfor %}
     </tbody>
   </table></div>
 </section>

@@ -32,6 +32,35 @@ RUSSIAN_EMPLOYERS = {"russian", "ru_with_serbian_entity", "intl_russian_speaking
 SERBIA = {"serbia", "srbija", "rs", "сербия"}
 _GRADE_IN_TITLE = re.compile(r"\b(intern|internship|junior|jr|trainee|graduate|entry[- ]level)\b|стаж|младш", re.I)
 _APPLY_LINE = re.compile(r"^Apply: (https?://\S+)$", re.M)
+# A Latin part counts as the English name of the role only when it names a role: «Аналитик данных (Data Analyst)» →
+# «Data Analyst», but «Менеджер продукта (Computer Vision)» stays as it is (the user, 18.11.2026).
+_ROLE_WORD = re.compile(r"\b(analyst|engineer|scientist|developer|programmer|manager|designer|specialist|architect|"
+                        r"researcher|consultant|tester|intern|trainee|lead|administrator|operator|assistant|"
+                        r"modeler|strategist|owner|officer)s?\b", re.I)
+_CYRILLIC = re.compile(r"[а-яё]", re.I)
+_LATIN = re.compile(r"[a-z]", re.I)
+
+
+def english_title(title: str) -> str:
+    """One language in the note / folder name: «Аналитик данных (Data Analyst)», «BI Developer/BI разработчик»,
+    «Технический проджект менеджер / Technical project manager» → the English role. Anything else is kept."""
+    def english_role(part: str) -> bool:
+        return bool(_ROLE_WORD.search(part)) and not _CYRILLIC.search(part) and bool(_LATIN.search(part))
+
+    match = re.fullmatch(r"\s*([^()]+?)\s*\(([^()]+)\)\s*", title)
+    if match and _CYRILLIC.search(match.group(1)) and english_role(match.group(2)):
+        return match.group(2).strip()
+    depth, cuts = 0, []
+    for index, char in enumerate(title):
+        depth += {"(": 1, ")": -1}.get(char, 0)
+        if char == "/" and depth == 0:
+            cuts.append(index)
+    if len(cuts) == 1:
+        parts = [title[:cuts[0]].strip(), title[cuts[0] + 1:].strip()]
+        english = [p for p in parts if english_role(p)]
+        if len(english) == 1 and any(_CYRILLIC.search(p) for p in parts if p not in english):
+            return english[0]
+    return title
 
 
 class DossierBuilder:
@@ -65,7 +94,7 @@ class DossierBuilder:
             hint = (f"Location: {facts.city}, {facts.country}; format: {facts.work_format}; "
                     f"employer type: {facts.employer_type}; ad language: {facts.ad_language}")
         title = (facts.display_title if facts else "") or record.title
-        return VacancyDossier(vacancy_id=record.id, title=title, name_title=self.name_title(title, facts),
+        return VacancyDossier(vacancy_id=record.id, title=title, name_title=self.name_title(english_title(title), facts),
                               employer=employer, text=text, links=[(label, url) for url, label in unique.items()],
                               where=self.where(record.facts), labels=self.labels(record.category), company_hint=hint,
                               manual=self.manual(record.category))
@@ -144,6 +173,7 @@ class StepContext:
     services: ApplyServices
     warnings: list[str] = field(default_factory=list)
     kind: str = "apply"
+    with_cv: bool = True
 
     @cached_property
     def dossier(self) -> VacancyDossier:
@@ -170,6 +200,22 @@ class StepContext:
         return self.services.out_dir
 
 
+def wants_cv(app: Application) -> bool:
+    """The CV (its PDF and the Drive folder): only for ▶ with that box checked at Generate."""
+    return app.kind == APPLY and app.with_cv
+
+
+def wants_letter(app: Application) -> bool:
+    """The cover letter: ▶ with that box checked (for IT it comes only with the CV — it carries the CV's link)."""
+    return app.kind == APPLY and app.with_letter
+
+
+def wants_materials(app: Application) -> bool:
+    """The one Claude call that picks the CV's blocks and / or writes the letter."""
+    return wants_cv(app) or wants_letter(app)
+
+
+
 class Step(ABC):
     name: str
 
@@ -188,7 +234,8 @@ class NoteStep(Step):
 
     def run(self, app: Application, ctx: StepContext) -> dict[str, Any]:
         assert ctx.vault is not None
-        return {"note_path": str(ctx.vault.create(ctx.dossier, not_now=app.kind == NOT_NOW))}
+        return {"note_path": str(ctx.vault.create(ctx.dossier, not_now=app.kind == NOT_NOW,
+                                                   mine=wants_materials(app)))}
 
 
 def drive_folder_name(template: str, title: str, employer: str, day: date) -> str:
@@ -203,7 +250,7 @@ class FolderStep(Step):
     name = "folder"
 
     def needed(self, app: Application, ctx: StepContext) -> bool:
-        return app.kind == APPLY and ctx.drive.available and not app.folder_id and not ctx.dossier.manual
+        return wants_cv(app) and ctx.drive.available and not app.folder_id and not ctx.dossier.manual
 
     def run(self, app: Application, ctx: StepContext) -> dict[str, Any]:
         name = drive_folder_name(ctx.services.folder_name, ctx.dossier.name_title or ctx.dossier.title,
@@ -216,11 +263,13 @@ class MaterialsStep(Step):
     name = "materials"
 
     def needed(self, app: Application, ctx: StepContext) -> bool:
-        return app.kind == APPLY and not app.materials_json
+        return wants_materials(app) and not app.materials_json
 
     def run(self, app: Application, ctx: StepContext) -> dict[str, Any]:
-        write = ctx.writer.write_manual if ctx.dossier.manual else ctx.writer.write
-        materials = asyncio.run(write(ctx.dossier, app.id))
+        if ctx.dossier.manual:
+            materials = asyncio.run(ctx.writer.write_manual(ctx.dossier, app.id))
+        else:
+            materials = asyncio.run(ctx.writer.write(ctx.dossier, app.id, letter=wants_letter(app)))
         return {"materials_json": materials.to_json(), "skills": ", ".join(materials.skills)}
 
 
@@ -237,7 +286,7 @@ class PdfStep(Step):
     name = "pdf"
 
     def needed(self, app: Application, ctx: StepContext) -> bool:
-        return app.kind == APPLY and not (app.pdf_path and Path(app.pdf_path).exists()) and not ctx.dossier.manual
+        return wants_cv(app) and not (app.pdf_path and Path(app.pdf_path).exists()) and not ctx.dossier.manual
 
     def run(self, app: Application, ctx: StepContext) -> dict[str, Any]:
         """Built in a temporary folder; only the PDF is kept, in ~/Downloads (user, 30.10.2026: nothing in data/)."""
@@ -256,7 +305,7 @@ class UploadStep(Step):
     name = "upload"
 
     def needed(self, app: Application, ctx: StepContext) -> bool:
-        return (app.kind == APPLY and ctx.drive.available and bool(app.folder_id) and not app.pdf_file_id
+        return (wants_cv(app) and ctx.drive.available and bool(app.folder_id) and not app.pdf_file_id
                 and not ctx.dossier.manual)
 
     def run(self, app: Application, ctx: StepContext) -> dict[str, Any]:
@@ -271,20 +320,23 @@ class FinalizeStep(Step):
     name = "finalize"
 
     def needed(self, app: Application, ctx: StepContext) -> bool:
-        return app.materials is not None if app.kind == APPLY else bool(app.skills)
+        return app.materials is not None if wants_materials(app) else bool(app.skills)
 
     def run(self, app: Application, ctx: StepContext) -> dict[str, Any]:
         note = ctx.vault.find(app.vacancy_id, app.note_path) if ctx.vault else None
-        if app.kind == NOT_NOW:
+        if not wants_materials(app):  # Not now, or Generate with the note only: properties and skills, no «### моё»
+            if note is not None and app.kind == APPLY:
+                ctx.vault.become_applied(note, ctx.dossier.employer, mine=False)  # type: ignore[union-attr]
             if note is not None and app.skills:
                 ctx.vault.fill_property(note, SKILLS_PROPERTY, app.skills)  # type: ignore[union-attr]
             return {"note_path": str(note)} if note else {}
         assert app.materials is not None
-        letter = insert_cv_link(app.materials.letter, app.pdf_url)
+        letter = insert_cv_link(app.materials.letter, app.pdf_url) if wants_letter(app) else None
         updates: dict[str, Any] = {"letter": letter}
         if note is not None:
             ctx.vault.become_applied(note, ctx.dossier.employer)  # type: ignore[union-attr]  # was «не сейчас»
-            mine = ctx.vault.mine_section(app.folder_url, letter, ctx.dossier.manual)  # type: ignore[union-attr]
+            mine = ctx.vault.mine_section(app.folder_url, letter,  # type: ignore[union-attr]
+                                          folder=wants_cv(app) and not ctx.dossier.manual)
             if ctx.vault.set_mine(note, mine, app.note_mine):  # app.note_mine: what the app wrote there last time
                 updates["note_mine"] = mine
             else:
@@ -298,12 +350,13 @@ class FinalizeStep(Step):
 
 
 class SkillsStep(Step):
-    """Not now: the vacancy's skills for «👾необходимые скилы» (one small Claude call, no CV or letter)."""
+    """Not now, or Generate with the note only: the vacancy's skills for «👾необходимые скилы» (one small Claude call,
+    no CV or letter)."""
 
     name = "skills"
 
     def needed(self, app: Application, ctx: StepContext) -> bool:
-        return app.kind == NOT_NOW and not app.skills
+        return not wants_materials(app) and not app.skills
 
     def run(self, app: Application, ctx: StepContext) -> dict[str, Any]:
         return {"skills": ", ".join(asyncio.run(ctx.writer.skills(ctx.dossier, app.id)))}
@@ -322,7 +375,7 @@ class ApplicationPipeline:
         self._steps = steps or STEPS
 
     def process(self, app: Application) -> Application:
-        ctx = StepContext(app.vacancy_id, self._services, kind=app.kind)
+        ctx = StepContext(app.vacancy_id, self._services, kind=app.kind, with_cv=wants_cv(app))
         for step in self._steps:
             current = self._repo.get(app.id)
             if current is None:
@@ -353,7 +406,7 @@ class ApplicationPipeline:
         warnings = list(ctx.warnings)
         if ctx.vault is None:
             warnings.append("Obsidian vault not found (config/apply.yaml → obsidian.vault_dir)")
-        if (ctx.kind == APPLY and not ctx.dossier.manual
+        if (ctx.with_cv and not ctx.dossier.manual
                 and (not ctx.drive.available or isinstance(ctx.drive, StubDrive))):
             warnings.append(ctx.drive.reason or "Google Drive is not connected")
         return warnings

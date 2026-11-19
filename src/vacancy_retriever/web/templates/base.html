@@ -14,20 +14,6 @@
   <div class="appbar-side">
     <button class="icon-btn" id="undo-btn" type="button" disabled title="Nothing to undo" aria-label="Undo"><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M5.5 3.5 2.5 6.5l3 3"/><path d="M2.8 6.5h6.7a3.5 3.5 0 0 1 0 7H7"/></svg></button>
     <button class="icon-btn mirror" id="redo-btn" type="button" disabled title="Nothing to redo" aria-label="Redo"><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M5.5 3.5 2.5 6.5l3 3"/><path d="M2.8 6.5h6.7a3.5 3.5 0 0 1 0 7H7"/></svg></button>
-    {% if limits %}
-    <span class="anchor">
-      <button class="icon-btn ring" id="limits-btn" type="button" aria-haspopup="dialog" aria-expanded="false" aria-label="Claude limits"
-              style="--fill: {{ limits.bars | map(attribute='percent') | max if limits.bars else 0 }}"><svg viewBox="0 0 20 20" aria-hidden="true"><circle class="ring-track" cx="10" cy="10" r="7"/><circle class="ring-fill" cx="10" cy="10" r="7" pathLength="100"/></svg></button>
-      <div class="popover limits-pop" id="limits-pop" role="dialog" aria-label="Claude limits" hidden>
-        <h3 class="popover-title">Claude limits</h3>
-        <ul class="limits" id="limits-bars"></ul>
-        <script type="application/json" id="limits-data">{{ limits | tojson }}</script>
-        <p class="muted small" id="limits-empty" hidden>Not known yet: they come with every Claude reply.</p>
-        <div class="popover-foot"><span class="muted small">Updated <span id="limits-updated">{{ limits.updated }}</span></span>
-          <button class="btn small" id="limits-refresh" type="button" title="One tiny Claude call (Haiku) — the limits come with every reply">Refresh</button></div>
-      </div>
-    </span>
-    {% endif %}
     <button class="icon-btn" id="settings-btn" type="button" aria-pressed="false" title="Settings (Esc closes)" aria-label="Settings"><svg viewBox="0 0 20 20" aria-hidden="true"><circle cx="10" cy="10" r="2.6"/><path d="M10 1.8v2.3M10 15.9v2.3M18.2 10h-2.3M4.1 10H1.8M15.8 4.2l-1.6 1.6M5.8 14.2l-1.6 1.6M15.8 15.8l-1.6-1.6M5.8 5.8 4.2 4.2"/><circle cx="10" cy="10" r="5.6"/></svg></button>
   </div>
   <div class="appbar-title" aria-hidden="true">🦆 Vacancy Retriever</div>
@@ -94,9 +80,8 @@
 </section>
 {% endfor %}
 <aside class="apply-sidebar" id="apply-sidebar" hidden aria-label="Applications">
-  <h2 class="apply-head">Apply</h2>
   <ul class="apply-list" id="apply-list"></ul>
-  <div class="apply-empty" id="apply-empty"><p>Nothing here yet.</p><p class="muted small"><kbd>▶</kbd> on a vacancy makes its CV, cover letter, Obsidian note and Drive folder here.</p></div>
+  <div class="apply-empty" id="apply-empty"><p>Nothing here yet.</p><p class="muted small"><kbd>▶</kbd> on a vacancy puts it here; Generate makes its CV, cover letter and Obsidian note.</p></div>
 </aside>
 <main class="main">
 {% block content %}{% endblock %}

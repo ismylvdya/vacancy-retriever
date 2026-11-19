@@ -1,6 +1,6 @@
 "use strict";
 
-/* The page shell: the app bar (undo / redo, Claude limits, settings, debug, sidebar), the compact title that
+/* The page shell: the app bar (undo / redo, settings, debug, sidebar), the compact title that
    replaces the big one once it scrolls away, sticky offsets, and the Apply sidebar. */
 
 /* ---------- sticky offsets: the app bar, then the tab bar, then sub-tabs + filters, then a group heading ---------- */
@@ -59,48 +59,6 @@ document.querySelectorAll("[data-hsync]").forEach((box) => {
   update();
 })();
 
-/* ---------- Claude limits: a ring with the fuller of the two windows; the bubble shows both ---------- */
-function limitLevel(percent) {
-  if (percent >= UI.limits.dangerPercent) return "danger";
-  if (percent >= UI.limits.warnPercent) return "warn";
-  return "ok";
-}
-
-function renderLimits(limits) {
-  const ring = $("limits-btn");
-  if (!ring || !limits) return;
-  const fullest = Math.max(0, ...limits.bars.map((bar) => bar.percent));
-  ring.style.setProperty("--fill", fullest);
-  ring.dataset.level = limitLevel(fullest);
-  ring.title = limits.bars.length ? `Claude limits: ${fullest}% of the fuller window` : "Claude limits: not known yet";
-  $("limits-updated").textContent = limits.updated;
-  $("limits-bars").replaceChildren(...limits.bars.map((bar) => {
-    const item = el("li", "limit");
-    item.dataset.level = limitLevel(bar.percent);
-    const head = el("div", "limit-head");
-    const name = el("span", "limit-name", bar.label);
-    if (bar.sublabel) name.append(el("span", "limit-sub", bar.sublabel));
-    head.append(name, el("span", "limit-pct", `${bar.percent}%`));
-    const track = el("div", "meter");
-    const fill = el("div", "meter-fill");
-    fill.style.width = `${bar.percent}%`;
-    track.append(fill);
-    item.append(head, track, el("div", "limit-note", bar.note));
-    return item;
-  }));
-  $("limits-empty").hidden = limits.bars.length > 0;
-}
-
-if ($("limits-btn")) {
-  renderLimits(JSON.parse($("limits-data").textContent));
-  popover($("limits-btn"), $("limits-pop"));
-  $("limits-refresh").addEventListener("click", async () => {
-    try { await api("POST", "/api/claude-limits/refresh"); toast("Asking Claude… the limits update in a few seconds"); }
-    catch (e) { toast(e.message); }
-    setTimeout(() => api("GET", "/api/status").then((s) => renderLimits(s.limits)).catch(() => {}), UI.limits.refreshWaitMs);
-  });
-}
-
 /* ---------- settings: the gear swaps the whole page for the settings screen (settings.js) ---------- */
 let scrollBeforeSettings = 0;
 function setSettingsOpen(open) {
@@ -114,14 +72,15 @@ function setSettingsOpen(open) {
 $("settings-btn").addEventListener("click", () => setSettingsOpen(!document.body.classList.contains("settings-open")));
 document.addEventListener("keydown", (event) => {
   if (event.key !== "Escape" || !document.body.classList.contains("settings-open")) return;
-  if (document.querySelector("[aria-expanded='true'] + .popover:not([hidden])")) return;  // Escape closes the popover first
   setSettingsOpen(false);
 });
 
-/* ---------- Apply sidebar: ▶ sends a vacancy here; the server makes the note, CV, letter and Drive folder ---------- */
+/* ---------- Apply sidebar: ▶ puts a vacancy into the purgatory; Generate makes the note and what is checked (CV, letter).
+   Sections and their order come from the server (views.SIDEBAR_SECTIONS). ---------- */
 const applySidebar = $("apply-sidebar");
 let applyTimer = null;
 let applyItems = 0;
+let applyCurrent = 0;  // rows of the current session's sections: the number on the sidebar button
 
 function applicationRow(item) {
   const li = el("li", `app-item app-${item.state}`);
@@ -134,12 +93,6 @@ function applicationRow(item) {
     title.title = "Open this vacancy's card";
   }
   head.append(title);
-  const dismiss = el("button", "icon-btn small app-dismiss");
-  Object.assign(dismiss, { title: "Remove from the sidebar (files stay)", type: "button" });
-  dismiss.setAttribute("aria-label", "Remove from the sidebar");
-  dismiss.innerHTML = '<svg viewBox="0 0 16 16" aria-hidden="true"><path d="M4 4l8 8M12 4l-8 8"/></svg>';
-  dismiss.dataset.app = "dismiss";
-  head.append(dismiss);
   li.append(head);
   if (item.employer) li.append(el("div", "app-employer", item.employer));
   li.append(el("div", "app-status", item.status));
@@ -152,6 +105,7 @@ function applicationRow(item) {
     b.dataset.app = action;
     actions.append(b);
   };
+  if (item.draft) li.append(generateChoice(item));
   if (item.has_pdf) button("reveal", "PDF");
   if (item.pdf_removed) button("retry", "Rebuild PDF");
   if (item.has_letter) button("letter", "Cover letter");
@@ -166,6 +120,36 @@ function applicationRow(item) {
   return li;
 }
 
+/* Purgatory: «Generate Obsidian note» always makes the note, plus the CV and the cover letter if checked. The letter
+   carries the CV's link, so it is off and unavailable while the CV is off; hands-on work has no CV, only the letter. */
+function generateChoice(item) {
+  const box = el("div", "app-generate");
+  const inputs = {};
+  const option = (name, label, checked) => {
+    const line = el("label", "app-option");
+    const input = el("input");
+    Object.assign(input, { type: "checkbox", name, checked });
+    inputs[name] = input;
+    line.append(input, document.createTextNode(` ${label}`));
+    return line;
+  };
+  const generate = el("button", "btn small primary", "Generate Obsidian note");
+  Object.assign(generate, { type: "button" });
+  generate.dataset.app = "generate";
+  if (!item.manual) box.append(option("cv", "CV", item.with_cv));
+  box.append(option("letter", "Cover letter", item.with_letter), generate);
+  const sync = () => {
+    if (inputs.cv) {
+      inputs.letter.disabled = !inputs.cv.checked;
+      if (!inputs.cv.checked) inputs.letter.checked = false;
+      inputs.letter.parentElement.classList.toggle("is-disabled", inputs.letter.disabled);
+    }
+  };
+  box.addEventListener("change", sync);
+  sync();
+  return box;
+}
+
 function sidebarOpen() {
   const saved = store.get(UI.storage.sidebarOpen);
   return saved === null ? applyItems > 0 : saved === "1";
@@ -177,8 +161,8 @@ function layoutSidebar() {
   applySidebar.hidden = !open;
   document.body.classList.toggle("with-sidebar", open);
   $("sidebar-btn").setAttribute("aria-pressed", String(open));
-  $("apply-count").textContent = applyItems || "";
-  $("apply-count").hidden = !applyItems;
+  $("apply-count").textContent = applyCurrent || "";  // only the current session (user, 18.11.2026)
+  $("apply-count").hidden = !applyCurrent;
   $("apply-empty").hidden = applyItems > 0;
   measureSticky();
 }
@@ -188,11 +172,20 @@ async function refreshApplications() {
   clearTimeout(applyTimer);
   try {
     const data = await api("GET", "/api/applications");
-    applyItems = data.items.length;
-    $("apply-list").replaceChildren(...data.items.map(applicationRow));
+    const items = data.sections.flatMap((section) => section.items);
+    applyItems = items.length;
+    applyCurrent = data.sections.filter((section) => section.current).reduce((n, section) => n + section.items.length, 0);
+    $("apply-list").replaceChildren(...data.sections.flatMap((section) => [
+      el("li", `app-section app-section-${section.key}`, section.title),
+      ...section.items.map((item) => {
+        const row = applicationRow(item);
+        row.classList.add(`app-in-${section.key}`);
+        return row;
+      }),
+    ]));
     layoutSidebar();
     applyTimer = setTimeout(refreshApplications,
-      data.items.some((item) => item.active) ? UI.applications.activeMs : UI.applications.idleMs);
+      items.some((item) => item.active) ? UI.applications.activeMs : UI.applications.idleMs);
   } catch (e) {
     applyTimer = setTimeout(refreshApplications, UI.applications.retryMs);
   }
@@ -213,6 +206,13 @@ if (applySidebar) {
         const data = await api("GET", `/api/applications/${id}/letter`);
         await writeClipboard(data.text);
         toast("Cover letter copied");
+        return;
+      }
+      if (action === "generate") {
+        const row = control.closest(".app-item");
+        const checked = (name) => !!row.querySelector(`input[name="${name}"]:checked`);
+        await api("POST", `/api/applications/${id}/generate`, { cv: checked("cv"), letter: checked("letter") });
+        refreshApplications();
         return;
       }
       await api("POST", `/api/applications/${id}/${action}`);

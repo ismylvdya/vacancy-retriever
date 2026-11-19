@@ -10,7 +10,7 @@ from .db import Database
 _RESULT_FIELDS = {
     "state", "step", "due_at", "note_path", "folder_id", "folder_url", "materials_json", "pdf_path", "pdf_file_id",
     "pdf_url", "letter", "skills", "error", "warning", "cancel_requested", "dismissed", "kind", "note_mine",
-    "stats_json",
+    "stats_json", "with_cv", "with_letter",
 }
 
 
@@ -26,12 +26,13 @@ class ApplicationRepository:
         row = self.db.query_one("SELECT * FROM applications WHERE vacancy_id = ?", (vacancy_id,))
         return Application.from_row(row) if row else None
 
-    def create(self, vacancy_id: int, due_at: datetime, kind: str = "apply") -> Application:
+    def create(self, vacancy_id: int, due_at: datetime, kind: str = "apply",
+               state: ApplicationState = ApplicationState.QUEUED) -> Application:
         now = to_iso(utcnow())
         cursor = self.db.execute(
             "INSERT INTO applications(vacancy_id, state, due_at, created_at, updated_at, kind)"
             " VALUES (?, ?, ?, ?, ?, ?)",
-            (vacancy_id, ApplicationState.QUEUED, to_iso(due_at), now, now, kind),
+            (vacancy_id, state, to_iso(due_at), now, now, kind),
         )
         application = self.get(int(cursor.lastrowid or 0))
         assert application is not None

@@ -93,7 +93,10 @@ EXAMPLES = [
 
 @pytest.fixture(scope="module")
 def engine(config):
-    return ScoringEngine(config.rules)
+    """The user tunes the experience thresholds in Settings; the examples are checked with the 03.11.2026 ones."""
+    rules = config.rules.model_copy(deep=True)
+    rules.experience_drop.years, rules.experience_drop.years_unless_junior = 3, 2
+    return ScoringEngine(rules)
 
 
 @pytest.mark.parametrize(("example_id", "facts", "expected"), EXAMPLES, ids=[str(e[0]) for e in EXAMPLES])

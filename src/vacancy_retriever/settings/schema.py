@@ -188,9 +188,10 @@ SECTIONS: tuple[Section, ...] = (
     ),
     Section(
         "apply", "Apply",
-        "What ▶ does: the Obsidian note, the tailored CV and cover letter, the Google Drive folder (docs/APPLY.md).",
+        "What “▶” does: the vacancy waits in the sidebar's Purgatory until «Generate Obsidian note» makes the note and, "
+        "if checked, the tailored CV (with the Google Drive folder) and the cover letter (docs/APPLY.md).",
         fields=(
-            Field("apply", "enabled", "toggle", "▶ makes the CV, letter, note and folder"),
+            Field("apply", "enabled", "toggle", "“▶” sends vacancies to the sidebar for Generate"),
             Field("apply", "start_delay_seconds", "number", "Wait before starting (time to Undo)", unit="s",
                   min=0, max=60, step=1),
             Field("apply", "retry_minutes", "number", "Retry after a Claude limit in", unit="min", min=5, max=300, step=5),

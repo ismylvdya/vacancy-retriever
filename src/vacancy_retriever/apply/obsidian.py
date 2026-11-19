@@ -63,7 +63,7 @@ class NoteRenderer:
     settings: ObsidianSettings
 
     def render(self, dossier: VacancyDossier, employer_link: str | None, today: date | None = None,
-               not_now: bool = False) -> str:
+               not_now: bool = False, mine: bool = True) -> str:
         """Properties like the user's own vacancy notes (начало = today, статус, one «где»), then the template
         «### описание вакансии» (sources + text) and «### моё» (Drive folder + letter, filled in when ready)."""
         started = (today or date.today()).isoformat()
@@ -79,7 +79,7 @@ class NoteRenderer:
                  f"{SKILLS_PROPERTY}:", f"{ID_PROPERTY}: {dossier.vacancy_id}", "---", ""]
         sources = [f"[{_label(label)}]({url})" for label, url in dossier.links]
         body = [DESCRIPTION_HEADING, *sources, "", "**описание вакансии:**", _fence(dossier.text), ""]
-        if not not_now:
+        if mine and not not_now:  # «### моё» holds the Drive folder and the letter: only when they are made
             body += [MINE_HEADING, _PLACEHOLDER, ""]
         return "\n".join(lines + body)
 
@@ -117,7 +117,7 @@ class ObsidianVault:
                 return path
         return None
 
-    def create(self, dossier: VacancyDossier, not_now: bool = False) -> Path:
+    def create(self, dossier: VacancyDossier, not_now: bool = False, mine: bool = True) -> Path:
         existing = self.find(dossier.vacancy_id)
         if existing:
             return existing
@@ -128,8 +128,8 @@ class ObsidianVault:
         path, n = folder / f"{base}{mark}.md", 2
         while path.exists():  # a name taken by another note: «… 2 🦆», «… 3 🦆» (the user's choice, 28.10.2026)
             path, n = folder / f"{base} {n}{mark}.md", n + 1
-        path.write_text(self.renderer.render(dossier, self.employer_link(dossier.employer), not_now=not_now),
-                        encoding="utf-8")
+        path.write_text(self.renderer.render(dossier, self.employer_link(dossier.employer), not_now=not_now,
+                                             mine=mine), encoding="utf-8")
         return path
 
     def employer_link(self, employer: str) -> str | None:
@@ -147,14 +147,14 @@ class ObsidianVault:
                 return f"[[{path.stem}]]"
         return None
 
-    def become_applied(self, path: Path, employer: str) -> None:
+    def become_applied(self, path: Path, employer: str, mine: bool = True) -> None:
         """A «не сейчас» note, then ▶: the status turns «откликнулся» (only if it is still the app's «не сейчас»),
         the empty «👾FK» gets the employer and the «### моё» section is added for the letter."""
         text = path.read_text(encoding="utf-8")
         old = f"👾статус:\n  - {_yaml_value(self.settings.status_not_now)}\n"
         if self.settings.status and old in text:
             text = text.replace(old, f"👾статус:\n  - {_yaml_value(self.settings.status)}\n", 1)
-        if not _MINE.search(text):
+        if mine and not _MINE.search(text):
             text = text.rstrip() + f"\n\n{MINE_HEADING}\n{_PLACEHOLDER}\n"
         path.write_text(text, encoding="utf-8")
         link = self.employer_link(employer)
@@ -191,11 +191,12 @@ class ObsidianVault:
         return True
 
     @staticmethod
-    def mine_section(folder_url: str | None, letter: str, manual: bool = False) -> str:
-        """«### моё»: the Drive folder, then the letter (with the link to the CV file) in a code block.
-        Hands-on work has no CV and no folder: only the letter."""
-        block = f"**cover letter:**\n{_fence(letter)}"
-        if manual:
-            return block
-        folder = f"[папка на Google Drive]({folder_url})" if folder_url else "_Google Drive не подключён — папки нет._"
-        return f"{folder}\n\n{block}"
+    def mine_section(folder_url: str | None, letter: str | None, folder: bool = True) -> str:
+        """«### моё»: the Drive folder (when a CV was made), then the letter (with the link to the CV file) in a code
+        block (when one was asked for). Hands-on work has no CV and no folder: only the letter."""
+        parts = []
+        if folder:
+            parts.append(f"[папка на Google Drive]({folder_url})" if folder_url else "_Google Drive не подключён — папки нет._")
+        if letter:
+            parts.append(f"**cover letter:**\n{_fence(letter)}")
+        return "\n\n".join(parts)

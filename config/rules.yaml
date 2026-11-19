@@ -76,7 +76,7 @@ salary:
 #   years               — отсев всегда, даже у junior / intern
 #   years_unless_junior — отсев, если вакансия не помечена junior / intern
 experience_drop:
-  years: 3
+  years: 2
   years_unless_junior: 2
 
 # Слова, которые в тексте вакансии означают связь с русским языком или Россией (синяя метка, нет потолка English team).
@@ -98,7 +98,7 @@ drop_seniority_from_text: true
 groups:
   1: {title: "IT and data in Serbia", note: "With residence permit", enabled: false}
   2: {title: "Hands-on work in Serbia", note: "With residence permit", enabled: false}
-  3: {title: "Remote, Russian-speaking employer", note: "Outside Russia or country unknown"}
+  3: {title: "Remote, Russian-speaking employer", note: "Outside Russia or country unknown", enabled: false}
   4: {title: "Informal work in Serbia", note: "No residence permit", enabled: false}
   5: {title: "Unclear", collapsed: true}
   6: {title: "Remote in Russia", note: "No residence permit"}

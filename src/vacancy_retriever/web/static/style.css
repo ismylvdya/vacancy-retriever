@@ -32,7 +32,7 @@ body.title-compact .appbar-title, body.settings-open .appbar-title { opacity: 1;
 .app-title { margin: 32px 0 52px; text-align: center; font-size: 56px; font-weight: 650; letter-spacing: -0.02em; line-height: 1.1; }
 body.settings-open .app-title { visibility: hidden; }
 
-/* round icon buttons (undo, redo, limits, settings, sidebar) */
+/* round icon buttons (undo, redo, settings, sidebar) */
 .icon-btn { position: relative; display: inline-grid; place-items: center; flex: none; width: var(--icon-btn);
   height: var(--icon-btn); padding: 0; border: 1px solid transparent; border-radius: var(--radius); background: none;
   color: var(--muted); cursor: pointer; }
@@ -50,31 +50,7 @@ body.settings-open .app-title { visibility: hidden; }
   background: var(--accent); color: #fff; font-size: 10px; font-weight: 600; line-height: 16px; text-align: center;
   font-variant-numeric: tabular-nums; box-shadow: 0 0 0 2px var(--bg); }
 
-/* Claude limits: a ring filled to the fuller of the two windows, like Claude Code's own indicator */
-.ring svg { width: 18px; height: 18px; transform: rotate(-90deg); }
-.ring circle { fill: none; stroke-width: 2.4; }
-.ring-track { stroke: var(--line-strong); }
-.ring-fill { stroke: var(--accent); stroke-dasharray: calc(var(--fill, 0) * 1) 100; stroke-linecap: round; }
-.ring[data-level="warn"] .ring-fill { stroke: var(--likely); }
-.ring[data-level="danger"] .ring-fill { stroke: var(--danger); }
 
-/* popovers anchored to an app-bar button */
-.anchor { position: relative; display: inline-flex; }
-.popover { position: absolute; top: calc(100% + var(--space-2)); left: 0; z-index: 50; width: 300px; padding: var(--space-4);
-  border-radius: var(--radius-card); background: var(--panel); box-shadow: var(--shadow-pop); font-size: var(--font-m); }
-.popover-title { margin: 0 0 var(--space-3); font-size: var(--font-l); font-weight: 600; }
-.popover-foot { display: flex; align-items: center; justify-content: space-between; gap: var(--space-3);
-  margin-top: var(--space-4); }
-.limits { display: grid; gap: var(--space-4); margin: 0; padding: 0; list-style: none; }
-.limit-head { display: flex; align-items: baseline; gap: var(--space-2); margin-bottom: 6px; }
-.limit-name { flex: 1; font-weight: 500; }
-.limit-sub { margin-left: 6px; color: var(--faint); font-weight: 400; }
-.limit-pct { font-variant-numeric: tabular-nums; color: var(--muted); }
-.limit-note { margin-top: 5px; font-size: var(--font-s); color: var(--muted); }
-.meter { height: 6px; border-radius: 3px; background: var(--line); overflow: hidden; }
-.meter-fill { height: 100%; border-radius: 3px; background: var(--accent); }
-.limit[data-level="warn"] .meter-fill { background: var(--likely); }
-.limit[data-level="danger"] .meter-fill { background: var(--danger); }
 
 /* ---------- the tab bar (Feed / Processed / Statistics … Run) — sticks right under the app bar ---------- */
 .top { position: sticky; top: var(--appbar-h); z-index: 10; background: var(--bg); }
@@ -251,6 +227,10 @@ pre { max-width: 100%; overflow-x: auto; }
 .actions .btn-quiet:hover { color: var(--text); }
 .sources { display: flex; flex-wrap: wrap; gap: 4px 14px; margin-top: 8px; }
 .sources .src { margin-left: 0; }
+.parsed-title { margin: 14px 0 0; font-size: 12px; font-weight: 600; color: var(--muted); }
+.parsed-title .muted { font-weight: 400; }
+body.debug .vac.open .fulltext[hidden] { display: block !important; }  /* beats the global [hidden] rule */
+.parsed-title + .fulltext { margin-top: 6px; }
 .fulltext { white-space: pre-wrap; font: 13px/1.6 -apple-system, sans-serif; color: var(--text); border-left: 2px solid var(--line-strong);
   padding: 2px 0 2px 14px; margin: 14px 0 0; max-width: 640px; }
 
@@ -447,14 +427,22 @@ body.debug .debug-toggle { color: var(--accent); }
   padding: calc(var(--appbar-h) + var(--space-2)) var(--space-4) var(--space-5); background: var(--panel);
   border-left: 1px solid var(--line); }
 body.with-sidebar { padding-right: var(--sidebar-w); }
-.apply-head { margin: 0 0 var(--space-3); font-size: 15px; font-weight: 600; }
 .apply-list { display: flex; flex-direction: column; gap: var(--space-3); margin: 0; padding: 0; list-style: none; }
+/* Section titles: on the cards' left edge, in the text colour; a divider from border to border between sections */
+.app-section { margin: 0 0 var(--space-1); color: var(--text); font-size: var(--font-s); font-weight: 600;
+  text-transform: uppercase; letter-spacing: .04em; }
+.app-section ~ .app-section { margin-top: calc(var(--space-5) + var(--space-1)); padding-top: calc(2 * var(--space-5));
+  border-top: 1px solid var(--line); margin-left: calc(-1 * var(--space-4)); margin-right: calc(-1 * var(--space-4));
+  padding-left: var(--space-4); padding-right: var(--space-4); }
+/* Previous sessions: greyed, still clickable */
+.app-section-previous { color: var(--muted); }
+.app-in-previous { opacity: .6; }
+.app-in-previous:hover, .app-in-previous:focus-within { opacity: 1; }
 .apply-empty { padding: var(--space-5) 0; text-align: center; font-size: var(--font-m); }
 .apply-empty p { margin: 0 0 var(--space-1); }
 .app-item { padding: 10px var(--space-3); border: 1px solid var(--line); border-radius: var(--radius); font-size: var(--font-s); }
 .app-head { display: flex; align-items: flex-start; gap: var(--space-2); }
 .app-item-title { flex: 1; min-width: 0; font-size: var(--font-m); line-height: 1.3; overflow-wrap: anywhere; }
-.app-dismiss { margin: -3px -5px 0 0; }
 .app-employer { margin-top: 2px; color: var(--muted); overflow-wrap: anywhere; }
 .app-status { margin-top: var(--space-1); color: var(--muted); }
 .app-done .app-status { color: var(--ok); }
@@ -464,6 +452,11 @@ body.with-sidebar { padding-right: var(--sidebar-w); }
   color: var(--danger); background: color-mix(in srgb, var(--danger) 12%, transparent); }
 .app-error { margin-top: 2px; overflow-wrap: anywhere; }
 .app-warning { margin-top: 2px; color: var(--likely); overflow-wrap: anywhere; }
+.app-generate { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 12px; margin-top: var(--space-2); }
+.app-option { display: inline-flex; align-items: center; gap: 4px; color: var(--text); cursor: pointer; }
+.app-option input { accent-color: var(--accent); margin: 0; }
+.app-option.is-disabled { color: var(--faint); cursor: default; }
+.app-generate .btn { margin-left: auto; }
 .app-actions { display: flex; flex-wrap: wrap; gap: 6px; margin-top: var(--space-2); }
 .spinner { width: 12px; height: 12px; flex: none; margin-top: 3px; border-radius: 50%; border: 2px solid var(--line-strong);
   border-top-color: var(--accent); animation: spin .8s linear infinite; }

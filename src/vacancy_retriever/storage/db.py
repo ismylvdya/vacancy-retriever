@@ -167,7 +167,7 @@ CREATE INDEX IF NOT EXISTS ix_reports_vacancy ON reports(vacancy_id);
 CREATE TABLE IF NOT EXISTS applications (
     id INTEGER PRIMARY KEY,
     vacancy_id INTEGER NOT NULL UNIQUE REFERENCES vacancies(id) ON DELETE CASCADE,
-    state TEXT NOT NULL,               -- queued | working | waiting | failed | done | cancelled
+    state TEXT NOT NULL,               -- draft | queued | working | waiting | failed | done | cancelled
     step TEXT,                         -- the step being done (or that failed)
     due_at TEXT NOT NULL,              -- not before this time (Undo window, retry after a Claude limit)
     note_path TEXT,
@@ -215,7 +215,10 @@ class Database:
                  ("llm_calls", "five_hour", "REAL"), ("llm_calls", "seven_day", "REAL"),
                  ("llm_calls", "five_hour_resets_at", "INTEGER"),
                  ("applications", "kind", "TEXT NOT NULL DEFAULT 'apply'"), ("applications", "note_mine", "TEXT"),
-                 ("applications", "stats_json", "TEXT")}
+                 ("applications", "stats_json", "TEXT"),
+                 ("applications", "with_cv", "INTEGER NOT NULL DEFAULT 1"),
+                 ("applications", "with_letter", "INTEGER NOT NULL DEFAULT 1"),
+                 ("applications", "with_note", "INTEGER NOT NULL DEFAULT 1")}  # unused since 19.11.2026: the note is always made
         for table, column, kind in added:
             columns = {row[1] for row in conn.execute(f"PRAGMA table_info({table})")}
             if column not in columns:

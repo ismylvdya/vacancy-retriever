@@ -61,6 +61,7 @@ def test_pages_render(client):
     assert "<span>Junior</span>" in feed and "<span>Russian company with a Serbian d.o.o.</span>" in feed
     assert "Ad Russian" in feed and "Requires English, Russian" in feed, "grade, employer type and languages on the card"
     assert 'flag flag-ru">Russian-speaking<' in feed and "🇬🇧" not in feed
+    assert 'class="debug-only parsed-title">Parsed description' in feed and "The post / card text" in feed
     assert "IT and data in Serbia" in feed
     assert "1500–2000 €" in feed
     assert "https://telegram.me/serbiawork/1" in feed
@@ -389,21 +390,6 @@ def test_linkedin_description_share_in_statistics(client):
         assert f"<span>{label}</span><b>25%</b>" in page
 
 
-def test_claude_limits_ring_and_bubble_in_the_app_bar(client, tmp_paths):
-    import json
-    import time
-
-    page = client.get("/").text
-    assert 'id="limits-btn"' in page and "--fill: 0" in page and '"updated": "never"' in page
-    later = time.time() + 2 * 3600 + 600
-    (tmp_paths.data / "claude_limits.json").write_text(json.dumps({"observed_at": time.time(), "windows": {
-        "five_hour": {"utilization": 0.58, "resetsAt": later}, "seven_day": {"utilization": 0.37, "resetsAt": later}}}))
-    page = client.get("/").text
-    assert "--fill: 58" in page, "the ring shows the fuller of the two windows"
-    bars = client.get("/api/status").json()["limits"]["bars"]
-    assert [(b["label"], b["sublabel"], b["percent"]) for b in bars] == [("5-hour limit", "", 58), ("Weekly", "all models", 37)]
-    assert bars[0]["note"].startswith("Resets in 2 h")
-    assert client.get("/api/status").json()["limits"]["bars"][1]["percent"] == 37
 
 
 def test_unknown_or_skipped_filter_in_the_address_is_ignored(client):

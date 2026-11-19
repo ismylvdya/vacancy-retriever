@@ -387,6 +387,7 @@ class ApplyConfig(_Strict):
     names: NameSettings = Field(default_factory=NameSettings)
     start_delay_seconds: int = Field(default=8, ge=0)
     retry_minutes: int = Field(default=30, ge=1)
+    current_session_hours: float = Field(default=6, gt=0)  # sidebar: younger ▶ / N are «Current session»
     obsidian: ObsidianSettings = Field(default_factory=ObsidianSettings)
     resume: ResumeSettings = Field(default_factory=ResumeSettings)
     drive: DriveSettings = Field(default_factory=DriveSettings)

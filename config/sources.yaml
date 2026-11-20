@@ -38,7 +38,7 @@ sources:
   - {id: IT_iGaming,             type: telegram, name: "IT iGaming (LENKEP)",    url: "https://telegram.me/IT_iGaming",             posts_per_day: 1,   max_pages: 3, groups: [], enabled: false, disabled_reason: "Отключён 16.11.2026: за всю историю ни одной вакансии в ленте; поиск теперь Россия (вкл. — Settings → Sources)"}
   - {id: datasciencejobs,        type: telegram, name: "Data Science Jobs",      url: "https://telegram.me/datasciencejobs",        posts_per_day: 1,   max_pages: 3, groups: []}
   - {id: young_relocate,         type: telegram, name: "Young Relocate",         url: "https://telegram.me/young_relocate",         posts_per_day: 2,   max_pages: 5, groups: [5]}
-  - {id: rusukrjobs,             type: telegram, name: "RusUkr Jobs",            url: "https://telegram.me/rusukrjobs",             posts_per_day: 0.5, max_pages: 3, groups: [], enabled: false, disabled_reason: "Отключён 16.11.2026: за всю историю ни одной вакансии в ленте; поиск теперь Россия (вкл. — Settings → Sources)"}
+  - {id: rusukrjobs,             type: telegram, name: "RusUkr Jobs",            url: "https://telegram.me/rusukrjobs",             posts_per_day: 0.5, max_pages: 3, groups: [], enabled: true, disabled_reason: "Отключён 16.11.2026: за всю историю ни одной вакансии в ленте; поиск теперь Россия (вкл. — Settings → Sources)"}
   - {id: job_for_relocation,     type: telegram, name: "Job for Relocation",     url: "https://telegram.me/job_for_relocation",     posts_per_day: 1,   max_pages: 3, groups: [], enabled: false, disabled_reason: "Отключён 16.11.2026: за всю историю ни одной вакансии в ленте; поиск теперь Россия (вкл. — Settings → Sources)"}
   - {id: opento_cyprus,          type: telegram, name: "Open to Cyprus",         url: "https://telegram.me/opento_cyprus",          posts_per_day: 1,   max_pages: 3, groups: [5]}
   - {id: futru_it,               type: telegram, name: "Futru IT",               url: "https://telegram.me/futru_it",               posts_per_day: 1,   max_pages: 3, groups: []}
@@ -50,6 +50,15 @@ sources:
   - {id: job_analyst_datascience, type: telegram, name: "Analyst & DS Jobs",     url: "https://telegram.me/job_analyst_datascience", posts_per_day: 1,  max_pages: 3, groups: []}
   - {id: juniors_rabota_jobs,    type: telegram, name: "Juniors Rabota",         url: "https://telegram.me/juniors_rabota_jobs",    posts_per_day: 2,   max_pages: 5, groups: []}
   - {id: choicy_work,            type: telegram, name: "Choicy Work",            url: "https://telegram.me/choicy_work",            posts_per_day: 1,   max_pages: 3, groups: []}
+  # Добавлены 20.11.2026 (поиск в России, вкл. офис в Москве): проверены по веб-превью — активны, много Москвы и junior.
+  - {id: foranalysts,            type: telegram, name: "Job for Analysts & DS",  url: "https://telegram.me/foranalysts",            posts_per_day: 3,   max_pages: 5, groups: []}
+  - {id: it_vakansii_jobs,       type: telegram, name: "СЕТИ — IT & Digital",    url: "https://telegram.me/it_vakansii_jobs",       posts_per_day: 2,   max_pages: 5, groups: []}
+  # Каналы компаний (20.11.2026, пользователь): объявления о стажировках и волнах набора, иногда вакансии.
+  #   params.source_employer — чей это канал (подсказка LLM: работодатель). Анонсы стажировок и наборов из ЛЮБОГО источника идут в ленту с меткой Internship wave (docs/PROGRAMMES.md).
+  - {id: sberstudent,            type: telegram, name: "СберСтудент",            url: "https://telegram.me/sberstudent",            posts_per_day: 1,   max_pages: 3, params: {source_employer: "Сбер"}, groups: []}
+  - {id: tech_rwb,               type: telegram, name: "RWB Тех",                url: "https://telegram.me/tech_rwb",               posts_per_day: 1,   max_pages: 3, params: {source_employer: "RWB (Wildberries)"}, groups: []}
+  - {id: tbank_education,        type: telegram, name: "Т-Образование",          url: "https://telegram.me/tbank_education",        posts_per_day: 1,   max_pages: 3, params: {source_employer: "Т-Банк"}, groups: []}
+  - {id: ozonteam,               type: telegram, name: "Ozon Team",              url: "https://telegram.me/ozonteam",               posts_per_day: 0.3, max_pages: 3, params: {source_employer: "Ozon"}, groups: []}
 
   # ---------- Почта (ящики и отправители — config/mail.yaml, пароли — config/.env) ----------
   - {id: gmail,  type: email, name: "Gmail", params: {mailbox: gmail}, groups: [1]}
@@ -64,6 +73,27 @@ sources:
   - {id: habr, type: habr, name: "Habr Career", url: "https://career.habr.com/api/frontend/vacancies", max_pages: 3, posts_per_day: 10, params: {specializations: [43, 44, 76, 125, 129], qualifications: [], remote_only: false}, groups: [6, 7]}
   # geekjob: tags 52 = "Аналитика, Data Science, Big Data"; remote = только удалёнка (false с 16.11.2026: нужна и Москва).
   - {id: geekjob, type: geekjob, name: "GeekJob", url: "https://geekjob.ru/json/find/vacancy", max_pages: 3, posts_per_day: 0.7, params: {tags: [52], remote: false, relocate: false}, groups: []}
+  # trudvsem: «Работа России», открытый API государства (20.11.2026). region — код региона (7700000000000 = Москва),
+  #   queries — поисковые фразы (каждая — отдельный поиск), берутся только вакансии, изменённые за окно прогона.
+  #   У каждой вакансии есть ИНН работодателя: IT-аккредитация проверяется по нему сразу, без LLM.
+  - {id: trudvsem, type: trudvsem, name: "Работа России", url: "https://opendata.trudvsem.ru/api/v1/vacancies", max_pages: 3, posts_per_day: 8, params: {region: "7700000000000", queries: ["аналитик данных", "data analyst", "data scientist", "data engineer", "python"], page_size: 100}, groups: [6, 7]}
+
+  # ---------- Карьерные сайты работодателей (20.11.2026, пользователь; collectors/sites/employers.py) ----------
+  # Фильтры — с сайтов, по ссылкам пользователя. Опрашиваются, даже если вакансий мало или нет (ничего не пропустить).
+  # Ozon (career.ozon.ru, ozon.tech) не подключён: оба сайта отвечают антибот-проверкой, её не обходим.
+  # mtsbank: job.mtsbank.ru/vacancies?specialization=…&city=138 (138 = Москва).
+  - {id: mtsbank, type: mtsbank, name: "МТС Банк", url: "https://job.mtsbank.ru/vacancies", max_pages: 3, posts_per_day: 2, params: {city: 138, specializations: [307, 295, 296, 297, 299, 319, 287, 308, 309, 316, 323, 301, 303, 306, 407, 405, 472, 360, 567]}, groups: [6, 7]}
+  # tbank: тело запроса, которое сайт шлёт по ссылке tbank.ru/career/vacancies/all/moscow/?direction=…&profession=…
+  #   (направления аналитика/данные и IT-разработка; профессии data, ml, аналитика; опыт 0 и 1–5 лет; стажёр и middle;
+  #   офис и гибрид). Даты публикации в списке нет: новые берутся по номеру.
+  - {id: tbank, type: tbank, name: "Т-Банк", url: "https://www.tbank.ru/career/vacancies/all/moscow/", max_pages: 5, posts_per_day: 1, params: {filter: {generatedGraphQL: {type: T_CAREER, status: ACTIVE, searchFiasIds: ["0c5b2444-70a0-4932-980c-b4dc0d3f02b5"], includeSeoAndPcPublications: false, includeInternshipPublications: true, collapsePredstavitelPublications: true, or: [{category: tcareer_it, tagSlugs: [tcareer-it-direction-analitika-i-dannye, tcareer-it-direction-it-razrabotka, tcareer-it-experience-0-years, tcareer-it-experience-1-5-years, tcareer-it-experience-intern, tcareer-it-experience-middle, tcareer-it-work-format-office, tcareer-it-work-format-hybrid], professionSlugs: [ml, analitika, data], specializationSlugs: [ml-inzhener, risk-data-science, risk-data-analysis, produktovaya-analitika, bi-analitik]}]}}}, groups: [6, 7]}
+  # sber: rabota.sber.ru/search, Москва (FIAS 0c5b2444…). Ссылка пользователя — вся Москва (~800 вакансий, кассиры и
+  #   курьеры тоже); оставлены специализации: DS и Data Engineering, BI-аналитик/аналитик данных, дата-сайентист,
+  #   продуктовый аналитик, IT-аналитик, разработчик, аналитики маркетинга и стратегии (~310).
+  - {id: sber, type: sber, name: "Сбер (rabota.sber.ru)", url: "https://rabota.sber.ru/search/", max_pages: 7, posts_per_day: 10, params: {locations: ["0c5b2444-70a0-4932-980c-b4dc0d3f02b5"], prof_areas: ["948a8e95-75fa-4184-9f10-a1fed94864f6", "d5e8b5e8-867c-4f98-b043-4732199cc58a", "563b89ac-8453-43d0-a7ef-af91f6481ced", "cb16d557-d39b-4e85-892d-172b7f1d9fe7", "9b07fbb7-3259-4eb5-839c-ea14b08ad51a", "39d29fd5-1a53-43ae-ab6f-1eda9ce5db58", "f0e89fb5-4f3f-4ef5-abaa-5d03a79c0582", "71cb4c54-f71f-42c5-8789-f8dac1411d49", "d5227bc6-d621-4419-9462-5edb5fe2bb76"]}, groups: [6, 7]}
+  # vtb: ссылка пользователя. Сайт показывает только «федеральный набор» ВТБ (20.11.2026 по этим фильтрам — 0,
+  #   по Москве всего 3); IT-вакансии ВТБ — на hh.ru (работодатель 4181), их ловят письма hh.
+  - {id: vtb, type: vtb, name: "ВТБ (rabota-vtb.ru)", url: "https://rabota-vtb.ru/career?experience=between1And3&experience=noExperience&professionalRole=10&professionalRole=165&professionalRole=96&professionalRole=164&professionalRole=156&area=1", max_pages: 3, posts_per_day: 0.2, groups: [6, 7]}
 
   # ---------- HTML-сайты ----------
   # ovdejobs: категории не фильтруются по умолчанию (часть подходящих вакансий без категории);
@@ -73,10 +103,15 @@ sources:
   # youngjunior: собственный JSON API сайта; specialities = разделы (ml_engineer, data_scientist, analyst_data).
   - {id: youngjunior, type: youngjunior, name: "YoungJunior", url: "https://youngjunior.ru/ml-engineer/jobs?sortMode=date", max_pages: 3, posts_per_day: 9, params: {specialities: [ml_engineer, data_scientist, analyst_data], remote: false}, groups: [3, 6, 7]}
   # hirify: listings — ссылки фильтров сайта hirify.me (их можно скопировать из адресной строки браузера).
-  - {id: hirify, type: hirify, name: "Hirify", url: "https://hirify.me/?countries=serbia&grade=junior,trainee", max_pages: 3, posts_per_day: 3, params: {listings: ["https://hirify.me/?countries=serbia&grade=junior,trainee", "https://hirify.me/?specializations=data_science,machine_learning,data_analytics,ai_engineering,product_analyst&grade=junior,trainee&work_format=remote&vacancy_language=ru"]}, groups: [1, 3, 5, 6, 7]}
+  #   Вторая — ссылка пользователя от 20.11.2026 (Москва / Россия: офис, гибрид, удалёнка; junior, trainee) + специализации
+  #   DS / ML / аналитика: без них ~530 вакансий всех профессий, с ними ~40.
+  - {id: hirify, type: hirify, name: "Hirify", url: "https://hirify.me/?countries=serbia&grade=junior,trainee", max_pages: 3, posts_per_day: 3, params: {listings: ["https://hirify.me/?countries=serbia&grade=junior,trainee", "https://hirify.me/?city=524901&countries=russia&grade=junior,trainee&my_location=russia&work_format=onsite,hybrid,remote&specializations=data_science,machine_learning,data_analytics,ai_engineering,product_analyst"]}, groups: [1, 3, 5, 6, 7]}
   # talentmove: RSS-лента вакансий; filters — параметры фильтра сайта.
   - {id: talentmove, type: talentmove, name: "TalentMove", url: "https://talent-move.ru/seniority/junior/", max_pages: 5, posts_per_day: 4, params: {filters: {seniority: junior, job_category: "data,analytics,ai"}}, groups: [3, 5, 6, 7]}
-  - {id: hirehi, type: hirehi, name: "HireHi", enabled: false, disabled_reason: "Открывается (2026-10-14), но по фильтру «Сербия» выдаёт ~26 вакансий, почти все — продажи / PM / сисадмин; сборщик не написан (низкая ценность)", url: "https://hirehi.ru/?level=intern&level=junior&industry=it_tech&industry=igaming&industry=gamedev&industry=fintech&industry=ai&industry=ecommerce&industry=other&country=Serbia", groups: []}
+  # hirehi: listings — фильтры пользователя от 20.11.2026 (Россия: удалённо, офис, удалёнка по РФ; intern, junior;
+  #   русский язык), по разделам сайта (/vacancies/<раздел>): все разделы вместе — ~1300 вакансий (маркетинг, продажи…).
+  #   Раньше выключен: по Сербии почти ничего полезного.
+  - {id: hirehi, type: hirehi, name: "HireHi", url: "https://hirehi.ru/vacancies/data-analyst?format=%D1%83%D0%B4%D0%B0%D0%BB%D1%91%D0%BD%D0%BD%D0%BE&format=%D0%BE%D1%84%D0%B8%D1%81&format=remote_russia&level=intern&level=junior&english=lang_ru&industry=it_tech&industry=igaming&industry=gamedev&industry=fintech&industry=ai&industry=ecommerce&industry=other&country=Russia", max_pages: 3, posts_per_day: 4, params: {listings: ["https://hirehi.ru/vacancies/data-analyst?format=%D1%83%D0%B4%D0%B0%D0%BB%D1%91%D0%BD%D0%BD%D0%BE&format=%D0%BE%D1%84%D0%B8%D1%81&format=remote_russia&level=intern&level=junior&english=lang_ru&industry=it_tech&industry=igaming&industry=gamedev&industry=fintech&industry=ai&industry=ecommerce&industry=other&country=Russia", "https://hirehi.ru/vacancies/product-analyst?format=%D1%83%D0%B4%D0%B0%D0%BB%D1%91%D0%BD%D0%BD%D0%BE&format=%D0%BE%D1%84%D0%B8%D1%81&format=remote_russia&level=intern&level=junior&english=lang_ru&industry=it_tech&industry=igaming&industry=gamedev&industry=fintech&industry=ai&industry=ecommerce&industry=other&country=Russia", "https://hirehi.ru/vacancies/ml-ai?format=%D1%83%D0%B4%D0%B0%D0%BB%D1%91%D0%BD%D0%BD%D0%BE&format=%D0%BE%D1%84%D0%B8%D1%81&format=remote_russia&level=intern&level=junior&english=lang_ru&industry=it_tech&industry=igaming&industry=gamedev&industry=fintech&industry=ai&industry=ecommerce&industry=other&country=Russia", "https://hirehi.ru/vacancies/data-engineer?format=%D1%83%D0%B4%D0%B0%D0%BB%D1%91%D0%BD%D0%BD%D0%BE&format=%D0%BE%D1%84%D0%B8%D1%81&format=remote_russia&level=intern&level=junior&english=lang_ru&industry=it_tech&industry=igaming&industry=gamedev&industry=fintech&industry=ai&industry=ecommerce&industry=other&country=Russia", "https://hirehi.ru/vacancies/python?format=%D1%83%D0%B4%D0%B0%D0%BB%D1%91%D0%BD%D0%BD%D0%BE&format=%D0%BE%D1%84%D0%B8%D1%81&format=remote_russia&level=intern&level=junior&english=lang_ru&industry=it_tech&industry=igaming&industry=gamedev&industry=fintech&industry=ai&industry=ecommerce&industry=other&country=Russia"]}, groups: [6, 7]}
   # Отключены: защита Cloudflare (403 + JS-челлендж / WAF-блок) даже на robots.txt. Сборщики не написаны.
   # infostud: Next.js-данные страницы, фильтр по дате на стороне сайта. Категории — из ссылки пользователя
   # (IT, bankarstvo, održavanje, mašinstvo, magacin, fizika/matematika) + proizvodnja i montaža (69), građevina (11).
@@ -96,6 +131,9 @@ detail_domains:
   - geekjob.ru
   - changellenge.com
   - api.hirify.me
+  - job.mtsbank.ru
+  - www.tbank.ru
+  - hirehi.ru
   - talent-move.ru
   # страницы вакансий из писем (hh.ru не докачивается: сайт отвечает 406 клиентам-не-браузерам)
   - internship.vk.company

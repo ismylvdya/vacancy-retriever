@@ -37,6 +37,7 @@ from ..storage.vacancies import NewVacancy
 from ..timeutil import format_local, local, to_iso, utcnow
 from .dedup import RawDeduplicator, compare_vacancies, dedup_key
 from .llm_stage import DedupJudge, LlmCaller, ScoredItem, VacancyScorer, run_jobs
+from .mail_stage import LetterSorter, apply_letter_verdict
 from .prefilter import Prefilter
 from .progress import ProgressTracker, SourceStats
 
@@ -48,7 +49,12 @@ DEDUP_WINDOW_DAYS = 30
 
 
 def source_wanted(source: SourceConfig, groups: set[int]) -> bool:
-    """A source marked with feed groups is collected only while one of them is on; unmarked ones always are."""
+    """A source marked with feed groups is collected only while one of them is on; unmarked ones always are.
+    A mailbox is always read: statuses of applications and internship waves do not depend on groups (20.11.2026)."""
+    return source.type == "email" or vacancies_wanted(source, groups)
+
+
+def vacancies_wanted(source: SourceConfig, groups: set[int]) -> bool:
     return not source.groups or bool(set(source.groups) & groups)
 
 
@@ -102,6 +108,25 @@ class RunSummary:
             "network_bytes": self.network_bytes,
         }
 
+
+
+def programme_safety_net(item: StoredRawItem, records: list[VacancyFacts]) -> None:
+    """Mail triage said «an internship wave», scoring said «not a vacancy» for everything: the two LLM calls disagree.
+    A programme must not be lost silently (user, 20.11.2026): keep it as a low-confidence programme record."""
+    if item.meta.get("letter_kind") != "wave" or not records:
+        return
+    if any(r.role_category != "not_a_vacancy" for r in records):
+        return
+    first = records[0]
+    first.role_category = "other"
+    first.kind = "programme"
+    first.seniority = "intern"
+    first.confidence = "low"
+    subject = str((item.meta.get("email") or {}).get("subject") or item.title or "")
+    first.title_original = first.title_original or subject
+    first.title_ru = first.title_ru or subject
+    first.summary_ru = first.summary_ru or "Письмо о наборе на стажировку (проверьте вручную: LLM не уверена)"
+    del records[1:]
 
 class Pipeline:
     """One run: collect → raw dedup → prefilter → details → LLM facts → vacancy dedup → commit."""
@@ -174,6 +199,7 @@ class Pipeline:
             self.stats.save()
         self._note_missed_periods(run_id, sources, options)
         self._after_commit(summary)
+        self._check_accreditation(run_id)
         self.progress.finish("done", self._summary_line(summary))
         if options.notify and self.notifier:
             self.notifier(self._notification(summary))
@@ -193,6 +219,7 @@ class Pipeline:
         skipped = [s.id for s in sources if not source_wanted(s, active)]
         if skipped:
             log.info("Not collected: only groups that are off in this run (%s)", ", ".join(skipped))
+        self._active_groups = active
         return [s for s in sources if source_wanted(s, active)]
 
     def _check_cancel(self) -> None:
@@ -238,6 +265,9 @@ class Pipeline:
             cancel_event=self.cancel_event,
             limit=options.limit,
             on_page=lambda page: self.progress.source_page(source.id, source.name, page, source.max_pages),
+            mail_checked=lambda: self.storage.statuses.checked(source.id),
+            remember_checked=lambda ids: self.storage.statuses.remember_checked(source.id, ids, "no_job_words"),
+            vacancies_wanted=vacancies_wanted(source, getattr(self, "_active_groups", set(source.groups))),
         )
         try:
             collector = collector_for(source, http)
@@ -286,9 +316,16 @@ class Pipeline:
     def _store_items(self, run_id: int, source: SourceConfig, result: CollectResult,
                      raw_dedup: RawDeduplicator) -> int:
         stored = 0
+        employer = str(source.params.get("source_employer") or "")
         for item in result.items:
             item.source_id = source.id
+            if employer:  # the source belongs to this employer (a company's own channel or site): sources.yaml
+                item.meta.setdefault("source_employer", employer)
             if self.storage.items.is_known(source.id, item.external_id):
+                continue
+            if item.meta.get("triage"):  # one letter = one item: «К сожалению…» letters look alike but are not reposts
+                if self.storage.items.insert(run_id, item, "pending_llm") is not None:
+                    stored += 1
                 continue
             original = raw_dedup.find_original(item)
             swap_with = None
@@ -435,6 +472,11 @@ class Pipeline:
             return
         caller = LlmCaller(provider, self.storage.llm_calls, run_id, self.config.llm.retries,
                            self.config.paths.data / "llm_failures")
+        letters = [item for item in pending if item.meta.get("triage") and not item.meta.get("letter_kind")]
+        if letters:
+            pending = [item for item in pending if item not in letters] + self._sort_letters(run_id, caller, letters)
+            if not pending:
+                return
         names = {s.id: s.name for s in self.config.sources.sources}
         scorer = VacancyScorer(self.config, caller, names)
         batches = scorer.batches(pending)
@@ -453,7 +495,35 @@ class Pipeline:
             for scored in result:
                 self._store_scored(run_id, by_id[scored.raw_id], scored, now)
 
+    def _sort_letters(self, run_id: int, caller: LlmCaller, letters: list[StoredRawItem]) -> list[StoredRawItem]:
+        """Mail triage (pipeline/mail_stage.py): statuses go to the Statuses tab, letters with vacancies or an
+        internship wave go on to scoring (returned), the rest is closed. A failed call leaves letters pending."""
+        sorter = LetterSorter(self.config, caller)
+        batches = sorter.batches(letters)
+        self.progress.phase("scoring", f"Sorting {_plural(len(letters), 'letter')}")
+        results = run_jobs([lambda b=b: sorter.sort(b) for b in batches], self.config.llm.max_concurrency,
+                           self.cancel_event)
+        by_id = {item.id: item for item in letters}
+        to_score: list[StoredRawItem] = []
+        for result in results:
+            if isinstance(result, BaseException):
+                self._llm_error = str(result)
+                continue
+            for verdict in result:
+                item = by_id[verdict.raw_id]
+                outcome = apply_letter_verdict(self.storage, run_id, item, verdict)
+                if outcome == "score":
+                    to_score.append(item)
+                elif item.staged:
+                    self.storage.items.set_status(item.id, "scored" if outcome == "status" else "hidden",
+                                                  verdict.reason)
+                else:
+                    self.storage.runs.stage_raw_status(run_id, item.id, "scored" if outcome == "status" else "hidden")
+                    self._scored_previous.add(item.id)
+        return to_score
+
     def _store_scored(self, run_id: int, item: StoredRawItem, scored: ScoredItem, now: datetime) -> None:
+        programme_safety_net(item, scored.vacancies)
         for facts in scored.vacancies:
             vacancy = self._vacancy_from_facts(item, facts, now)
             if vacancy is None:
@@ -470,6 +540,7 @@ class Pipeline:
         if not facts.employer_name or facts.employer_name == "unknown":
             facts.employer_name = item.meta.get("company") or facts.employer_name
         fill_from_text(facts, self.config.rules, item)
+        facts.wave = facts.kind == "programme" or item.meta.get("letter_kind") == "wave"
         verdict = self.engine.evaluate(facts, item.published_at, now, getattr(self, "_rates", None), item.email_only)
         if verdict.decision == "hidden":
             return None
@@ -608,6 +679,8 @@ class Pipeline:
         for row in rows:
             meta = json.loads(row["meta_json"] or "{}")
             email_meta = meta.get("email") or {}
+            if meta.get("leave_unread"):  # not about work (mail triage): the letter is not touched
+                continue
             if email_meta and (row["source_id"], str(email_meta.get("uid"))) not in pending_uids:
                 processed[row["source_id"]].append(meta)
         for source_id, metas in processed.items():
@@ -621,6 +694,25 @@ class Pipeline:
                     "UPDATE source_runs SET alert = 'mail_flags', error = ? WHERE run_id = ? AND source_id = ?",
                     ("; ".join(errors)[:500], summary.run_id, source_id),
                 )
+
+    def _check_accreditation(self, run_id: int) -> None:
+        """IT accreditation of the feed's Russian employers (accreditation/stage.py). Never fails the run."""
+        from ..accreditation.stage import run_accreditation
+
+        if self.cancel_event.is_set():
+            return
+        http = self.http_factory()
+        try:
+            result = run_accreditation(self.config, self.storage, self.provider_factory, http, self.cancel_event,
+                                       run_id, on_progress=lambda text: self.progress.phase("committing", text))
+            if result.problem:
+                log.warning("%s", result.problem)
+        except RunCancelled:
+            log.info("IT accreditation check cancelled; the rest is checked next run")
+        except Exception:  # noqa: BLE001 - the run itself is already committed
+            log.exception("IT accreditation check failed")
+        finally:
+            http.close()
 
     def _pending_email_uids(self) -> set[tuple[str, str]]:
         """A letter split into several items is flagged only when none of them waits for the LLM."""

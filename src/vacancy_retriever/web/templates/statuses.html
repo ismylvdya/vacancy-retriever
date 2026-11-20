@@ -1,0 +1,32 @@
+{% extends "base.html" %}
+{% block content %}
+{% if not sections %}
+<section class="empty-state">
+  <h1>No statuses yet</h1>
+  <p>After each run, unread e-mails about your applications — rejections, invitations, test tasks, offers — appear here.
+    Those letters are then marked read.</p>
+</section>
+{% else %}
+<div class="sheet statuses">
+{% for section in sections %}
+<section class="group status-section" data-section="{{ section.key }}">
+  <div class="card-head"><div class="section-head"><h2>{{ section.title }}</h2><span class="sub">{{ section.rows | length }}</span></div></div>
+  <div class="group-body">
+    {% for r in section.rows %}
+    <article class="status-row tone-{{ r.tone }}{{ ' is-new' if r.new }}" data-status-id="{{ r.id }}">
+      <span class="status-stage" title="{{ 'Not sure this is a status of your application — check the letter' if r.unsure else r.stage }}">{{ r.label }}{% if r.unsure and r.stage != 'unclear' %}<i class="status-unsure">?</i>{% endif %}</span>
+      <div class="status-main">
+        <div class="status-title">{% if r.new %}<span class="new" title="Not seen on this tab before"></span>{% endif %}{{ r.company or '—' }}{% if r.position %}<span class="status-position">{{ r.position }}</span>{% endif %}</div>
+        {% if r.summary %}<p class="status-summary">{{ r.summary }}</p>{% endif %}
+        <p class="status-mail muted small" title="{{ r.sender }}">{{ r.mailbox }} · {{ r.subject }}{% if r.link %} · <a href="{{ r.link }}" target="_blank" rel="noopener noreferrer">Open letter</a>{% endif %}</p>
+      </div>
+      <span class="status-date muted small">{{ r.date }}</span>
+    </article>
+    {% endfor %}
+  </div>
+</section>
+{% endfor %}
+</div>
+<p class="note">Green — a stage passed or an invitation; blue — a neutral update; grey — a rejection; orange — not sure it is about your application. New statuses become «Seen» once this tab has shown them.</p>
+{% endif %}
+{% endblock %}

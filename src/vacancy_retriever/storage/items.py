@@ -102,6 +102,11 @@ class RawItemRepository:
     def set_status(self, raw_id: int, status: str, skip_reason: str | None = None) -> None:
         self.db.execute("UPDATE raw_items SET status = ?, skip_reason = ? WHERE id = ?", (status, skip_reason, raw_id))
 
+    def set_meta(self, raw_id: int, key: str, value: Any) -> None:
+        """One key of meta_json (mail triage: what the letter turned out to be)."""
+        self.db.execute("UPDATE raw_items SET meta_json = json_set(COALESCE(meta_json, '{}'), ?, json(?)) WHERE id = ?",
+                        (f"$.{key}", json.dumps(value, ensure_ascii=False), raw_id))
+
     def email_only_ids(self) -> set[int]:
         rows = self.db.query("SELECT id FROM raw_items WHERE json_extract(meta_json, '$.email') IS NOT NULL"
                              " AND (detail_text IS NULL OR detail_text = '')")

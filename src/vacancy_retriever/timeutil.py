@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import os
-from datetime import UTC, datetime, tzinfo
+from datetime import UTC, datetime, time, timedelta, tzinfo
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 from .app_info import DISPLAY_TIMEZONE
@@ -45,6 +45,15 @@ def local(value: datetime | str | None) -> datetime | None:
     if isinstance(value, str):
         value = from_iso(value)
     return value.astimezone(machine_timezone()) if value else None
+
+
+def day_start(now: datetime, at: time) -> datetime:
+    """The latest moment `at` (local time of this Mac) that is not after `now`: with 03:00, at 02:30 it is yesterday's
+    03:00 and at 03:00 today's."""
+    current = local(now)
+    assert current is not None
+    start = current.replace(hour=at.hour, minute=at.minute, second=0, microsecond=0)
+    return start if start <= current else start - timedelta(days=1)
 
 
 def format_local(value: datetime | str | None, fmt: str = "%d %b %H:%M") -> str:

@@ -6,6 +6,7 @@ from ..config import AppConfig
 from ..scoring.engine import ScoringEngine
 from ..scoring.text_facts import fill_from_text
 from ..storage import Storage
+from ..storage.vacancies import VacancyRecord
 from ..rates import RatesStore
 from ..timeutil import local, utcnow
 
@@ -19,16 +20,22 @@ class RecalculateResult:
 def recalculate(config: AppConfig, storage: Storage) -> RecalculateResult:
     """Re-apply rules.yaml to stored facts without any LLM call.
     Cards the user already acted on keep their status; only group/stars/flags are refreshed."""
+    records = storage.vacancies.with_facts()
+    return RecalculateResult(total=len(records), changed=reevaluate(config, storage, records))
+
+
+def reevaluate(config: AppConfig, storage: Storage, records: list[VacancyRecord], text_facts: bool = True) -> int:
+    """The verdict of these committed vacancies from their stored facts (also after accreditation/stage.py changed
+    them). Returns how many changed."""
     engine = ScoringEngine(config.rules)
     rates = RatesStore(config.paths)
     now = utcnow()
     changed = 0
-    records = storage.vacancies.with_facts()
     email_only = storage.items.email_only_ids()
     for record in records:
         if record.facts is None:
             continue
-        raw = storage.items.get(record.primary_raw_id)
+        raw = storage.items.get(record.primary_raw_id) if text_facts else None
         if raw is not None:
             before = record.facts.model_dump_json()
             fill_from_text(record.facts, config.rules, raw)
@@ -43,4 +50,4 @@ def recalculate(config: AppConfig, storage: Storage) -> RecalculateResult:
         ):
             changed += 1
         storage.vacancies.apply_recalculated(record.id, verdict, change_status=automatic)
-    return RecalculateResult(total=len(records), changed=changed)
+    return changed

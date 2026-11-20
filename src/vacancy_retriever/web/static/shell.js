@@ -83,7 +83,7 @@ let applyItems = 0;
 let applyCurrent = 0;  // rows of the current session's sections: the number on the sidebar button
 
 function applicationRow(item) {
-  const li = el("li", `app-item app-${item.state}`);
+  const li = el("li", `app-item app-${item.state} app-kind-${item.kind}`);
   li.dataset.id = item.id;
   const head = el("div", "app-head");
   if (item.active) head.append(el("span", "spinner"));
@@ -223,4 +223,75 @@ if (applySidebar) {
   });
   layoutSidebar();
   refreshApplications();
+  setupManualVacancy();
+}
+
+/* «+ Add vacancy»: a vacancy the user found himself. Generate there = the same pipeline and sidebar row (spinner,
+   Stop, Retry) as Generate in the purgatory; the window closes, the row shows the progress. Esc, ×, Cancel or Back
+   close it (user, 20.11.2026). */
+function setupManualVacancy() {
+  const dialog = $("manual-dialog");
+  const form = $("manual-form");
+  if (!dialog || !$("add-vacancy")) return;
+  const cv = form.querySelector('input[name="cv"]');
+  const letter = form.querySelector('input[name="letter"]');
+  const error = $("manual-error");
+  const sync = () => {
+    letter.disabled = !cv.checked;
+    if (!cv.checked) letter.checked = false;
+    letter.parentElement.classList.toggle("is-disabled", letter.disabled);
+  };
+  cv.addEventListener("change", sync);
+  // Generate only when the title, the link and the description are filled (user, 20.11.2026)
+  const required = ["manual-title", "manual-url", "manual-text"].map((id) => $(id));
+  const ready = () => {
+    $("manual-submit").disabled = !required.every((input) => input.value.trim())
+      || !/^https?:\/\/\S+$/.test($("manual-url").value.trim());
+  };
+  required.forEach((input) => input.addEventListener("input", ready));
+  let pushed = false;
+  const open = () => {
+    error.hidden = true;
+    dialog.showModal();
+    ready();
+    $("manual-title").focus();
+    history.pushState({ manual: true }, "");
+    pushed = true;
+  };
+  dialog.addEventListener("close", () => {
+    if (pushed) { pushed = false; history.back(); }
+  });
+  window.addEventListener("popstate", () => {
+    if (dialog.open) { pushed = false; dialog.close(); }
+  });
+  $("add-vacancy").addEventListener("click", open);
+  $("manual-text").addEventListener("keydown", (event) => {
+    if (event.key === "Enter" && (event.metaKey || event.ctrlKey)) form.requestSubmit($("manual-submit"));
+  });
+  form.addEventListener("submit", async (event) => {
+    if (event.submitter && event.submitter.value === "cancel") return;
+    event.preventDefault();
+    const button = $("manual-submit");
+    if (button.disabled) return;
+    button.disabled = true;
+    error.hidden = true;
+    try {
+      await api("POST", "/api/applications/manual", {
+        title: $("manual-title").value.trim(), company: $("manual-company").value.trim(),
+        url: $("manual-url").value.trim(), description: $("manual-text").value, cv: cv.checked, letter: letter.checked,
+      });
+      form.reset();
+      sync();
+      dialog.close();
+      store.set(UI.storage.sidebarOpen, "1");
+      toast("Added — the progress is in the sidebar");
+      refreshApplications();
+    } catch (e) {
+      error.textContent = e.message;
+      error.hidden = false;
+    } finally {
+      ready();
+    }
+  });
+  sync();
 }

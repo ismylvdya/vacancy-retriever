@@ -203,6 +203,31 @@ def cmd_recalculate(args: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_accreditation(args: argparse.Namespace) -> int:
+    """IT accreditation of the feed's Russian employers now (the same check every run does after its commit)."""
+    from .accreditation.stage import registry_store, run_accreditation
+    from .collectors.http import PoliteHttpClient
+    from .llm.factory import create_provider
+
+    config = AppConfig()
+    storage = _storage(config, args.db)
+    http = PoliteHttpClient()
+    try:
+        if args.registry_only:
+            problem = registry_store(config).refresh(http, force=True)
+            registry = registry_store(config).load()
+            print(problem or f"IT register snapshot {registry.snapshot_date if registry else '—'}: "
+                             f"{len(registry.records) if registry else 0} records")
+            return 1 if problem else 0
+        result = run_accreditation(config, storage, None if args.no_llm else (lambda: create_provider(config)),
+                                   http, threading.Event(), recheck_unknown=args.recheck_unknown)
+    finally:
+        http.close()
+    print(f"Updated {result.checked} vacancies, asked the LLM about {result.employers_asked} employers, "
+          f"{result.moved} changed group or decision" + (f"; {result.problem}" if result.problem else ""))
+    return 0
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(prog=APP_SLUG, description=f"{APP_NAME} — personal job aggregator")
     parser.add_argument("-v", "--verbose", action="store_true")
@@ -242,6 +267,14 @@ def build_parser() -> argparse.ArgumentParser:
     recalc = sub.add_parser("recalculate", help="re-apply config/rules.yaml to stored facts (no LLM)")
     recalc.add_argument("--db")
     recalc.set_defaults(func=cmd_recalculate)
+
+    accreditation = sub.add_parser("accreditation", help="check IT accreditation of the feed's Russian employers")
+    accreditation.add_argument("--db")
+    accreditation.add_argument("--no-llm", action="store_true", help="only the cache and the register, no LLM calls")
+    accreditation.add_argument("--registry-only", action="store_true", help="only download the newest register")
+    accreditation.add_argument("--recheck-unknown", action="store_true",
+                               help="ask the LLM again about every «unknown» employer now (not after 14 days)")
+    accreditation.set_defaults(func=cmd_accreditation)
 
     exit_check = sub.add_parser("linkedin-exit", help="check the private exit for LinkedIn pages (no LinkedIn request)")
     exit_check.set_defaults(func=cmd_linkedin_exit)

@@ -59,14 +59,17 @@ def test_generic_parser_keeps_text_and_clean_links():
     assert "Acme · Belgrade" in text
 
 
-def test_items_from_generic_letter():
+def test_a_letter_without_a_precise_parser_goes_to_mail_triage():
+    """Since 20.11.2026 the mail LLM stage first tells vacancies from statuses of applications and internship waves."""
+    from vacancy_retriever.collectors.email.triage import triage_item
+
     rule = SenderRule(match="linkedin.com", name="LinkedIn", parser="generic")
-    items = items_from_message("gmail", "gmail", "7", make_letter(), rule).items
-    assert len(items) == 1
-    item = items[0]
-    assert item.multi and item.url == ""
-    assert item.external_id == "<msg-1@example.com>"
-    assert item.meta["email"]["uid"] == "7"
+    letter = items_from_message("gmail", "gmail", "7", make_letter(), rule)
+    assert letter.items == [] and letter.triage
+    item = triage_item("gmail", "gmail", "7", make_letter(), "LinkedIn", "generic", letter.triage)
+    assert item.multi and item.url == "" and item.meta["triage"] is True
+    assert item.external_id == "mail:<msg-1@example.com>"
+    assert item.meta["email"]["uid"] == "7" and item.meta["email"]["message_id"] == "<msg-1@example.com>"
     assert item.published_at == datetime(2026, 10, 12, 7, 0, tzinfo=UTC)
 
 
@@ -212,9 +215,10 @@ def test_sample_emails(config):
         letter = items_from_message("sample", "sample", "1", message, rule)
         assert letter.unknown is None, f"{name}: {letter.unknown}"
         want = expected[name]
-        if want == "ignore":
-            assert len(letter.items) == 1 and letter.items[0].meta.get("ignore"), name
+        if want == "ignore":  # a known letter without vacancies: the mail stage looks for a status / a wave in it
+            assert letter.items == [] and letter.triage and "unknown template" not in letter.triage, name
             continue
+        assert not letter.triage, f"{name}: {letter.triage}"
         vacancies = [item for item in letter.items if not item.meta.get("ignore")]
         assert len(vacancies) == want["vacancies"], f"{name}: {[v.title for v in vacancies]}"
         for item in vacancies:

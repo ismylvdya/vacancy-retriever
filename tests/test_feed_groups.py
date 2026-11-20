@@ -64,11 +64,11 @@ def test_a_group_turned_off_skips_its_vacancies(config):
 
 def test_order_and_enabled_groups(config):
     rules = all_on(config.rules)
-    assert rules.ordered_groups == [7, 6, 1, 3, 2, 4, 5]
+    assert rules.ordered_groups == [7, 6, 1, 3, 2, 4, 5, 8]
     rules.group_order = [3, 9, 3]
     rules.groups[1].enabled = False
-    assert rules.ordered_groups == [3, 1, 2, 4, 5, 6, 7], "unknown and repeated numbers dropped, the rest by number"
-    assert rules.enabled_groups == [3, 2, 4, 5, 6, 7]
+    assert rules.ordered_groups == [3, 1, 2, 4, 5, 6, 7, 8], "unknown and repeated numbers dropped, the rest by number"
+    assert rules.enabled_groups == [3, 2, 4, 5, 6, 7, 8]
 
 
 @pytest.mark.parametrize("groups,active,wanted", [
@@ -85,14 +85,14 @@ def test_settings_save_order_switches_and_source_groups(own_config):
     service = SettingsService(own_config)
     source = own_config.sources.sources[0].id
     service.save({f"rules:groups.{n}.enabled": True for n in own_config.rules.groups})
-    service.save({"rules:group_order": [1, 2, 3, 4, 5, 6, 7], "rules:groups.2.enabled": False,
+    service.save({"rules:group_order": [1, 2, 3, 4, 5, 6, 7, 8], "rules:groups.2.enabled": False,
                   f"sources:sources[{source}].groups": [3, 1]})
     fresh = AppConfig(own_config.paths)
-    assert fresh.rules.ordered_groups == [1, 2, 3, 4, 5, 6, 7] and fresh.rules.enabled_groups == [1, 3, 4, 5, 6, 7]
+    assert fresh.rules.ordered_groups == [1, 2, 3, 4, 5, 6, 7, 8] and fresh.rules.enabled_groups == [1, 3, 4, 5, 6, 7, 8]
     assert fresh.sources.sources[0].groups == [1, 3]
     snapshot = SettingsService(fresh).snapshot()
-    assert snapshot["group_order"] == [1, 2, 3, 4, 5, 6, 7] and snapshot["groups"][1]["enabled"] is False
+    assert snapshot["group_order"] == [1, 2, 3, 4, 5, 6, 7, 8] and snapshot["groups"][1]["enabled"] is False
     for bad in ({"rules:group_order": [1, 2, 3]}, {"rules:group_order": [1, 1, 2, 3, 4, 5, 6]},
-                {f"sources:sources[{source}].groups": [8]}, {"rules:groups.8.enabled": False}):
+                {f"sources:sources[{source}].groups": [9]}, {"rules:groups.9.enabled": False}):
         with pytest.raises(SettingsError):
             service.save(bad)

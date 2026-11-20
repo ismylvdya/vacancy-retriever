@@ -190,6 +190,13 @@ class ScoringEngine:
         return self._group_with_reason(facts, category, in_serbia)[0]
 
     def _group_with_reason(self, facts: VacancyFacts, category: CategoryRule, in_serbia: bool) -> tuple[int, str]:
+        group, why = self._base_group(facts, category, in_serbia)
+        target = self._rules.no_it_accreditation_group
+        if target and group in self._rules.it_accreditation_groups and facts.it_accreditation == "no":
+            return target, f"{why}; the employer has no IT accreditation"
+        return group, why
+
+    def _base_group(self, facts: VacancyFacts, category: CategoryRule, in_serbia: bool) -> tuple[int, str]:
         if facts.confidence == "low":
             return 5, "LLM confidence is low"
         is_it = category.kind == "it"

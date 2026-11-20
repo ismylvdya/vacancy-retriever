@@ -472,6 +472,7 @@ document.addEventListener("click", (event) => {
 document.addEventListener("keydown", (event) => {
   if (event.metaKey || event.ctrlKey || event.altKey) return;
   if (event.target.closest("input, textarea, select")) return;
+  if (document.querySelector("dialog[open]")) return;  // a window (Add vacancy, Report) owns the keys
   const key = event.key.toLowerCase();
   if (key === "j" || key === "arrowdown") { event.preventDefault(); move(1); return; }
   if (key === "k" || key === "arrowup") { event.preventDefault(); move(-1); return; }
@@ -563,3 +564,21 @@ if (filterForm) {
 
 if (tab === "feed") focusRow(visibleRows()[0], { scroll: false });
 schedule(wasRunning ? 500 : 15000);
+
+/* ---------- Statuses tab: rows shown here become «Seen» (they stay highlighted until the next reload) ---------- */
+function markStatusesSeen() {
+  const ids = [...document.querySelectorAll(".status-row.is-new")].map((row) => Number(row.dataset.statusId));
+  if (!ids.length) return;
+  api("POST", "/api/statuses/seen", { ids }).then((data) => {
+    const count = $("statuses-count");
+    if (count) { count.textContent = data.new || ""; count.hidden = !data.new; }
+  }).catch(() => { /* stays new: marked next time */ });
+}
+if (tab === "statuses") {
+  if (document.visibilityState === "visible") markStatusesSeen();
+  else document.addEventListener("visibilitychange", function once() {
+    if (document.visibilityState !== "visible") return;
+    document.removeEventListener("visibilitychange", once);
+    markStatusesSeen();
+  });
+}

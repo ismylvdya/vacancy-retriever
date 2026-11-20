@@ -6,7 +6,7 @@
 
 {% macro role(c) -%}
 <div class="role">
-  <div class="title"><button type="button" class="debug-only vac-id" data-action="copy-id" title="Copy the id">#{{ c.id }}</button>{% if c.reports %}<span class="debug-only flag reported" title="{{ c.reports | length }} report(s)">Reported</span>{% endif %}{% if c.is_new %}<span class="new" title="New in the last run"></span>{% endif %}{{ c.title }}{% for f in c.flags %}<span class="flag{{ ' flag-ru' if f == 'Russian-speaking' }}{{ ' flag-en' if f == 'English team' }}"{% if f == 'E-mail only' %} title="Evaluated from the job-alert letter only (title, company, city): no description was read — less reliable, at most 4 stars"{% endif %}>{{ f }}</span>{% endfor %}</div>
+  <div class="title"><button type="button" class="debug-only vac-id" data-action="copy-id" title="Copy the id">#{{ c.id }}</button>{% if c.reports %}<span class="debug-only flag reported" title="{{ c.reports | length }} report(s)">Reported</span>{% endif %}{% if c.is_new %}<span class="new" title="New in the last run"></span>{% endif %}{{ c.title }}{% for f in c.flags %}<span class="flag flag-{{ f.kind }}"{% if f.title %} title="{{ f.title }}"{% endif %}>{{ f.text }}</span>{% endfor %}</div>
   {% if c.employer %}<div class="sub">{{ c.employer }}</div>{% endif %}
   {% if c.run_started %}<div class="sub debug-only">Run {{ c.run_started }}</div>{% endif %}
 </div>

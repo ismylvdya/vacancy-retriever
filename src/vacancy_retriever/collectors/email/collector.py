@@ -16,9 +16,10 @@ from ..linkedin_guest import GuestSettings, LinkedInGuestFetcher, create_egress
 from ..job_search import JobSearchLookup, create_lookup
 from ..base import CollectContext, Collector, CollectResult, RawItem, SourceError, SourceNotConfigured
 from ..registry import register
-from .generic import decoded_header, message_date, parse_generic
+from .generic import decoded_header, message_date, message_text, parse_generic
 from .imap import ImapFactory, Mailbox, MailError
 from .parsers import DETAIL_PARSERS, PARSERS, DetailResult, IgnoreLetter, UnknownLetter, load_parsers
+from .triage import job_related, triage_item
 
 log = logging.getLogger(__name__)
 
@@ -36,10 +37,12 @@ def sender_rule(message: Message, senders: list[SenderRule]) -> SenderRule | Non
 
 @dataclass
 class LetterItems:
-    """What one letter gave: items for the run, or nothing because the template is unknown (letter untouched)."""
+    """What one letter gave: items for the run, or nothing because the template is unknown (letter untouched).
+    triage: the letter is not a vacancy alert of a known template — the mail LLM stage says what it is."""
 
     items: list[RawItem]
     unknown: str | None = None
+    triage: str | None = None  # why (the parser's reason), None = not for triage
 
 
 def items_from_message(source_id: str, mailbox_id: str, uid: str, message: Message, rule: SenderRule,
@@ -58,22 +61,23 @@ def items_from_message(source_id: str, mailbox_id: str, uid: str, message: Messa
         return LetterItems([] if is_known(item.external_id) else [item])
 
     if rule.parser == "generic":
-        return LetterItems([RawItem(source_id, message_id, "", parse_generic(message), published, title=subject,
-                                    multi=True, meta=meta)])
+        # No precise parser: the mail stage tells vacancies from statuses / waves first (decision 20.11.2026).
+        return LetterItems([], triage="no precise parser")
     parser = PARSERS.get(rule.parser)
     if parser is None:
         return LetterItems([], unknown=f"no parser '{rule.parser}'")
     try:
         parsed = parser(message)
     except IgnoreLetter as exc:
-        return ignored(str(exc) or "Not a vacancy letter")
+        # A known letter without vacancies may still be a status of an application or an internship wave.
+        return LetterItems([], triage=str(exc) or "Not a vacancy letter")
     except UnknownLetter as exc:
-        return LetterItems([], unknown=str(exc) or subject)
+        return LetterItems([], triage=f"unknown template: {exc or subject}")
     except Exception as exc:  # noqa: BLE001 - a broken parser must not cost tokens: leave the letter for later
         log.warning("Parser %s failed on %s: %s", rule.parser, message_id, exc)
         return LetterItems([], unknown=f"parser error: {exc}")
     if not parsed:
-        return LetterItems([], unknown=subject)
+        return LetterItems([], triage=f"unknown template: {subject}")
     items = []
     for index, vacancy in enumerate(parsed):
         item = RawItem(source_id, vacancy.key or f"{message_id}#{index}", vacancy.url, vacancy.text or vacancy.title,
@@ -86,7 +90,8 @@ def items_from_message(source_id: str, mailbox_id: str, uid: str, message: Messa
 
 @register
 class EmailCollector(Collector):
-    """Unread letters from known senders in one IMAP mailbox. Never changes the mailbox while collecting."""
+    """Unread letters in one IMAP mailbox: vacancy alerts of known senders, and (mail triage) any letter about work —
+    statuses of applications, internship waves. Never changes the mailbox while collecting."""
 
     type_name = "email"
     imap_factory: ClassVar[ImapFactory | None] = None
@@ -189,6 +194,10 @@ class EmailCollector(Collector):
         def is_known(external_id: str) -> bool:
             return external_id in taken or ctx.is_known(external_id)
 
+        triage = config.mail.triage
+        checked = ctx.mail_checked() if triage.enabled else set()
+        no_job: list[str] = []
+        letters_for_llm = 0
         try:
             with mailbox:
                 mailbox.select(readonly=True)
@@ -196,26 +205,56 @@ class EmailCollector(Collector):
                 for uid, header in mailbox.unseen_headers(oldest):
                     ctx.check_cancel()
                     rule = sender_rule(header, config.mail.senders)
-                    if rule is None:
+                    message_id = (header.get("Message-ID") or f"{mailbox.config.id}:{uid}").strip()
+                    if rule is None and (not triage.enabled or message_id in checked
+                                         or is_known(f"mail:{message_id}")):
                         continue
-                    fetched = mailbox.fetch(uid)
+                    if rule is None and not job_related(decoded_header(header, "From"),
+                                                        decoded_header(header, "Subject")):
+                        # Only now the text is read (once: a letter without job words is remembered).
+                        fetched = mailbox.fetch(uid)
+                        if not job_related("", "", message_text(fetched.message)):
+                            no_job.append(message_id)
+                            continue
+                    else:
+                        fetched = mailbox.fetch(uid)
                     if mailbox.has_processed_label(fetched):
                         continue
-                    letter = items_from_message(self.source.id, mailbox.config.id, uid, fetched.message, rule,
-                                                is_known)
+                    if rule is None:
+                        letter = LetterItems([], triage="unknown sender")
+                    else:
+                        letter = items_from_message(self.source.id, mailbox.config.id, uid, fetched.message, rule,
+                                                    is_known)
+                        if not ctx.vacancies_wanted and letter.items and not letter.triage:
+                            continue  # a vacancy letter while this mailbox's groups are off: left unread
+                    if letter.triage:
+                        if not triage.enabled or is_known(f"mail:{message_id}"):
+                            continue
+                        if letters_for_llm >= triage.max_per_run:
+                            continue  # stays unread, comes in the next run
+                        letters_for_llm += 1
+                        letter.items = [triage_item(self.source.id, mailbox.config.id, uid, fetched.message,
+                                                    rule.name if rule else "", rule.parser if rule else "",
+                                                    letter.triage)]
                     taken.update(item.external_id for item in letter.items)
                     if letter.unknown:
-                        unknown.append(f"{rule.name}: {letter.unknown}")
+                        unknown.append(f"{rule.name if rule else '?'}: {letter.unknown}")
                     self._watch(config, mailbox.config, uid, fetched.message, letter.items)
                     items.extend(letter.items)
                     if ctx.limit and len(items) >= ctx.limit:
                         return CollectResult(items=items[: ctx.limit])
         except MailError as exc:
             raise SourceError(str(exc)) from exc
-        note = f"{len(unknown)} unrecognised letters left unread ({'; '.join(unknown[:3])})" if unknown else None
+        finally:
+            if no_job:
+                ctx.remember_checked(no_job)
+        notes = []
         if unknown:
+            notes.append(f"{len(unknown)} unrecognised letters left unread ({'; '.join(unknown[:3])})")
             log.info("%s: unrecognised letters: %s", self.source.id, unknown)
-        return CollectResult(items=items, note=note)
+        if letters_for_llm >= triage.max_per_run:
+            notes.append(f"more than {triage.max_per_run} letters to sort: the rest in the next run")
+        return CollectResult(items=items, note="; ".join(notes) or None)
 
     def sender_icons(self) -> list[tuple[str, str]]:
         """(icon id, site) of senders whose favicon is downloaded from their site (not linkedin.com — forbidden)."""

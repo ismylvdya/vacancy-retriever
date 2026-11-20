@@ -5,6 +5,7 @@ from pathlib import Path
 from typing import Any, Literal
 
 import yaml
+from datetime import time as dt_time
 from pydantic import BaseModel, ConfigDict, Field, ValidationError, field_validator
 
 from .paths import PATHS, ProjectPaths
@@ -78,7 +79,7 @@ class ExperienceDropRules(_Strict):
     years_unless_junior: float | None = None
 
 
-GROUP_NUMBERS = (1, 2, 3, 4, 5, 6, 7)  # the groups scoring/engine.py can set
+GROUP_NUMBERS = (1, 2, 3, 4, 5, 6, 7, 8)  # the groups scoring/engine.py can set
 
 
 class GroupInfo(_Strict):
@@ -93,6 +94,8 @@ class PrefilterRules(_Strict):
     title_junior_markers: list[str] = Field(default_factory=list)
     title_deny_keywords: list[str] = Field(default_factory=list)
     title_deny_reason: str = "Excluded by title keyword"
+    # A title that announces a programme / wave is never dropped by keywords: the LLM reads it (docs/PROGRAMMES.md).
+    title_programme_markers: list[str] = Field(default_factory=list)
     rvc_dropped_grades: list[str] = Field(default_factory=list)
     rvc_ad_markers: list[str] = Field(default_factory=list)
     # RVC: skip posts whose "required languages" line has no Russian and that don't mention Serbia.
@@ -122,6 +125,12 @@ class Rules(_Strict):
     russia_country_names: list[str] = Field(default_factory=lambda: ["russia", "россия", "rf", "рф"])
     russia_office_cities: list[str] = Field(default_factory=list)  # IT in the office here is welcome (group 7)
     drop_office_outside_serbia: bool = False
+    # IT accreditation (decision 20.11.2026): vacancies of these groups whose employer surely has no accreditation go
+    # to `no_it_accreditation_group`; unknown accreditation stays where it is with a tag.
+    it_accreditation_groups: list[int] = Field(default_factory=list)
+    no_it_accreditation_group: int | None = None
+    # Groups whose employer is Russian / Russian-speaking by definition: no «Russian-speaking» tag there (obvious).
+    russian_tag_hidden_groups: list[int] = Field(default_factory=list)
 
     @field_validator("groups")
     @classmethod
@@ -160,6 +169,8 @@ class StageModels(_Strict):
     scoring: str
     dedup: str
     resume: str | None = None  # CV + cover letter for the Apply sidebar; empty = the scoring model
+    accreditation: str | None = None  # legal entities of an employer (IT accreditation); empty = the dedup model
+    mail: str | None = None  # what an unread e-mail is (status of an application, internship wave…); empty = dedup
 
 
 class ClaudeSdkSettings(_Strict):
@@ -262,8 +273,17 @@ class LinkedInDescriptions(_Strict):
     providers: list[JobSearchProvider] = Field(default_factory=list)
 
 
+class MailTriage(_Strict):
+    """Unread letters that are not vacancy alerts: statuses of applications, internship waves (docs/STATUSES.md)."""
+
+    enabled: bool = True
+    max_per_run: int = 80     # letters sent to the LLM in one run; the rest wait for the next run
+    batch_size: int = 8
+
+
 class MailConfig(_Strict):
     processed_label: str = "🦆 retrievered"
+    triage: MailTriage = Field(default_factory=MailTriage)
     max_age_days: int = 30
     linkedin_descriptions: LinkedInDescriptions = Field(default_factory=LinkedInDescriptions)
     linkedin_public_pages: LinkedInPublicPages = Field(default_factory=LinkedInPublicPages)
@@ -338,9 +358,11 @@ class WhereLabels(_Strict):
     ru_remote: str = "🇷🇺яз: удаленка"
     ru_serbia: str = "🇷🇺яз: в Сербии очно"
     ru_abroad: str = "🇷🇺яз: очно в 3-ей стране"
+    ru_russia: str = "🇷🇺яз: очно в России"
     en_remote: str = "🇺🇸: удаленка"
     en_serbia: str = "🇺🇸: в Сербии очно"
     en_abroad: str = "🇺🇸: очно в 3-ей стране"
+    en_russia: str = ""
 
 
 class ObsidianSettings(_Strict):
@@ -370,7 +392,7 @@ class DriveSettings(_Strict):
     stub: bool = False
     parent_required: bool = True   # vacancy folders go into the folder picked at /drive/pick
     picker_key_env: str = "GOOGLE_PICKER_API_KEY"
-    folder_name: str = "{title} • {employer} • {date} 🦆"
+    folder_name: str = "{employer} • {title} • {date} 🦆"
     root_folder: str = "Vacancy Retriever"
     share_with_link: bool = True
 
@@ -387,10 +409,22 @@ class ApplyConfig(_Strict):
     names: NameSettings = Field(default_factory=NameSettings)
     start_delay_seconds: int = Field(default=8, ge=0)
     retry_minutes: int = Field(default=30, ge=1)
-    current_session_hours: float = Field(default=6, gt=0)  # sidebar: younger ▶ / N are «Current session»
+    day_starts_at: dt_time = dt_time(3, 0)  # sidebar: ▶ / N before this local time of today are «Previous days»
     obsidian: ObsidianSettings = Field(default_factory=ObsidianSettings)
     resume: ResumeSettings = Field(default_factory=ResumeSettings)
     drive: DriveSettings = Field(default_factory=DriveSettings)
+
+
+class AccreditationConfig(_Strict):
+    """config/accreditation.yaml — where the register comes from and how employers are looked up."""
+
+    enabled: bool = True
+    listing_url: str = "https://api.github.com/repos/DverkaSK/gosuslugi-itorgs/contents/data"
+    refresh_days: int = 7
+    dadata_key_env: str = "DADATA_API_KEY"
+    max_employers_per_run: int = 160
+    batch_size: int = 8
+    recheck_unknown_days: int = 14
 
 
 class AppConfig:
@@ -425,6 +459,11 @@ class AppConfig:
         path = self.paths.config / "apply.yaml"
         return _parse(ApplyConfig, path) if path.exists() else ApplyConfig()
 
+    @cached_property
+    def accreditation(self) -> AccreditationConfig:
+        path = self.paths.config / "accreditation.yaml"
+        return _parse(AccreditationConfig, path) if path.exists() else AccreditationConfig()
+
     def resolve_path(self, value: str) -> Path:
         """A path from a config file: absolute, ~/…, or relative to the project folder."""
         path = Path(value).expanduser()
@@ -448,4 +487,4 @@ class AppConfig:
         raise ConfigError(f"Unknown source id '{source_id}'")
 
     def validate_all(self) -> None:
-        _ = self.sources, self.rules, self.llm, self.mail, self.ui, self.apply, self.profile
+        _ = (self.sources, self.rules, self.llm, self.mail, self.ui, self.apply, self.accreditation, self.profile)

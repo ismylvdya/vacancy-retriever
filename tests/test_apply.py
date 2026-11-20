@@ -155,7 +155,7 @@ def test_full_pipeline_makes_note_cv_letter_and_folder(env):
     assert app.letter.endswith(f"Резюме: {file_url('P1')}\nGitHub: https://github.com/x")
     assert Path(app.pdf_path).exists() and app.folder_url == folder_url("F1")
     note = Path(app.note_path)
-    assert note.name == "Junior Data Scientist • Acme d.o.o. 🦆.md"
+    assert note.name == "Acme d.o.o. • Junior Data Scientist 🦆.md"
     text = note.read_text(encoding="utf-8")
     meta = frontmatter(text)
     assert meta["tags"] == ["👾травля"] and meta["👾что_это"] == ["📋 вакансия"]
@@ -172,7 +172,7 @@ def test_full_pipeline_makes_note_cv_letter_and_folder(env):
     assert "### описание вакансии\n[эта вакансия в Telegram-канале " in text
     assert "](https://telegram.me/serbiawork/1)" in text and "\n\n**описание вакансии:**\n```" in text
     assert "ВСТАВИТЬ" not in text
-    assert env.drive.names == [f"Junior Data Scientist • Acme d.o.o. • {date.today().isoformat()} 🦆"]
+    assert env.drive.names == [f"Acme d.o.o. • Junior Data Scientist • {date.today().isoformat()} 🦆"]
     calls = env.storage.llm_calls.all()
     assert [c["stage"] for c in calls] == ["resume"] and calls[0]["input_tokens"] == 1000
 
@@ -188,7 +188,7 @@ def test_claude_limit_waits_then_resumes_without_redoing_steps(env):
     app = run_all(env)
     assert app.state == ApplicationState.DONE
     assert env.drive.folders == 1 and env.provider.calls == 2 and env.skill.builds == 1
-    assert len(list(env.vault.root.glob("Junior*.md"))) == 1, "the note is not created twice"
+    assert len(list(env.vault.root.glob("*Junior*.md"))) == 1, "the note is not created twice"
 
 
 def test_restart_continues_interrupted_work(env):
@@ -201,11 +201,11 @@ def test_restart_continues_interrupted_work(env):
 
 
 def test_a_taken_note_name_gets_a_number(env):
-    taken = env.vault.root / "Junior Data Scientist • Acme d.o.o. 🦆.md"
+    taken = env.vault.root / "Acme d.o.o. • Junior Data Scientist 🦆.md"
     taken.write_text("my own note", encoding="utf-8")
     apply_now(env)
     app = run_all(env)
-    assert Path(app.note_path).name == "Junior Data Scientist • Acme d.o.o. 2 🦆.md"
+    assert Path(app.note_path).name == "Acme d.o.o. • Junior Data Scientist 2 🦆.md"
     assert taken.read_text(encoding="utf-8") == "my own note"
 
 
@@ -322,7 +322,7 @@ def test_property_is_filled_only_when_empty(tmp_path):
 
 
 def test_names_and_links():
-    assert note_file_name("Data Analyst / BI", "Citrus: iGaming") == "Data Analyst BI • Citrus iGaming"
+    assert note_file_name("Data Analyst / BI", "Citrus: iGaming") == "Citrus iGaming • Data Analyst BI"
     assert normalize_company("Linea Milanovic d.o.o.") == normalize_company("LINEA MILANOVIC") == "linea milanovic"
     assert insert_cv_link(LETTER, "https://drive/x").count("https://drive/x") == 1
     assert employer_links(["https://www.linkedin.com/jobs/view/1", "https://citrus.careers-page.com/jobs/1?utm_x=1",
@@ -344,6 +344,10 @@ def test_where_labels(env):
     facts = VacancyFacts.model_validate({"ad_language": "en", "work_format": "hybrid", "country": "Serbia"})
     assert builder.where(facts) == ["🇺🇸: в Сербии очно"]
     assert builder.where(VacancyFacts()) == []
+    facts = VacancyFacts.model_validate({"ad_language": "ru", "work_format": "office", "country": "Russia"})
+    assert builder.where(facts) == ["🇷🇺яз: очно в России"], "20.11.2026"
+    facts = VacancyFacts.model_validate({"ad_language": "ru", "work_format": "hybrid", "country": "Kazakhstan"})
+    assert builder.where(facts) == ["🇷🇺яз: очно в 3-ей стране"]
 
 
 def test_apply_from_the_feed_and_sidebar_api(env):
@@ -361,9 +365,9 @@ def test_apply_from_the_feed_and_sidebar_api(env):
         assert client.post(f"/api/applications/{item['id']}/generate", json={}, headers=ORIGIN).status_code == 409
         run_all(env)
         sections = client.get("/api/applications").json()["sections"]
-        assert [s["key"] for s in sections] == ["applied"]
+        assert [s["key"] for s in sections] == ["generated"]
         item = sections[0]["items"][0]
-        assert item["status"] == "Ready" and item["has_pdf"] and item["has_letter"] and item["folder_url"]
+        assert item["status"] == "Applied" and item["has_pdf"] and item["has_letter"] and item["folder_url"]
         assert item["note_url"].startswith("obsidian://open?path=")
         assert "ВСТАВИТЬ" not in client.get(f"/api/applications/{item['id']}/letter").json()["text"]
         assert client.post(f"/api/applications/{item['id']}/dismiss", headers=ORIGIN).status_code == 404, "no ×"
@@ -393,7 +397,7 @@ def test_sidebar_sections(env):
     env.service.generate(app.id, True, True)
     run_all(env)
     keys = [s["key"] for s in sidebar_sections(env.config, env.storage, env.service.visible())]
-    assert keys == ["applied"]
+    assert keys == ["generated"]
 
 
 def test_obsidian_settings_defaults_match_the_vault_format():
@@ -473,10 +477,12 @@ def test_grade_in_note_and_folder_names(env):
 def test_drive_folder_name():
     from vacancy_retriever.apply.pipeline import drive_folder_name
 
-    template = "{title} • {employer} • {date} 🦆"
-    assert drive_folder_name(template, "Data Analyst", "Tribe", date(2026, 10, 29)) == "Data Analyst • Tribe • 2026-10-29 🦆"
+    template = "{employer} • {title} • {date} 🦆"  # company first (user, 20.11.2026)
+    assert drive_folder_name(template, "Data Analyst", "Tribe", date(2026, 10, 29)) == "Tribe • Data Analyst • 2026-10-29 🦆"
     assert drive_folder_name(template, "Data Analyst", "", date(2026, 10, 29)) == "Data Analyst • 2026-10-29 🦆"
-    assert drive_folder_name(template, "BI / DWH", "X", date(2026, 10, 29)) == "BI ∕ DWH • X • 2026-10-29 🦆"
+    assert drive_folder_name(template, "BI / DWH", "X", date(2026, 10, 29)) == "X • BI ∕ DWH • 2026-10-29 🦆"
+    old = "{title} • {employer} • {date} 🦆"  # a template with the employer in the middle still works
+    assert drive_folder_name(old, "Data Analyst", "", date(2026, 10, 29)) == "Data Analyst • 2026-10-29 🦆"
 
 
 def test_not_now_makes_a_note_with_skills_then_apply_turns_it_into_an_application(env):
@@ -491,14 +497,17 @@ def test_not_now_makes_a_note_with_skills_then_apply_turns_it_into_an_applicatio
     calls = env.storage.llm_calls.all()
     assert calls[-1]["stage"] == "skills" and calls[-1]["application_id"] == app.id
     assert app.stats["steps"].keys() >= {"note", "skills", "finalize"}
-    assert env.storage.applications.visible() == [], "a finished Not now leaves the sidebar"
+    [done] = env.storage.applications.visible()
+    assert done.id == app.id, "a finished Not now stays in the sidebar, in Generated (20.11.2026)"
+    item = application_item(env.config, env.storage, done)
+    assert item["status"] == "Not now" and item["kind"] == "not_now"
 
     apply_now(env)  # ▶ later: the same note becomes the application
     app = run_all(env)
     assert app.kind == "apply" and app.state == ApplicationState.DONE and env.skill.builds == 1
     text = Path(app.note_path).read_text(encoding="utf-8")
     assert frontmatter(text)["👾статус"] == ["откликнулся"] and "### моё" in text and "**cover letter:**" in text
-    assert len(list(env.vault.root.glob("Junior*.md"))) == 1, "no second note"
+    assert len(list(env.vault.root.glob("*Junior*.md"))) == 1, "no second note"
 
 
 def test_applied_then_not_now_stops_the_application(env):
@@ -597,18 +606,29 @@ def test_grade_goes_before_the_english_name(env):
     assert builder.name_title(english_title(facts.display_title), facts) == "Junior Data Analyst"
 
 
-def test_sidebar_sessions_split_at_six_hours(env):
+def test_sidebar_previous_days_start_at_three_in_the_morning(env, monkeypatch):
+    """20.11.2026: «Previous days» = sent with «▶» before today's 03:00, local time of the laptop."""
+    from datetime import datetime as dt
+    from zoneinfo import ZoneInfo
+
+    from vacancy_retriever import timeutil
     from vacancy_retriever.web.views import sidebar_section
 
+    belgrade = ZoneInfo("Europe/Belgrade")
+    monkeypatch.setattr(timeutil, "machine_timezone", lambda: belgrade)
     apply_now(env)
     app = run_all(env)
-    assert app.state == ApplicationState.DONE
-    assert sidebar_section(env.config, app, app.created_at + timedelta(hours=5)) == "applied"
-    assert sidebar_section(env.config, app, app.created_at + timedelta(hours=7)) == "previous"
-    draft = env.storage.applications.get(app.id)
+    sent = dt(2026, 11, 19, 23, 30, tzinfo=belgrade)  # ▶ late in the evening
+    env.storage.applications.db.execute("UPDATE applications SET created_at = ? WHERE id = ?",
+                                        (timeutil.to_iso(sent), app.id))
+    app = env.storage.applications.get(app.id)
+    assert sidebar_section(env.config, app, dt(2026, 11, 20, 2, 59, tzinfo=belgrade)) == "generated", "before 03:00"
+    assert sidebar_section(env.config, app, dt(2026, 11, 20, 3, 0, tzinfo=belgrade)) == "previous", "from 03:00"
     env.storage.applications.update(app.id, state=ApplicationState.DRAFT)
     draft = env.storage.applications.get(app.id)
-    assert sidebar_section(env.config, draft, draft.created_at + timedelta(hours=1)) == "purgatory"
+    assert sidebar_section(env.config, draft, dt(2026, 11, 20, 1, 0, tzinfo=belgrade)) == "purgatory"
+    assert sidebar_section(env.config, draft, dt(2026, 11, 21, 9, 0, tzinfo=belgrade)) == "previous"
+
 
 
 def test_generate_the_cv_without_the_letter(env):

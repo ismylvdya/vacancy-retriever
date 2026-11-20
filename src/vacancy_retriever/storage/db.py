@@ -190,6 +190,48 @@ CREATE TABLE IF NOT EXISTS applications (
     stats_json TEXT                    -- {"steps": {step: seconds}} for Statistics → Applies
 );
 CREATE INDEX IF NOT EXISTS ix_applications_state ON applications(state, due_at);
+
+-- Statuses of applications from e-mails (rejection, next stage, test…): the Statuses tab. Not linked to vacancies.
+CREATE TABLE IF NOT EXISTS mail_statuses (
+    id INTEGER PRIMARY KEY,
+    run_id INTEGER NOT NULL,
+    staged INTEGER NOT NULL DEFAULT 1,
+    raw_item_id INTEGER,
+    source_id TEXT NOT NULL,           -- the mailbox source (gmail | yandex)
+    message_id TEXT,
+    received_at TEXT,
+    sender TEXT,
+    subject TEXT,
+    company TEXT,
+    position TEXT,
+    stage TEXT NOT NULL,               -- see mail/statuses.py → STAGES
+    summary TEXT,
+    confidence TEXT,
+    unsure INTEGER NOT NULL DEFAULT 0, -- the LLM is not sure this is a real status (maybe spam / not about a job)
+    seen_at TEXT,                      -- when the user first saw it on the Statuses tab (NULL = new)
+    created_at TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS ix_mail_statuses_run ON mail_statuses(run_id, staged);
+
+-- Unread letters already checked and left alone (no job words / not about a job): not fetched again.
+CREATE TABLE IF NOT EXISTS mail_checked (
+    source_id TEXT NOT NULL,
+    message_id TEXT NOT NULL,
+    verdict TEXT NOT NULL,             -- no_job_words
+    checked_at TEXT NOT NULL,
+    PRIMARY KEY (source_id, message_id)
+);
+
+-- IT accreditation of employers (register of the Ministry of Digital Development), cached by the employer's name.
+CREATE TABLE IF NOT EXISTS employer_accreditation (
+    key TEXT PRIMARY KEY,              -- normalised employer name (accreditation/resolver.py → employer_key)
+    employer TEXT NOT NULL,
+    status TEXT NOT NULL,              -- yes | no | unknown
+    note TEXT,                         -- the legal entity / INN it was decided by, or why it is unknown
+    entities_json TEXT,
+    registry_date TEXT,                -- snapshot of the register used
+    checked_at TEXT NOT NULL
+);
 """
 
 

@@ -785,6 +785,7 @@ dependencies = [
     { name = "rapidfuzz" },
     { name = "ruamel-yaml" },
     { name = "rumps", marker = "sys_platform == 'darwin'" },
+    { name = "truststore" },
     { name = "uvicorn" },
 ]
 
@@ -806,6 +807,7 @@ requires-dist = [
     { name = "rapidfuzz", specifier = ">=3.9" },
     { name = "ruamel-yaml", specifier = ">=0.18" },
     { name = "rumps", marker = "sys_platform == 'darwin'", specifier = ">=0.4.0" },
+    { name = "truststore", specifier = ">=0.10" },
     { name = "uvicorn", specifier = ">=0.30" },
 ]
 

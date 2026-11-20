@@ -24,8 +24,9 @@ _MINE = re.compile(rf"^{re.escape(MINE_HEADING)}[ \t]*\n(.*?)(?=^#{{1,3}} |\Z)",
 
 
 def note_file_name(title: str, employer: str) -> str:
-    """«<вакансия> • <работодатель>» (user, 29.10.2026); the app's 🦆 is added by ObsidianVault.create."""
-    raw = f"{title} • {employer}" if employer else title
+    """«<работодатель> • <вакансия>» (user, 20.11.2026; before: vacancy first); the app's 🦆 is added by
+    ObsidianVault.create. Notes made earlier keep their names (found by retriever_id)."""
+    raw = f"{employer} • {title}" if employer else title
     name = " ".join(_FORBIDDEN.sub(" ", raw.strip()).split()).lstrip(".")
     return (name[:120].rstrip() or "Vacancy")
 

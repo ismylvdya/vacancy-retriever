@@ -79,20 +79,20 @@ def test_hh_links_keep_only_the_vacancy_id():
     assert "SECRET" not in vacancy.text
 
 
-def test_unknown_template_is_left_unread_and_costs_nothing():
+def test_unknown_template_goes_to_mail_triage():
+    """«Приглашение на интервью» from hh.ru is a status of an application (20.11.2026): the mail stage reads it."""
     load_parsers()
     rule = SenderRule(match="noreply@hh.ru", name="hh.ru", parser="hh_ru")
     result = items_from_message("yandex", "yandex", "5", letter("hh.ru <noreply@hh.ru>", "<p>Приглашение на интервью</p>",
                                                                 bulk=False), rule)
-    assert result.items == [] and result.unknown
+    assert result.items == [] and result.triage.startswith("unknown template") and not result.unknown
 
 
-def test_known_junk_becomes_one_hidden_item():
+def test_known_junk_goes_to_mail_triage_with_the_parsers_reason():
     load_parsers()
     rule = SenderRule(match="superjob.ru", name="SuperJob", parser="superjob")
     result = items_from_message("yandex", "yandex", "6", letter("SuperJob <nobody@host.superjob.ru>", "<p>Скидка</p>"), rule)
-    [item] = result.items
-    assert item.meta["ignore"] == "SuperJob promo without vacancies" and item.meta["email"]["uid"] == "6"
+    assert result.items == [] and result.triage == "SuperJob promo without vacancies"
 
 
 def test_vacancies_seen_in_earlier_letters_are_not_collected_again():

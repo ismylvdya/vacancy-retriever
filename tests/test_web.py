@@ -71,7 +71,7 @@ def test_pages_render(client):
 def test_status_does_not_start_a_run(client):
     status = client.get("/api/status").json()
     assert status["running"] is False
-    assert status["summary_line"].endswith("· new 1 (0 / 0 / 1 / 0 / 0 / 0 / 0)"), "groups in the feed's order: 7, 6, 1…"
+    assert status["summary_line"].endswith("· new 1 (0 / 0 / 1 / 0 / 0 / 0 / 0 / 0)"), "groups in the feed's order: 7, 6, 1…"
     assert client.get("/api/status").json()["running"] is False
 
 

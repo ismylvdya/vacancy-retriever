@@ -51,3 +51,15 @@ def every_feed_group_on(request, monkeypatch):
     from vacancy_retriever.config import GroupInfo
 
     monkeypatch.setattr(GroupInfo, "enabled", property(lambda self: True, lambda self, value: None), raising=False)
+
+
+@pytest.fixture(autouse=True)
+def no_register_download(request, monkeypatch):
+    """After every committed run the pipeline checks IT accreditation, which first looks for a newer register on
+    GitHub: in tests there is no network (and its retries would wait seconds). test_accreditation.py checks it."""
+    # The real config/.env may hold DADATA_API_KEY: tests never ask DaData (no network; a fake transport tests it).
+    monkeypatch.setattr("vacancy_retriever.accreditation.dadata.DaData.suggest", lambda self, name, count=5: [])
+    if request.module.__name__.endswith("test_accreditation"):
+        return
+    monkeypatch.setattr("vacancy_retriever.accreditation.registry.RegistryStore.refresh",
+                        lambda self, http, now=None, force=False: None)

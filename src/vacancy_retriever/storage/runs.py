@@ -10,7 +10,7 @@ from ..collectors.base import SourceCursor
 from ..timeutil import from_iso, to_iso, utcnow
 from .db import Database
 
-STAGED_TABLES = ("raw_items", "vacancies", "vacancy_sources")
+STAGED_TABLES = ("raw_items", "vacancies", "vacancy_sources", "mail_statuses")
 
 
 @dataclass
@@ -172,6 +172,7 @@ class RunRepository:
                 (run_id, run_id),
             )
             conn.execute("DELETE FROM vacancies WHERE run_id = ? AND staged = 1", (run_id,))
+            conn.execute("DELETE FROM mail_statuses WHERE run_id = ? AND staged = 1", (run_id,))
             conn.execute("DELETE FROM raw_items WHERE run_id = ? AND staged = 1", (run_id,))
             for table in ("raw_status_updates", "run_cursors"):
                 conn.execute(f"DELETE FROM {table} WHERE run_id = ?", (run_id,))

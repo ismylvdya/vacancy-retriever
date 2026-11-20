@@ -33,6 +33,10 @@ WEB_DIR = Path(__file__).parent
 STATIC_ICONS = WEB_DIR / "static" / "icons"
 
 
+class StatusIds(BaseModel):
+    ids: list[int]
+
+
 class StatusChange(BaseModel):
     status: str
 
@@ -54,6 +58,17 @@ class GenerateChoice(BaseModel):
 
     cv: bool = True      # the CV (+ the Drive folder)
     letter: bool = True  # the cover letter (IT: only together with the CV)
+
+
+class ManualVacancyInput(BaseModel):
+    """«Add vacancy» window: a vacancy the user found himself (apply/manual.py)."""
+
+    title: str
+    url: str
+    description: str
+    company: str = ""  # optional: the note's and the folder's names carry it
+    cv: bool = True
+    letter: bool = True
 
 
 class DriveChoice(BaseModel):
@@ -139,6 +154,7 @@ def create_app(config: AppConfig, storage: Storage, port: int, manager: RunManag
     def page(request: Request, template: str, tab: str, **context: Any) -> HTMLResponse:
         return templates.TemplateResponse(request, template, {
             "tab": tab, "feed_count": storage.vacancies.feed_count(), "status": full_status(),
+            "statuses_new": storage.statuses.new_count(),
             "health_problems": health_problems(), "notices": notices.active(config.paths.notices),
             "max_days": config.rules.max_age_days, "missed": missed_summary(),
             "run_groups": [{"number": n, "title": config.rules.groups[n].title} for n in config.rules.enabled_groups],
@@ -209,6 +225,23 @@ def create_app(config: AppConfig, storage: Storage, port: int, manager: RunManag
                     filters=processed_tabs, facets=filters, active=bool(chosen or search), query=query,
                     search=search, where=where, search_fields=views.SEARCH_FIELDS,
                     reported_count=storage.vacancies.reports_count())
+
+    @app.get("/statuses", response_class=HTMLResponse)
+    def statuses(request: Request) -> HTMLResponse:
+        """Statuses of applications found in e-mails (rejections, invitations, tests…), not linked to vacancies."""
+        return page(request, "statuses.html", "statuses", sections=views.status_sections(config, storage))
+
+    @app.post("/api/statuses/seen")
+    def statuses_seen(body: StatusIds) -> dict[str, Any]:
+        """The Statuses tab was opened with these rows: from now on they are «Seen» (they stay highlighted until the
+        page is reloaded)."""
+        return {"marked": storage.statuses.mark_seen(body.ids), "new": storage.statuses.new_count()}
+
+    @app.post("/api/statuses/{status_id}/unseen")
+    def status_unseen(status_id: int) -> dict[str, Any]:
+        if not storage.statuses.mark_unseen(status_id):
+            raise HTTPException(404, "Status not found")
+        return {"new": storage.statuses.new_count()}
 
     @app.get("/api/vacancies/{vacancy_id}/debug")
     def vacancy_debug(vacancy_id: int) -> dict[str, Any]:
@@ -360,6 +393,22 @@ def create_app(config: AppConfig, storage: Storage, port: int, manager: RunManag
         if not applications.generate(application_id, choice.cv, choice.letter, manual):
             raise HTTPException(409, "Only a vacancy waiting in the purgatory can be generated")
         return {"ok": True}
+
+    @app.post("/api/applications/manual")
+    def add_manual_vacancy(entry: ManualVacancyInput) -> dict[str, Any]:
+        """Title, link and description typed by the user (no page is opened, no LLM reads it): an ordinary vacancy of
+        the source «manual» (status Applied, not in the feed), queued at once with the chosen boxes — the same pipeline
+        and sidebar row as Generate (user, 20.11.2026)."""
+        from ..apply.manual import ManualError, ManualIntake
+
+        if not applications.enabled:
+            raise HTTPException(409, "Apply is off (config/apply.yaml → enabled)")
+        try:
+            added = ManualIntake(storage).create(entry.title, entry.url, entry.description, entry.company)
+        except ManualError as exc:
+            raise HTTPException(400, str(exc)) from exc
+        applications.generate(added.application.id, entry.cv, entry.letter)
+        return {"ok": True, "application_id": added.application.id, "vacancy_id": added.vacancy_id}
 
     @app.post("/api/applications/{application_id}/reveal")
     def reveal_pdf(application_id: int) -> dict[str, Any]:

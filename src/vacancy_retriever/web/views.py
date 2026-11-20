@@ -3,7 +3,7 @@ from __future__ import annotations
 import json
 from collections import defaultdict
 from dataclasses import dataclass, field
-from datetime import UTC, datetime, timedelta
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 from urllib.parse import quote
@@ -14,7 +14,7 @@ from ..storage import Storage
 from ..storage.vacancies import VacancyRecord
 from ..rates import RatesStore
 from ..scoring.salary import format_rub, monthly_rub, parse_salary
-from ..timeutil import format_local, from_iso, local, utcnow
+from ..timeutil import day_start, format_local, from_iso, local, utcnow
 
 LANGUAGES = {
     "ru": "Russian", "en": "English", "sr": "Serbian", "de": "German", "fr": "French", "es": "Spanish",
@@ -64,6 +64,30 @@ class SourceLink:
     icon: str = ""  # id for /icons/<id>: the source, or "mail-<key>" of the e-mail sender
 
 
+@dataclass(frozen=True)
+class Flag:
+    """A tag after the title. kind → colour in style.css (.flag-<kind>); title → the tooltip."""
+
+    text: str
+    kind: str = "plain"
+    title: str = ""
+
+    def __eq__(self, other: object) -> bool:  # tests and templates compare with the text
+        return self.text == other if isinstance(other, str) else super().__eq__(other)
+
+    def __hash__(self) -> int:
+        return hash(self.text)
+
+
+EMAIL_ONLY_TITLE = ("Evaluated from the job-alert letter only (title, company, city): no description was read — "
+                    "less reliable, at most 4 stars")
+WAVE_TITLE = "The letter announces an internship wave / open recruitment, not one vacancy"
+ACCREDITATION_FLAGS = {
+    "yes": ("IT accredited", "ok"), "no": ("No IT accreditation", "muted"),
+    "unknown": ("IT accreditation unknown", "orange"), None: ("IT accreditation not checked", "plain"),
+}
+
+
 @dataclass
 class Card:
     """One vacancy for the UI. Every field is shown in its own place — never concatenated."""
@@ -83,7 +107,7 @@ class Card:
     published: str
     is_new: bool
     summary: str
-    flags: list[str]
+    flags: list[Flag]
     sources: list[SourceLink]
     description: str
     user_status: str
@@ -120,6 +144,7 @@ class CardBuilder:
         self._rates = RatesStore(config.paths)
         self._reports = storage.vacancies.reports()
         self._hours_per_month = config.rules.salary.hours_per_month
+        self._rules = config.rules
         self._sender_icons = sender_icons(config)
         self._storage = storage
         self._llm = config.llm
@@ -130,15 +155,23 @@ class CardBuilder:
     def build(self, record: VacancyRecord) -> Card:
         facts = record.facts
         raw = self._storage.items.get(record.primary_raw_id)
-        flags = []
+        flags: list[Flag] = []
+        if facts and facts.wave:
+            flags.append(Flag("Internship wave", "wave", WAVE_TITLE))
         if facts and facts.russian_link:
-            flags.append(RUSSIAN_TAG)
+            if record.group_no not in self._rules.russian_tag_hidden_groups:
+                flags.append(Flag(RUSSIAN_TAG, "ru"))
         elif facts and facts.english_team:
-            flags.append(ENGLISH_TAG)
+            flags.append(Flag(ENGLISH_TAG, "en"))
+        if facts and self._accreditation_flag(record):
+            text, kind = ACCREDITATION_FLAGS[facts.it_accreditation]
+            note = facts.it_accreditation_note or ("Not checked yet: the check runs after each run"
+                                                   if facts.it_accreditation is None else "")
+            flags.append(Flag(text, kind, note))
         if record.informal_flag:
-            flags.append("Informal")
+            flags.append(Flag("Informal"))
         if raw and raw.email_only and record.facts:  # evaluated from the 1–2 lines of a job-alert letter only
-            flags.append("E-mail only")
+            flags.append(Flag("E-mail only", "plain", EMAIL_ONLY_TITLE))
         return Card(
             id=record.id,
             title=record.title,
@@ -175,6 +208,12 @@ class CardBuilder:
             reports=[{"text": r["text"], "date": format_local(r["created_at"], "%-d %b %H:%M")}
                      for r in self._reports.get(record.id, [])],
         )
+
+    def _accreditation_flag(self, record: VacancyRecord) -> bool:
+        """Only vacancies of the groups whose employers are checked (Russia) and of the no-accreditation group."""
+        rules = self._rules
+        return bool(rules.it_accreditation_groups) and (
+            record.group_no in rules.it_accreditation_groups or record.group_no == rules.no_it_accreditation_group)
 
     def _description_note(self, raw: Any) -> str:
         """«From the vacancy's page · 5 207 characters · the LLM reads the first 4 000»."""
@@ -750,9 +789,9 @@ def application_item(config: AppConfig, storage: Storage, application: Applicati
         status = f"Stopped at “{application.step}”"
     elif state == "cancelled":
         status = "Stopped"
-    else:
-        status = "Ready" if application.kind == "apply" else "Obsidian note ready"
-    if application.kind == "not_now":
+    else:  # done: what it became (green Applied, grey Not now)
+        status = "Applied" if application.kind == "apply" else "Not now"
+    if application.kind == "not_now" and state != "done":
         status = f"Not now · {status}"
     return {
         "id": application.id, "vacancy_id": application.vacancy_id,
@@ -767,7 +806,7 @@ def application_item(config: AppConfig, storage: Storage, application: Applicati
                             and not Path(application.pdf_path).exists()), "has_letter": bool(application.letter),
         "note_url": f"obsidian://open?path={quote(application.note_path)}" if application.note_path else None,
         "folder_url": application.folder_url, "pdf_url": application.pdf_url,
-        "draft": state == "draft", "manual": manual, "with_cv": application.with_cv,
+        "kind": application.kind, "draft": state == "draft", "manual": manual, "with_cv": application.with_cv,
         "with_letter": application.with_letter,
         "section": sidebar_section(config, application, now or utcnow()),
     }
@@ -781,20 +820,21 @@ def is_manual(config: AppConfig, record: VacancyRecord | None) -> bool:
 
 # The sidebar's sections, top to bottom (user, 18.11.2026). «current» ones are counted on the sidebar button.
 SIDEBAR_SECTIONS = (
-    {"key": "applied", "title": "Applied", "current": True},
+    {"key": "generated", "title": "Generated", "current": True},
     {"key": "purgatory", "title": "Purgatory", "current": True},
-    {"key": "previous", "title": "Previous sessions", "current": False},
+    {"key": "previous", "title": "Previous days", "current": False},
 )
 
 
 def sidebar_section(config: AppConfig, application: Application, now: datetime) -> str:
-    """Older than apply.yaml → current_session_hours since ▶ / N: «previous» (work in progress stays current);
-    otherwise «applied» once done, «purgatory» while waiting for Generate, in work, stopped or failed."""
+    """«▶» / N before today's start (apply.yaml → day_starts_at, local time): «previous» (work in progress stays up);
+    otherwise «generated» once done («▶» and N alike), «purgatory» while waiting for Generate, in work, stopped or
+    failed."""
     in_work = application.state.active
     if not in_work and application.created_at is not None and \
-            now - application.created_at >= timedelta(hours=config.apply.current_session_hours):
+            application.created_at < day_start(now, config.apply.day_starts_at):
         return "previous"
-    return "applied" if application.state.value == "done" else "purgatory"
+    return "generated" if application.state.value == "done" else "purgatory"
 
 
 def sidebar_sections(config: AppConfig, storage: Storage, applications: list[Application]) -> list[dict[str, Any]]:
@@ -803,3 +843,41 @@ def sidebar_sections(config: AppConfig, storage: Storage, applications: list[App
     items = [application_item(config, storage, a, now) for a in applications]
     sections = [{**s, "items": [i for i in items if i["section"] == s["key"]]} for s in SIDEBAR_SECTIONS]
     return [s for s in sections if s["items"]]
+
+
+# ---------------------------------------------------------------- statuses of applications (mail triage)
+
+def _mail_link(source: SourceConfig | None, config: AppConfig, message_id: str) -> str:
+    """Gmail opens a letter by its Message-ID (search rfc822msgid:); Yandex Mail has no such link — nothing."""
+    if not source or not message_id:
+        return ""
+    mailbox_id = source.params.get("mailbox", source.id)
+    mailbox = next((m for m in config.mail.mailboxes if m.id == mailbox_id), None)
+    if mailbox is None or mailbox.kind != "gmail":
+        return ""
+    return "https://mail.google.com/mail/u/0/#search/" + quote(f"rfc822msgid:{message_id.strip('<>')}")
+
+
+def status_sections(config: AppConfig, storage: Storage) -> list[dict[str, Any]]:
+    """The Statuses tab: «New» (not seen on this tab yet) above «Seen». Newest letters first."""
+    from ..pipeline.mail_stage import STAGES
+
+    sources = {s.id: s for s in config.sources.sources}
+    new, seen = [], []
+    for record in storage.statuses.visible():
+        label, tone = STAGES.get(record.stage, STAGES["unclear"])
+        source = sources.get(record.source_id)
+        when = record.received_at or record.created_at
+        row = {
+            "id": record.id, "stage": record.stage, "label": label, "tone": tone, "unsure": record.unsure,
+            "company": record.company, "position": record.position, "summary": record.summary,
+            "subject": record.subject, "sender": record.sender, "mailbox": source.name if source else record.source_id,
+            "date": format_local(when, "%-d %b %H:%M") if when else "", "link": _mail_link(source, config,
+                                                                                              record.message_id),
+            "new": record.seen_at is None,
+        }
+        (new if row["new"] else seen).append(row)
+    return [section for section in (
+        {"key": "new", "title": "New", "rows": new},
+        {"key": "seen", "title": "Seen", "rows": seen},
+    ) if section["rows"]]

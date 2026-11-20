@@ -58,6 +58,7 @@ class Prefilter:
         self._deny = word_pattern(prefilter.title_deny_keywords)
         self._grades = word_pattern(prefilter.title_grade_keywords)
         self._junior = word_pattern(prefilter.title_junior_markers)
+        self._programme = word_pattern(prefilter.title_programme_markers)
 
     def check(self, item: StoredRawItem, now: datetime) -> PrefilterResult:
         if item.meta.get("ignore"):
@@ -106,6 +107,8 @@ class Prefilter:
         if not title:
             return KEEP
         lowered = title.lower()
+        if self._programme and self._programme.search(lowered):
+            return KEEP  # a programme / wave announcement: the LLM decides, keywords never drop it
         reason = self._rules.prefilter.title_deny_reason
         match = self._deny.search(lowered) if self._deny else None
         if match:

@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import logging
 import random
+import ssl
 import re
 import threading
 import time
@@ -39,6 +40,18 @@ def is_forbidden(url: str) -> bool:
     return any(host == d or host.endswith("." + d) for d in FORBIDDEN_DOMAINS)
 
 
+def _system_trust() -> ssl.SSLContext | bool:
+    """Certificates are checked by the system store (macOS Keychain), like Safari — decision of the user 20.11.2026:
+    job.mtsbank.ru and tbank.ru are signed by the Russian Trusted Root CA, which is in the Keychain, not in certifi.
+    Verification itself is never switched off."""
+    try:
+        import truststore
+
+        return truststore.SSLContext(ssl.PROTOCOL_TLS_CLIENT)
+    except ImportError:
+        return True
+
+
 class PoliteHttpClient:
     """httpx wrapper: browser UA, pauses between requests, retries, block detection."""
 
@@ -64,6 +77,7 @@ class PoliteHttpClient:
             timeout=timeout,
             follow_redirects=True,
             transport=transport,
+            verify=_system_trust(),
         )
 
     def close(self) -> None:
@@ -106,6 +120,32 @@ class PoliteHttpClient:
             response.raise_for_status()
             return response
         raise last_exc or RuntimeError(f"GET {url} failed")
+
+    def post_json(self, url: str, body: object) -> object:
+        """A JSON POST for sites whose listing is a POST (tbank.ru); same pauses, retries and block checks."""
+        if is_forbidden(url):
+            raise ForbiddenDomainError(f"Refusing to open {url}: domain is on the never-open list")
+        last_exc: Exception | None = None
+        for attempt in range(self._retries + 1):
+            self._pause()
+            try:
+                response = self._client.post(url, json=body)
+                traffic.add(traffic.response_size(response))
+            except httpx.TransportError as exc:
+                last_exc = exc
+                log.warning("POST %s failed (%s), attempt %s", url, exc, attempt + 1)
+                time.sleep(2 ** attempt * 2)
+                continue
+            if response.status_code in (429, 502, 503, 504) and attempt < self._retries:
+                time.sleep(2 ** attempt * 5)
+                continue
+            self._raise_if_blocked(response)
+            response.raise_for_status()
+            try:
+                return response.json()
+            except ValueError as exc:
+                raise BlockedError(f"Expected JSON from {url}", "not_json") from exc
+        raise last_exc or RuntimeError(f"POST {url} failed")
 
     def _pause(self) -> None:
         with self._lock:

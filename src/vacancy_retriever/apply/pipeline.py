@@ -130,10 +130,13 @@ class DossierBuilder:
         russian = (facts.ad_language == "ru" or "ru" in facts.required_languages
                    or facts.russian_speaking_team == "yes" or facts.employer_type in RUSSIAN_EMPLOYERS)
         in_serbia = facts.country.casefold() in SERBIA
+        in_russia = facts.country.strip().casefold() in self._config.rules.russia_country_names
         if facts.work_format == "remote":
             place = "remote"
         elif in_serbia:
             place = "serbia"
+        elif facts.work_format in ("office", "hybrid") and in_russia:
+            place = "russia"
         elif facts.work_format in ("office", "hybrid") and facts.country not in ("", "unknown"):
             place = "abroad"
         else:
@@ -162,7 +165,7 @@ class ApplyServices:
     writer: MaterialsWriter
     skill: ResumeSkill
     out_dir: Path  # where the CV PDF goes (apply.yaml → resume.output_dir, ~/Downloads)
-    folder_name: str = "{title} • {employer} • {date} 🦆"  # apply.yaml → drive.folder_name; date of ▶, yyyy-mm-dd
+    folder_name: str = "{employer} • {title} • {date} 🦆"  # apply.yaml → drive.folder_name; date of ▶, yyyy-mm-dd
 
 
 @dataclass
@@ -239,8 +242,10 @@ class NoteStep(Step):
 
 
 def drive_folder_name(template: str, title: str, employer: str, day: date) -> str:
-    """«Data Analyst • Tribe • 2026-10-29 🦆»; no employer — «Data Analyst • 2026-10-29 🦆» (no dangling separator)."""
+    """«Tribe • Data Analyst • 2026-10-29 🦆»; no employer — «Data Analyst • 2026-10-29 🦆» (no dangling separator,
+    wherever {employer} stands in the template)."""
     if not employer:
+        template = re.sub(r"\{employer\}\s*[•\-–—|]\s*", "", template)
         template = re.sub(r"\s*[•\-–—|]?\s*\{employer\}", "", template)
     name = template.format(title=title, employer=employer, date=day.isoformat())
     return " ".join(name.replace("/", "∕").split())

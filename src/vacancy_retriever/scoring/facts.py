@@ -42,6 +42,7 @@ _DEFAULTS: dict[str, str] = {
     "employment": "unknown",
     "visa_support": "not_mentioned",
     "confidence": "low",
+    "kind": "vacancy",
 }
 
 
@@ -79,6 +80,15 @@ class VacancyFacts(BaseModel):
     link: str = ""
     confidence: Confidence = "low"
     russian_mention: bool = False  # not from the LLM: the text has a word of rules.yaml → russian_link_words
+    # Not from the scoring LLM: set after the run by accreditation/stage.py (register of accredited IT organisations).
+    # None = not checked (yet). The engine moves «no» out of the Russian groups (rules.yaml → it_accreditation_groups).
+    it_accreditation: Literal["yes", "no", "unknown"] | None = None
+    it_accreditation_note: str = ""
+    # "programme": an internship / trainee programme, a school with hiring, an open recruitment wave — from ANY source
+    # (post, letter, site), with or without concrete positions; never "not_a_vacancy" (docs/PROGRAMMES.md).
+    kind: Literal["vacancy", "programme"] = "vacancy"
+    # Not from the LLM: kind == "programme", or mail triage called the letter a wave. Shown as «Internship wave».
+    wave: bool = False
 
     @property
     def russian_link(self) -> bool:

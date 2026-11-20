@@ -81,13 +81,13 @@ class Mailbox:
         return [uid.decode() for uid in (data[0] or b"").split()]
 
     def unseen_headers(self, since: datetime, batch: int = 200) -> list[tuple[str, Message]]:
-        """UNSEEN letters since the date with only their From / Subject / Date headers (BODY.PEEK)."""
+        """UNSEEN letters since the date with only their From / Subject / Date / Message-ID headers (BODY.PEEK)."""
         data = self._check(self.imap.uid("SEARCH", None, f'(UNSEEN SINCE {since.strftime("%d-%b-%Y")})'), "SEARCH")
         uids = [uid.decode() for uid in (data[0] or b"").split()]
         result: list[tuple[str, Message]] = []
         for start in range(0, len(uids), batch):
             chunk = ",".join(uids[start:start + batch])
-            rows = self._check(self.imap.uid("FETCH", chunk, "(BODY.PEEK[HEADER.FIELDS (FROM SUBJECT DATE)])"),
+            rows = self._check(self.imap.uid("FETCH", chunk, "(BODY.PEEK[HEADER.FIELDS (FROM SUBJECT DATE MESSAGE-ID)])"),
                                "FETCH headers")
             for part in rows:
                 if isinstance(part, tuple):

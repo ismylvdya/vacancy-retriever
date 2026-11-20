@@ -66,6 +66,12 @@ class CollectContext:
     cancel_event: threading.Event = field(default_factory=threading.Event)
     limit: int | None = None
     on_page: Callable[[int], None] = lambda page: None
+    # E-mail: Message-IDs of unread letters already checked and left alone, and a way to remember new ones.
+    mail_checked: Callable[[], set[str]] = lambda: set()
+    remember_checked: Callable[[list[str]], None] = lambda ids: None
+    # False: every feed group of this source is off in this run — an e-mail source then reads only statuses of
+    # applications and internship waves, its vacancy letters stay unread.
+    vacancies_wanted: bool = True
 
     def check_cancel(self) -> None:
         if self.cancel_event.is_set():

@@ -28,6 +28,7 @@
   <nav class="nav">
     <a href="/" class="tab {{ 'on' if tab == 'feed' }}">Feed<span class="count" id="feed-count">{{ feed_count }}</span></a>
     <a href="/processed" class="tab {{ 'on' if tab == 'processed' }}">Processed</a>
+    <a href="/statuses" class="tab {{ 'on' if tab == 'statuses' }}" title="Statuses of your applications from e-mails">Statuses{% if statuses_new %}<span class="count count-new" id="statuses-count">{{ statuses_new }}</span>{% endif %}</a>
     <a href="/statistics" class="tab {{ 'on' if tab == 'statistics' }}">Statistics{% if health_problems %}<span class="dot-alert" title="Some sources have problems"></span>{% endif %}</a>
     <span class="spacer"></span>
     <span class="updated" id="last-run" title="{{ status.summary_line }}">{{ status.last_run_short }}</span>
@@ -80,6 +81,7 @@
 </section>
 {% endfor %}
 <aside class="apply-sidebar" id="apply-sidebar" hidden aria-label="Applications">
+  <button class="add-vacancy" id="add-vacancy" type="button" title="A vacancy you found yourself: the note, the Drive folder, CV and cover letter">+ Add vacancy</button>
   <ul class="apply-list" id="apply-list"></ul>
   <div class="apply-empty" id="apply-empty"><p>Nothing here yet.</p><p class="muted small"><kbd>▶</kbd> on a vacancy puts it here; Generate makes its CV, cover letter and Obsidian note.</p></div>
 </aside>
@@ -93,6 +95,29 @@
     <p class="muted small" id="report-title"></p>
     <textarea id="report-text" rows="6" placeholder="What is wrong: group, stars, skip, permit, facts… (⌘↵ to submit)"></textarea>
     <div class="report-actions"><span class="spacer"></span><button class="btn" value="cancel" formnovalidate>Cancel</button><button class="btn primary" id="report-submit" value="submit">Submit</button></div>
+  </form>
+</dialog>
+<dialog class="report-dialog manual-dialog" id="manual-dialog" aria-labelledby="manual-heading">
+  <form method="dialog" id="manual-form">
+    <button class="dialog-close" value="cancel" formnovalidate type="submit" aria-label="Close">×</button>
+    <h3 id="manual-heading">Add a vacancy you found</h3>
+    <p class="muted small">Copy the title, the link and the description from the site — the same as Generate in the sidebar: the Obsidian note, the Drive folder, CV and cover letter.</p>
+    <label class="field-label" for="manual-title">Title</label>
+    <input class="field" id="manual-title" required placeholder="Junior Data Analyst" autocomplete="off">
+    <label class="field-label" for="manual-company">Company <span class="muted">(optional — goes into the note's and the folder's names)</span></label>
+    <input class="field" id="manual-company" placeholder="Acme" autocomplete="off">
+    <label class="field-label" for="manual-url">Link to the vacancy</label>
+    <input class="field" id="manual-url" type="url" required placeholder="https://…" autocomplete="off">
+    <label class="field-label" for="manual-text">Description</label>
+    <textarea id="manual-text" rows="9" required placeholder="Paste the vacancy's text from the site"></textarea>
+    <p class="manual-error" id="manual-error" hidden></p>
+    <div class="report-actions app-generate">
+      <label class="app-option"><input type="checkbox" name="cv" checked> CV</label>
+      <label class="app-option"><input type="checkbox" name="letter" checked> Cover letter</label>
+      <span class="spacer"></span>
+      <button class="btn" value="cancel" formnovalidate>Cancel</button>
+      <button class="btn primary" id="manual-submit" value="submit">Generate Obsidian note</button>
+    </div>
   </form>
 </dialog>
 <div class="toast" id="toast" hidden><span id="toast-text"></span><button class="link" id="toast-undo" hidden>Undo</button></div>

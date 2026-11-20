@@ -38,7 +38,8 @@ RESULTS_SCHEMA: dict[str, Any] = {
 
 
 # Structured facts collectors / e-mail parsers know for sure; passed to the LLM as reliable `hints`.
-HINT_KEYS = ("required_languages", "company", "location", "city", "country", "work_format", "salary")
+HINT_KEYS = ("required_languages", "company", "location", "city", "country", "work_format", "salary", "letter_kind",
+             "source_employer")
 
 
 class LlmCaller:
@@ -53,12 +54,13 @@ class LlmCaller:
         self._failures_dir = failures_dir
         self.last_error: LlmError | None = None
 
-    async def call(self, stage: str, system: str, user: str, model: str, n_items: int) -> LlmResponse:
+    async def call(self, stage: str, system: str, user: str, model: str, n_items: int,
+                   schema: dict[str, Any] | None = None) -> LlmResponse:
         attempt = 0
         while True:
             started = time.monotonic()
             try:
-                response = await self._provider.complete_json(system, user, model, RESULTS_SCHEMA)
+                response = await self._provider.complete_json(system, user, model, schema or RESULTS_SCHEMA)
             except asyncio.CancelledError:
                 self._record(stage, model, n_items, started, None, ok=False, error="cancelled", unknown=True)
                 raise

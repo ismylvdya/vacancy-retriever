@@ -271,5 +271,6 @@ def test_only_the_guest_module_knows_how_to_reach_linkedin():
     source = ROOT / "src" / "vacancy_retriever"
     clients = [p.relative_to(source).as_posix() for p in source.rglob("*.py") if "linkedin_guest" not in p.name
                and "httpx.Client(" in p.read_text(encoding="utf-8")]
-    assert sorted(clients) == ["apply/drive.py", "collectors/egress.py", "collectors/http.py", "collectors/job_search.py",
+    # accreditation/dadata.py posts only to suggestions.dadata.ru (SUGGEST_URL), a fixed address.
+    assert sorted(clients) == ["accreditation/dadata.py", "apply/drive.py", "collectors/egress.py", "collectors/http.py", "collectors/job_search.py",
                                "collectors/vpn.py"]

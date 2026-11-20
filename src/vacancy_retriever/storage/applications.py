@@ -71,9 +71,8 @@ class ApplicationRepository:
         return {r["vacancy_id"] for r in rows}
 
     def visible(self) -> list[Application]:
-        # a finished Not now (just a note) leaves the sidebar by itself; one in work, stopped or failed stays
-        rows = self.db.query("SELECT * FROM applications WHERE dismissed = 0"
-                             " AND NOT (kind = 'not_now' AND state = 'done') ORDER BY id DESC")
+        # every «▶» and N: in work in Purgatory, done in Generated (user, 20.11.2026)
+        rows = self.db.query("SELECT * FROM applications WHERE dismissed = 0 ORDER BY id DESC")
         return [Application.from_row(r) for r in rows]
 
     def recover(self) -> int:

@@ -290,7 +290,23 @@ body.running .feed-content { display: none; }
 .report-dialog textarea { width: 100%; margin: 10px 0; font: inherit; font-size: 13px; padding: 8px 10px; resize: vertical;
   color: var(--text); background: var(--bg); border: 1px solid var(--line-strong); border-radius: 8px; }
 .report-actions { display: flex; gap: 8px; }
+/* «Add vacancy»: a quiet dashed button on top of the sidebar; its window (user, 20.11.2026) */
+.add-vacancy { display: block; width: 100%; margin: 0 0 calc(2 * var(--space-5)); padding: 6px 10px; font: inherit;
+  font-size: var(--font-s); color: var(--muted); background: transparent; border: 1px dashed var(--line-strong);
+  border-radius: 8px; cursor: pointer; text-align: center; }
+.add-vacancy:hover, .add-vacancy:focus-visible { color: var(--text); border-color: var(--accent); }
+.manual-dialog { position: relative; width: min(600px, 94vw); }
+.manual-dialog .field-label { display: block; margin: 12px 0 4px; font-size: 12px; font-weight: 600; }
+.manual-dialog .field { width: 100%; font: inherit; font-size: 13px; padding: 7px 10px; color: var(--text);
+  background: var(--bg); border: 1px solid var(--line-strong); border-radius: 8px; }
+.manual-dialog textarea { margin-top: 0; }
+.manual-dialog .app-generate .btn { margin-left: 0; }
+.dialog-close { position: absolute; top: 10px; right: 12px; width: 28px; height: 28px; font-size: 20px; line-height: 1;
+  color: var(--muted); background: transparent; border: 0; border-radius: 6px; cursor: pointer; }
+.dialog-close:hover { color: var(--text); background: var(--bg); }
+.manual-error { margin: 0 0 8px; color: var(--danger, #c0392b); font-size: 12px; }
 .btn.primary { color: #fff; background: var(--accent); border-color: var(--accent); }
+.btn.primary:disabled { opacity: .4; cursor: default; }
 
 /* ---------- debug mode ---------- */
 body:not(.debug) .debug-only { display: none !important; }
@@ -434,7 +450,7 @@ body.with-sidebar { padding-right: var(--sidebar-w); }
 .app-section ~ .app-section { margin-top: calc(var(--space-5) + var(--space-1)); padding-top: calc(2 * var(--space-5));
   border-top: 1px solid var(--line); margin-left: calc(-1 * var(--space-4)); margin-right: calc(-1 * var(--space-4));
   padding-left: var(--space-4); padding-right: var(--space-4); }
-/* Previous sessions: greyed, still clickable */
+/* Previous days: greyed, still clickable */
 .app-section-previous { color: var(--muted); }
 .app-in-previous { opacity: .6; }
 .app-in-previous:hover, .app-in-previous:focus-within { opacity: 1; }
@@ -446,6 +462,7 @@ body.with-sidebar { padding-right: var(--sidebar-w); }
 .app-employer { margin-top: 2px; color: var(--muted); overflow-wrap: anywhere; }
 .app-status { margin-top: var(--space-1); color: var(--muted); }
 .app-done .app-status { color: var(--ok); }
+.app-done.app-kind-not_now .app-status { color: var(--muted); }
 .app-error, .app-failed .app-status { color: var(--danger); }
 /* stopped by Stop or by Undo of ▶: a badge, so it is not mistaken for «in work» */
 .app-cancelled .app-status { display: inline-block; padding: 1px 7px; border-radius: 6px; font-weight: 500;
@@ -644,6 +661,10 @@ button.vac-id:hover { color: var(--accent); text-decoration: underline; }
 .title > .flag.reported { margin: 0 8px 0 0; }
 .flag-ru { color: var(--accent); background: color-mix(in srgb, var(--accent) 12%, transparent); }
 .flag-en { color: var(--orange); background: color-mix(in srgb, var(--orange) 14%, transparent); }
+.flag-orange { color: var(--orange); background: color-mix(in srgb, var(--orange) 14%, transparent); }
+.flag-ok { color: var(--ok); background: color-mix(in srgb, var(--ok) 13%, transparent); }
+.flag-muted { color: var(--muted); }
+.flag-wave { color: var(--violet); background: color-mix(in srgb, var(--violet) 13%, transparent); }
 
 /* Processed: tabs that are not about what the user did */
 .seg-pale { opacity: .55; }
@@ -667,3 +688,26 @@ button.vac-id:hover { color: var(--accent); text-decoration: underline; }
 
 a.app-item-title { color: var(--text); font-weight: 600; }
 a.app-item-title:hover { color: var(--accent); }
+
+/* ---------- Statuses tab (statuses of applications from e-mails, 20.11.2026) ---------- */
+.count-new { color: var(--accent); font-weight: 600; }
+.status-row { display: grid; grid-template-columns: 150px 1fr auto; gap: 14px; align-items: start; padding: 12px 16px;
+  border-top: 1px solid var(--line); }
+.status-row:first-child { border-top: 0; }
+.status-row.is-new { background: color-mix(in srgb, var(--accent) 5%, transparent); }
+.status-stage { justify-self: start; padding: 2px 8px; border-radius: 5px; font-size: 13px; font-weight: 600; white-space: nowrap;
+  color: var(--tone); background: color-mix(in srgb, var(--tone) 13%, transparent); }
+.tone-positive { --tone: var(--ok); }
+.tone-neutral { --tone: var(--accent); }
+.tone-negative { --tone: var(--muted); }
+.tone-unclear { --tone: var(--orange); }
+.status-unsure { font-style: normal; margin-left: 4px; opacity: .8; }
+.status-title { font-weight: 600; }
+.status-position { font-weight: 400; color: var(--muted); margin-left: 8px; }
+.status-summary { margin: 4px 0 0; }
+.status-mail { margin: 4px 0 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 70ch; }
+.status-date { white-space: nowrap; }
+@media (max-width: 640px) {
+  .status-row { grid-template-columns: 1fr; gap: 6px; }
+  .status-mail { white-space: normal; }
+}

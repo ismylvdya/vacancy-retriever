@@ -30,6 +30,12 @@ log = logging.getLogger(__name__)
 WATCHED_TEMPLATES: dict[str, str] = {}
 
 
+def archived(message: Message, senders: list[str]) -> bool:
+    """The From header (only it) names an archived sender: «linkedin.com» also matches «@em.linkedin.com»."""
+    sender = decoded_header(message, "From").lower()
+    return any(entry.strip().lower() and entry.strip().lower() in sender for entry in senders)
+
+
 def sender_rule(message: Message, senders: list[SenderRule]) -> SenderRule | None:
     sender = decoded_header(message, "From").lower()
     return next((rule for rule in senders if rule.match.lower() in sender), None)
@@ -204,6 +210,8 @@ class EmailCollector(Collector):
                 # Senders are matched here, not by IMAP SEARCH FROM: Yandex does not find "hh.ru" in "noreply@hh.ru".
                 for uid, header in mailbox.unseen_headers(oldest):
                     ctx.check_cancel()
+                    if archived(header, config.mail.archived_senders):
+                        continue  # in the archive (mail.yaml → archived_senders): not read, not touched
                     rule = sender_rule(header, config.mail.senders)
                     message_id = (header.get("Message-ID") or f"{mailbox.config.id}:{uid}").strip()
                     if rule is None and (not triage.enabled or message_id in checked

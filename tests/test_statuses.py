@@ -50,6 +50,8 @@ def mailbox(tmp_paths, monkeypatch):
     config = AppConfig(tmp_paths)
     monkeypatch.setattr("vacancy_retriever.collectors.email.collector.AppConfig", lambda: config)
     config.__dict__["secrets"] = type(config.secrets)({"GMAIL_LOGIN": "me", "GMAIL_APP_PASSWORD": "pw"})
+    archive = list(config.mail.archived_senders)
+    config.mail.archived_senders = []  # these tests use a LinkedIn alert as «a known template»; the archive has its own
     letters = {
         "1": make_letter(uid_hint="1").as_bytes(),  # a LinkedIn job alert: a vacancy
         "2": letter("Магазин <shop@store.ru>", "Скидка на кроссовки", "Только сегодня", "2").as_bytes(),
@@ -59,7 +61,9 @@ def mailbox(tmp_paths, monkeypatch):
     imap = FakeImap("h", 993, letters)
     monkeypatch.setattr(EmailCollector, "imap_factory", staticmethod(lambda h, p: imap))
     source = SourceConfig(id="gmail", type="email", name="Gmail", params={"mailbox": "gmail"})
-    return EmailCollector(source, PoliteHttpClient(0, 0)), imap
+    collector = EmailCollector(source, PoliteHttpClient(0, 0))
+    collector.test_config, collector.test_archive = config, archive  # type: ignore[attr-defined]
+    return collector, imap
 
 
 def context(remembered: list[str], checked: set[str] | None = None, vacancies: bool = True) -> CollectContext:
@@ -223,3 +227,18 @@ def test_statuses_tab_marks_rows_seen(env):
     assert "is-new" not in page and 'id="statuses-count"' not in page and ">Seen<" in page
     wave_card = client.get("/").text
     assert "Internship wave" in wave_card
+
+
+def test_archived_linkedin_letters_are_not_read_at_all(mailbox):
+    """LinkedIn is in the archive (user, 22.11.2026; mail.yaml → archived_senders): a job alert, a recruiter's message
+    and a Premium letter are recognised by the From header and skipped — no body fetched, nothing for the LLM."""
+    collector, imap = mailbox
+    assert "linkedin.com" in collector.test_archive, "the real mail.yaml keeps LinkedIn in the archive"
+    collector.test_config.mail.archived_senders = collector.test_archive
+    imap.letters["5"] = letter("LinkedIn <messages-noreply@linkedin.com>", "Your application", "Interview?", "5").as_bytes()
+    imap.letters["6"] = letter("LinkedIn <news@em.linkedin.com>", "Premium", "Job offer", "6").as_bytes()
+    items = collector.collect(context([])).items
+    uids = {i.meta["email"]["uid"] for i in items}
+    assert not uids & {"1", "5", "6"}, "the LinkedIn job alert (uid 1) is archived too"
+    assert uids == {"3", "4"}
+    assert not any(c[0] == "FETCH" and c[1] in ("1", "5", "6") and "BODY.PEEK[]" in str(c) for c in imap.commands)

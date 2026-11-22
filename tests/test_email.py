@@ -151,6 +151,7 @@ def test_rejected_label_is_a_clear_error():
 def email_collector(tmp_paths, monkeypatch):
     (tmp_paths.root / "config_env").write_text("")
     config = AppConfig(tmp_paths)
+    config.mail.archived_senders = []  # the LinkedIn parser is tested here; the archive — tests/test_statuses.py
     monkeypatch.setattr("vacancy_retriever.collectors.email.collector.AppConfig", lambda: config)
     config.__dict__["secrets"] = type(config.secrets)({"GMAIL_LOGIN": "me", "GMAIL_APP_PASSWORD": "pw"})
     letters = {"11": make_letter(uid_hint="11").as_bytes(), "12": make_letter(uid_hint="12").as_bytes()}

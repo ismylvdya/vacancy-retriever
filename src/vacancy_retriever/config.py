@@ -284,6 +284,9 @@ class MailTriage(_Strict):
 class MailConfig(_Strict):
     processed_label: str = "🦆 retrievered"
     triage: MailTriage = Field(default_factory=MailTriage)
+    # Senders in the archive (user, 22.11.2026: LinkedIn): their letters are recognised by the From header only and
+    # skipped before anything else — the text is not read, not triaged, not sent to the LLM, not marked or labelled.
+    archived_senders: list[str] = Field(default_factory=list)
     max_age_days: int = 30
     linkedin_descriptions: LinkedInDescriptions = Field(default_factory=LinkedInDescriptions)
     linkedin_public_pages: LinkedInPublicPages = Field(default_factory=LinkedInPublicPages)

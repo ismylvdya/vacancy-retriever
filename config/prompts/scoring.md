@@ -33,9 +33,9 @@ Fields of each vacancy (enums are exact lowercase strings):
 - employment: official|informal|freelance_contract|unknown ("оплата наличными", "частный мастер ищет помощника" → informal)
 - visa_support: yes|no|not_mentioned (help with Serbian residence/work permit or relocation visa)
 - summary_ru: brief, always in Russian (any ad language), ≤ 200 chars total. Use these exact plain-text labels in this order, separated by JSON-escaped newlines (\n). No Markdown:
-  - Кто Что: who is sought and what they will do, with the key requirements. For programmes, include stated dates, deadlines, format and city.
-  - Опыт: the explicit experience in years, including any stated minimum or range. Say whether it is required («обязательно») or preferred («желательно») according to the ad. If both are stated separately, distinguish them. Omit this line entirely when no number of years is given.
-  - Стэк: 4–8 core skills and tools actually mentioned, most important for this role first. Use standard skill names and commas. List fewer if fewer are evidenced; omit the line if none are given. Never invent skills or requirements.
+  - Кто Что: who is sought and what they will do. Keep this line about the role and duties; leave candidate requirements to the lines below. For programmes, include stated dates, deadlines, format and city.
+  - Опыт: the explicitly stated years of experience (minimum or range) and the specific work, domain or skill that those years refer to, e.g. «от 1 года разработки MLOps-пайплайнов (обязательно)». Mark each requirement as «обязательно» or «желательно» based on the ad's wording or requirements section. Preserve the distinction if the ad gives both. Keep standalone skills without a stated duration in Стэк. Omit this line entirely when no number of years is given.
+  - Стэк: 4–8 core skills and tools from the ad, including human languages explicitly required or preferred and their stated levels (e.g. «английский B2»). Rank all items by importance for this vacancy and separate them with commas. The language an ad is written in does not itself count as a requirement. List fewer if fewer are evidenced; omit the line if none are given. Never invent skills or requirements.
 - salary_text: keep it short (≤ 60 chars)
 - link: direct URL of this specific vacancy if present in the text, else ""
 - confidence: high|medium|low (low = vague post like "ищем ребят, пишите в личку")

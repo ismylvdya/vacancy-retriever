@@ -285,7 +285,7 @@ def test_salary_in_another_currency_shows_rub(client, tmp_paths):
     assert "1500–2000 €" in feed and "≈ 135 000–180 000 ₽" in feed
 
 
-def test_reports_and_a_reported_vacancy_leaves_the_feed_outside_debug(client):
+def test_reported_vacancy_stays_in_feed_until_status_changes(client):
     vacancy_id = client.vacancy_id
     page = client.get("/").text
     assert "skip-note" not in page and "why skip" not in page  # the optional Skip reason is gone (29.10.2026)
@@ -303,8 +303,16 @@ def test_reports_and_a_reported_vacancy_leaves_the_feed_outside_debug(client):
     edited = client.get("/processed?filter=reported").text
     assert "исправлено" in edited and "это удалёнка из РФ" not in edited
     feed = client.get("/").text
-    assert f'class="vac reported" id="vac-{vacancy_id}"' in feed  # hidden by CSS unless debug mode is on
-    assert client.get("/api/status").json()["feed_count"] == 0
+    assert f'class="vac" id="vac-{vacancy_id}"' in feed
+    assert 'class="debug-only flag reported"' in feed
+    assert client.get("/api/status").json()["feed_count"] == 1
+    skipped = client.post(f"/api/vacancies/{vacancy_id}/status", json={"status": "skipped"}, headers=ORIGIN)
+    assert skipped.json()["feed_count"] == 0
+    assert f'id="vac-{vacancy_id}"' not in client.get("/").text
+    assert "исправлено" in client.get("/processed?filter=reported").text
+    restored = client.post(f"/api/vacancies/{vacancy_id}/status", json={"status": "new"}, headers=ORIGIN)
+    assert restored.json()["feed_count"] == 1
+    assert f'id="vac-{vacancy_id}"' in client.get("/").text
 
 
 def test_runs_columns_by_coef_and_from_claude(client):

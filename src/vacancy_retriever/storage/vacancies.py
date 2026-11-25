@@ -194,10 +194,7 @@ class VacancyRepository:
         return records
 
     def feed_count(self) -> int:
-        """The feed outside debug mode: new vacancies without a report (reported ones show only in debug mode)."""
-        row = self.db.query_one(
-            "SELECT COUNT(*) AS n FROM vacancies v WHERE v.staged = 0 AND v.user_status = 'new'"
-            " AND NOT EXISTS (SELECT 1 FROM reports r WHERE r.vacancy_id = v.id)")
+        row = self.db.query_one("SELECT COUNT(*) AS n FROM vacancies WHERE staged = 0 AND user_status = 'new'")
         return row["n"]
 
     def processed_counts(self) -> dict[str, int]:

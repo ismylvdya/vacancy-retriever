@@ -152,9 +152,7 @@ $("cancel-btn").addEventListener("click", async () => {
 });
 
 /* ---------- vacancy rows: focus, keyboard, actions ---------- */
-/* A reported vacancy is in the feed only in debug mode (user, 29.10.2026). */
-const counted = (el) => !(el.classList.contains("reported") && !debugOn());
-const visibleRows = () => [...document.querySelectorAll(".vac")].filter((el) => !el.closest(".collapsed") && counted(el));
+const visibleRows = () => [...document.querySelectorAll(".vac")].filter((el) => !el.closest(".collapsed"));
 let current = null;
 
 function focusRow(row, { scroll = true } = {}) {
@@ -176,18 +174,9 @@ function move(delta) {
 
 function updateCounts(row) {
   const group = row.closest(".group");
-  if (group) refreshGroupCount(group);
+  const counter = group?.querySelector(".group-count");
+  if (counter) counter.textContent = group.querySelectorAll(".vac").length;
 }
-
-/* Group counts follow what is shown: reported vacancies count only in debug mode; a group left empty hides. */
-function refreshGroupCount(group) {
-  const counter = group.querySelector(".group-count");
-  if (!counter) return;
-  const shown = [...group.querySelectorAll(".vac")].filter(counted).length;
-  counter.textContent = shown;
-  if (tab === "feed") group.classList.toggle("nothing-shown", shown === 0 && group.querySelector(".vac") !== null);
-}
-function refreshGroupCounts() { document.querySelectorAll(".group").forEach(refreshGroupCount); }
 
 const LABELS = { applied: "Applied — sent to the sidebar", not_now: "Moved to Not now", skipped: "Skipped", new: "Returned to feed",
   auto_skipped: "Auto-skipped" };
@@ -307,7 +296,6 @@ function debugOn() { return document.body.classList.contains("debug"); }
 function setDebug(on) {
   document.body.classList.toggle("debug", on);
   debugToggle.checked = on;
-  refreshGroupCounts();
   try { localStorage.setItem("vr-debug", on ? "1" : ""); } catch (e) { /* private mode */ }
   if (on && current && current.classList.contains("open")) loadDebug(current);
 }
@@ -395,12 +383,6 @@ async function submitReport() {
     }
     const count = document.querySelector('a[href="/processed?filter=reported"] .count');
     if (count) count.textContent = data.reported;
-    if (tab === "feed" && !reportRow.classList.contains("reported")) {  // out of the feed once debug mode is off
-      reportRow.classList.add("reported");
-      refreshGroupCount(reportRow.closest(".group"));
-      const feedCount = $("feed-count");
-      if (feedCount) feedCount.textContent = Math.max(0, Number(feedCount.textContent) - 1);
-    }
     toast(edited ? "Report updated" : "Reported — see Processed → Reported");
   } catch (e) { toast(e.message); }
 }

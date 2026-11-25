@@ -13,7 +13,7 @@
 {%- endmacro %}
 
 {% macro row(c, permit_column=False, processed=False) %}
-<article class="vac{{ ' low' if c.low_fit and not processed }}{{ ' reported' if c.reports and not processed }}" id="vac-{{ c.id }}" data-id="{{ c.id }}" tabindex="0">
+<article class="vac{{ ' low' if c.low_fit and not processed }}" id="vac-{{ c.id }}" data-id="{{ c.id }}" tabindex="0">
   {% if processed %}
   <div class="cells cells-processed">
     {{ role(c) }}

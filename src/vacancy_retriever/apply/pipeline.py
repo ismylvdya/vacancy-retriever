@@ -23,7 +23,7 @@ from .description import LetterDescriptions
 from .manual import SOURCE_ID, ManualError, validate_pdf
 from .models import Application, ApplicationState, ApplyError, VacancyDossier
 from .obsidian import SKILLS_PROPERTY, ObsidianVault
-from .resume import MaterialsWriter, ResumeSkill, insert_cv_link
+from .resume import MaterialsWriter, ResumeSkill, insert_cv_link, normalize_letter_quotes
 
 log = logging.getLogger(__name__)
 
@@ -347,6 +347,8 @@ class FinalizeStep(Step):
         if app.with_letter:
             assert app.materials is not None
             letter = insert_cv_link(app.materials.letter, app.pdf_url)
+        if letter:
+            letter = normalize_letter_quotes(letter)
         updates: dict[str, Any] = {"letter": letter}
         if note is not None:
             ctx.vault.become_applied(note, ctx.dossier.employer)  # type: ignore[union-attr]  # was «не сейчас»

@@ -16,6 +16,7 @@ from .models import ApplyError, Materials, VacancyDossier
 
 PLACEHOLDER = re.compile("(?:❗️?)+\\s*ВСТАВИТЬ\\s*(?:❗️?)+")
 _PDF_LINE = re.compile(r"^PDF: (.+?)\s+pages=(\d+)", re.M)
+_STRAIGHT_QUOTES = str.maketrans({quote: '"' for quote in "\u00ab\u00bb\u201c\u201d\u201e\u201f\u2039\u203a"})
 
 APP_RULES = """You are running inside the Vacancy Retriever app, without tools: you cannot run commands or read files.
 The supplied resume-tailor instructions contain all the reference material for this request.
@@ -254,6 +255,10 @@ class MaterialsWriter:
             application_id=application_id, five_hour=usage.five_hour if usage else None,
             seven_day=usage.seven_day if usage else None,
             five_hour_resets_at=usage.five_hour_resets_at if usage else None))
+
+
+def normalize_letter_quotes(letter: str) -> str:
+    return letter.translate(_STRAIGHT_QUOTES)
 
 
 def insert_cv_link(letter: str, pdf_url: str | None) -> str:

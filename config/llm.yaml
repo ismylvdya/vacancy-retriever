@@ -15,7 +15,7 @@ provider: codex_cli
 # Для claude_sdk можно писать алиасы: haiku, sonnet, opus.
 # Рекомендация по модели — в EVAL.md.
 models:
-  codex_cli:     {scoring: gpt-6.2-sol, dedup: gpt-6.2-sol, resume: gpt-6.2-astra}
+  codex_cli:     {scoring: gpt-6.2-sol, dedup: gpt-6.1-terra, resume: gpt-6.2-sol}
   claude_sdk:    {scoring: sonnet, dedup: haiku, resume: sonnet}
   anthropic_api: {scoring: claude-haiku-5-5, dedup: claude-haiku-5-5, resume: claude-sonnet-5-5}
   openai_api:    {scoring: gpt-5.4-nano, dedup: gpt-5.4-nano}
@@ -38,7 +38,7 @@ retries: 2
 codex_cli:
   cli_path: null
   timeout_seconds: 300
-  effort: low
+  effort: medium
   resume_effort: medium
 
 claude_sdk:

@@ -316,17 +316,19 @@ def create_app(config: AppConfig, storage: Storage, port: int, manager: RunManag
     @app.post("/api/vacancies/{vacancy_id}/status")
     def change_status(vacancy_id: int, change: StatusChange) -> dict[str, Any]:
         try:
-            changed = storage.vacancies.set_user_status(vacancy_id, change.status)
+            with storage.db.transaction():
+                previous = storage.vacancies.get(vacancy_id)
+                if not previous or not storage.vacancies.set_user_status(vacancy_id, change.status):
+                    raise HTTPException(404, "Vacancy not found")
+                if change.status in ("applied", "not_now"):
+                    kind = "apply" if change.status == "applied" else "not_now"
+                    applications.enqueue(vacancy_id, kind=kind, fresh=previous.user_status == "new")
+                else:
+                    applications.withdraw(vacancy_id, hide=change.status == "new")
         except ValueError as exc:
             raise HTTPException(400, str(exc)) from exc
-        if not changed:
-            raise HTTPException(404, "Vacancy not found")
-        if change.status == "applied":
-            applications.enqueue(vacancy_id)
-        elif change.status == "not_now":  # the Obsidian note «не сейчас» with the vacancy's skills (30.10.2026)
-            applications.enqueue(vacancy_id, kind="not_now")
-        else:
-            applications.withdraw(vacancy_id)
+        except ApplyError as exc:
+            raise HTTPException(409, str(exc)) from exc
         return {"ok": True, "feed_count": storage.vacancies.feed_count()}
 
     # ---- the user's Drive folder for vacancy folders (Google Picker, once)
@@ -379,7 +381,7 @@ def create_app(config: AppConfig, storage: Storage, port: int, manager: RunManag
     def retry_application(application_id: int) -> dict[str, Any]:
         _application(application_id)
         if not applications.retry(application_id):
-            raise HTTPException(409, "It is being processed right now")
+            raise HTTPException(409, "The application cannot be retried in its current state")
         return {"ok": True}
 
     @app.post("/api/applications/{application_id}/stop")

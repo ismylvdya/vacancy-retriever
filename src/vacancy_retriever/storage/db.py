@@ -260,6 +260,7 @@ class Database:
                  ("applications", "stats_json", "TEXT"),
                  ("applications", "with_cv", "INTEGER NOT NULL DEFAULT 1"),
                  ("applications", "with_letter", "INTEGER NOT NULL DEFAULT 1"),
+                 ("applications", "generation", "INTEGER NOT NULL DEFAULT 1"),
                  ("applications", "with_note", "INTEGER NOT NULL DEFAULT 1")}  # unused since 19.11.2026: the note is always made
         for table, column, kind in added:
             columns = {row[1] for row in conn.execute(f"PRAGMA table_info({table})")}

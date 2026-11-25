@@ -260,7 +260,7 @@ class FolderStep(Step):
     def run(self, app: Application, ctx: StepContext) -> dict[str, Any]:
         name = drive_folder_name(ctx.services.folder_name, ctx.dossier.name_title or ctx.dossier.title,
                                  ctx.dossier.employer, date.today())
-        item = ctx.drive.ensure_folder(app.vacancy_id, name)
+        item = ctx.drive.ensure_folder(app.drive_key, name)
         return {"folder_id": item.id, "folder_url": item.url}
 
 
@@ -315,7 +315,7 @@ class UploadStep(Step):
 
     def run(self, app: Application, ctx: StepContext) -> dict[str, Any]:
         assert app.folder_id and app.pdf_path
-        item = ctx.drive.upload_pdf(app.vacancy_id, app.folder_id, Path(app.pdf_path))
+        item = ctx.drive.upload_pdf(app.drive_key, app.folder_id, Path(app.pdf_path))
         return {"pdf_file_id": item.id, "pdf_url": item.url}
 
 

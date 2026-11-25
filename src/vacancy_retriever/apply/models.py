@@ -76,6 +76,13 @@ class Application:
     with_letter: bool = True      # Generate: the cover letter (IT: only with the CV, it carries the CV's link)
     note_mine: str | None = None  # what the app last wrote into «### моё»
     stats_json: str | None = None
+    generation: int = 1
+
+    @property
+    def drive_key(self) -> int | str:
+        if self.generation == 1:
+            return self.vacancy_id
+        return f"{self.vacancy_id}-{self.generation}"
 
     @property
     def stats(self) -> dict[str, Any]:
@@ -103,7 +110,7 @@ class Application:
             dismissed=bool(row["dismissed"]), created_at=from_iso(row["created_at"]),
             updated_at=from_iso(row["updated_at"]), kind=row["kind"] or "apply", note_mine=row["note_mine"],
             with_cv=bool(row["with_cv"]), with_letter=bool(row["with_letter"]),
-            stats_json=row["stats_json"],
+            stats_json=row["stats_json"], generation=row["generation"],
         )
 
 

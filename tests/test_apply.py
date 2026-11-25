@@ -92,19 +92,22 @@ class FakeDrive(NoDrive):
         super().__init__("")
         self.folders = 0
         self.uploads = 0
+        self.folder_ids: dict[int | str, str] = {}
 
     @property
     def available(self) -> bool:
         return True
 
-    def ensure_folder(self, key: int, name: str) -> DriveItem:
+    def ensure_folder(self, key: int | str, name: str) -> DriveItem:
         self.folders += 1
         self.names = [*getattr(self, "names", []), name]
-        return DriveItem("F1", folder_url("F1"))
+        folder_id = self.folder_ids.setdefault(key, f"F{len(self.folder_ids) + 1}")
+        return DriveItem(folder_id, folder_url(folder_id))
 
-    def upload_pdf(self, key: int, folder_id: str, path: Path) -> DriveItem:
+    def upload_pdf(self, key: int | str, folder_id: str, path: Path) -> DriveItem:
         self.uploads += 1
-        return DriveItem("P1", file_url("P1"))
+        file_id = f"P{folder_id[1:]}"
+        return DriveItem(file_id, file_url(file_id))
 
 
 @pytest.fixture
@@ -202,11 +205,12 @@ def test_restart_continues_interrupted_work(env):
 
 def test_a_taken_note_name_gets_a_number(env):
     taken = env.vault.root / "Acme d.o.o. • Junior Data Scientist 🦆.md"
-    taken.write_text("my own note", encoding="utf-8")
+    own_note = f"---\nretriever_id: 0\n---\nmy own note\nretriever_id: {env.vacancy_id}\n"
+    taken.write_text(own_note, encoding="utf-8")
     apply_now(env)
     app = run_all(env)
     assert Path(app.note_path).name == "Acme d.o.o. • Junior Data Scientist 2 🦆.md"
-    assert taken.read_text(encoding="utf-8") == "my own note"
+    assert taken.read_text(encoding="utf-8") == own_note
 
 
 def test_user_edits_in_the_note_are_kept(env):
@@ -373,6 +377,69 @@ def test_apply_from_the_feed_and_sidebar_api(env):
         assert client.post(f"/api/applications/{item['id']}/dismiss", headers=ORIGIN).status_code == 404, "no ×"
         client.post(f"/api/vacancies/{env.vacancy_id}/status", json={"status": "new"}, headers=ORIGIN)
         assert env.storage.applications.for_vacancy(env.vacancy_id).state == ApplicationState.DONE
+        assert client.get("/api/applications").json()["sections"] == []
+
+
+@pytest.mark.parametrize("keep_note", [False, True])
+def test_return_to_feed_then_generate_again(env, keep_note):
+    app = create_app(env.config, env.storage, port=PORT, applications=env.service)
+    with TestClient(app, base_url=f"http://127.0.0.1:{PORT}") as client:
+        status_url = f"/api/vacancies/{env.vacancy_id}/status"
+
+        def status(value: str):
+            return client.post(status_url, json={"status": value}, headers=ORIGIN)
+
+        assert status("applied").status_code == 200
+        first = env.storage.applications.for_vacancy(env.vacancy_id)
+        generate_url = f"/api/applications/{first.id}/generate"
+        assert client.post(generate_url, json={}, headers=ORIGIN).status_code == 200
+        first = run_all(env)
+        note = Path(first.note_path)
+        if keep_note:
+            note = note.rename(note.with_name("Renamed vacancy note.md"))
+            note.write_text(f"---\nretriever_id: {env.vacancy_id}\ncustom: mine\n---\n"
+                            "My old content\n\n### моё\nOld letter\n", encoding="utf-8")
+        else:
+            note.unlink()
+
+        # Even abandoning the first replacement draft must keep the Drive identity of the previous run.
+        for _ in range(2):
+            assert status("new").status_code == 200
+            assert client.get("/api/applications").json()["sections"] == []
+            assert status("applied").status_code == 200
+            [section] = client.get("/api/applications").json()["sections"]
+            [draft] = section["items"]
+            assert (section["key"], draft["id"], draft["vacancy_status"]) == ("purgatory", first.id, "applied")
+            assert draft["draft"] and not draft["has_letter"] and not draft["has_pdf"] and not draft["note_url"]
+
+        assert client.post(generate_url, json={}, headers=ORIGIN).status_code == 200
+        second = run_all(env)
+        assert second.state == ApplicationState.DONE and env.provider.calls == env.skill.builds == 2
+        assert second.folder_url == folder_url("F2") and second.pdf_url == file_url("P2")
+        assert Path(first.pdf_path).exists() and second.pdf_path != first.pdf_path
+        assert second.note_path == str(note) and second.letter != first.letter
+        new_note = note.read_text(encoding="utf-8")
+        assert second.letter in new_note and "### описание вакансии" in new_note and second.warning is None
+        assert "custom" not in frontmatter(new_note) and "My old content" not in new_note and "Old letter" not in new_note
+
+
+def test_return_to_feed_while_worker_owns_the_application(env):
+    app = create_app(env.config, env.storage, port=PORT, applications=env.service)
+    with TestClient(app, base_url=f"http://127.0.0.1:{PORT}") as client:
+        url = f"/api/vacancies/{env.vacancy_id}/status"
+        assert client.post(url, json={"status": "applied"}, headers=ORIGIN).status_code == 200
+        queued = env.storage.applications.for_vacancy(env.vacancy_id)
+        assert env.service.generate(queued.id, True, True)
+        claimed = env.storage.applications.claim_due(utcnow())
+        assert claimed and claimed.state == ApplicationState.WORKING
+        assert client.post(url, json={"status": "new"}, headers=ORIGIN).status_code == 200
+        assert client.get("/api/applications").json()["sections"] == []
+        assert client.post(url, json={"status": "applied"}, headers=ORIGIN).status_code == 409
+        assert env.storage.vacancies.get(env.vacancy_id).user_status == "new"
+        assert env.pipeline.process(claimed).state == ApplicationState.CANCELLED
+        assert client.post(url, json={"status": "applied"}, headers=ORIGIN).status_code == 200
+        assert env.storage.applications.get(claimed.id).state == ApplicationState.DRAFT
+        assert env.provider.calls == 0
 
 
 def test_generate_without_cv_makes_the_note_only(env):
@@ -391,6 +458,7 @@ def test_generate_without_cv_makes_the_note_only(env):
 def test_sidebar_sections(env):
     from vacancy_retriever.web.views import sidebar_sections
 
+    env.storage.vacancies.set_user_status(env.vacancy_id, "applied")
     app = env.service.enqueue(env.vacancy_id)
     [section] = sidebar_sections(env.config, env.storage, env.service.visible())
     assert section["key"] == "purgatory"
@@ -486,6 +554,7 @@ def test_drive_folder_name():
 
 
 def test_not_now_makes_a_note_with_skills_then_apply_turns_it_into_an_application(env):
+    env.storage.vacancies.set_user_status(env.vacancy_id, "not_now")
     app = env.service.enqueue(env.vacancy_id, kind="not_now")
     app = run_all(env)
     assert app.state == ApplicationState.DONE and app.kind == "not_now"

@@ -52,12 +52,43 @@ class ApplicationRepository:
     def delete(self, application_id: int) -> None:
         self.db.execute("DELETE FROM applications WHERE id = ?", (application_id,))
 
+    def stop(self, application_id: int) -> bool:
+        cursor = self.db.execute(
+            "UPDATE applications SET cancel_requested = (state = ?),"
+            " state = CASE WHEN state = ? THEN state ELSE ? END, updated_at = ?"
+            " WHERE id = ? AND dismissed = 0 AND state IN (?, ?, ?, ?)",
+            (ApplicationState.WORKING, ApplicationState.WORKING, ApplicationState.CANCELLED, to_iso(utcnow()),
+             application_id, ApplicationState.QUEUED, ApplicationState.WORKING,
+             ApplicationState.WAITING, ApplicationState.FAILED),
+        )
+        return cursor.rowcount > 0
+
+    def restart(self, application_id: int, due_at: datetime, kind: str, state: ApplicationState) -> None:
+        now = to_iso(utcnow())
+        self.db.execute(
+            "UPDATE applications SET generation = generation + 1, kind = ?, state = ?, due_at = ?,"
+            " created_at = ?, updated_at = ?, step = NULL, note_path = NULL, note_mine = NULL,"
+            " folder_id = NULL, folder_url = NULL, materials_json = NULL, pdf_path = NULL, pdf_file_id = NULL,"
+            " pdf_url = NULL, letter = NULL, skills = NULL, error = NULL, warning = NULL, stats_json = NULL,"
+            " cancel_requested = 0, dismissed = 0, with_cv = 1, with_letter = 1 WHERE id = ?",
+            (kind, state, to_iso(due_at), now, now, application_id),
+        )
+
     def next_due(self, now: datetime) -> Application | None:
         row = self.db.query_one(
-            "SELECT * FROM applications WHERE state IN (?, ?) AND due_at <= ? ORDER BY due_at, id LIMIT 1",
+            "SELECT * FROM applications WHERE dismissed = 0 AND state IN (?, ?) AND due_at <= ?"
+            " ORDER BY due_at, id LIMIT 1",
             (ApplicationState.QUEUED, ApplicationState.WAITING, to_iso(now)),
         )
         return Application.from_row(row) if row else None
+
+    def claim_due(self, now: datetime) -> Application | None:
+        with self.db.transaction():
+            app = self.next_due(now)
+            if app is None:
+                return None
+            self.update(app.id, state=ApplicationState.WORKING)
+            return self.get(app.id)
 
     def history(self, limit: int = 300) -> list[Application]:
         """Every application, newest first (Statistics → Applies)."""
@@ -66,19 +97,24 @@ class ApplicationRepository:
 
     def active_vacancy_ids(self) -> set[int]:
         """Vacancies whose application is queued, in work or waiting for the Claude limit."""
-        rows = self.db.query("SELECT vacancy_id FROM applications WHERE state IN (?, ?, ?)",
+        rows = self.db.query("SELECT vacancy_id FROM applications WHERE dismissed = 0 AND state IN (?, ?, ?)",
                              (ApplicationState.QUEUED, ApplicationState.WORKING, ApplicationState.WAITING))
         return {r["vacancy_id"] for r in rows}
 
     def visible(self) -> list[Application]:
         # every «▶» and N: in work in Purgatory, done in Generated (user, 20.11.2026)
-        rows = self.db.query("SELECT * FROM applications WHERE dismissed = 0 ORDER BY id DESC")
+        rows = self.db.query(
+            "SELECT a.* FROM applications a JOIN vacancies v ON v.id = a.vacancy_id"
+            " WHERE a.dismissed = 0 AND v.staged = 0 AND v.user_status <> 'new'"
+            " ORDER BY a.created_at DESC, a.id DESC"
+        )
         return [Application.from_row(r) for r in rows]
 
     def recover(self) -> int:
         """After a restart: work that was interrupted goes back to the queue (finished steps are kept)."""
         cursor = self.db.execute(
-            "UPDATE applications SET state = ?, updated_at = ? WHERE state = ?",
-            (ApplicationState.QUEUED, to_iso(utcnow()), ApplicationState.WORKING),
+            "UPDATE applications SET state = CASE WHEN dismissed = 1 THEN ? ELSE ? END, updated_at = ?"
+            " WHERE state = ?",
+            (ApplicationState.CANCELLED, ApplicationState.QUEUED, to_iso(utcnow()), ApplicationState.WORKING),
         )
         return cursor.rowcount

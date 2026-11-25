@@ -802,6 +802,7 @@ def application_item(config: AppConfig, storage: Storage, application: Applicati
         status = f"Not now · {status}"
     return {
         "id": application.id, "vacancy_id": application.vacancy_id,
+        "vacancy_status": record.user_status if record else None,
         "card_url": _card_url(record),
         "title": (record.facts.display_title if record and record.facts else "") or (record.title if record else "?"),
         "employer": record.employer if record else "",

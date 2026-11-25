@@ -12,7 +12,7 @@ from ..storage import Storage
 from ..storage.applications import ApplicationRepository
 from ..timeutil import utcnow
 from .drive import CloudFolders, DriveParent, GoogleDrive, GoogleToken, NoDrive, StubDrive
-from .models import Application, ApplicationState
+from .models import Application, ApplicationState, ApplyError
 from .obsidian import ObsidianVault
 from .pipeline import ApplicationPipeline, ApplyServices, DossierBuilder
 from .resume import MaterialsWriter, ResumeSkill
@@ -50,7 +50,7 @@ class ApplicationWorker:
         self._wake.set()
 
     def run_once(self) -> bool:
-        app = self._repo.next_due(self._clock())
+        app = self._repo.claim_due(self._clock())
         if app is None:
             return False
         self._pipeline.process(app)
@@ -90,7 +90,7 @@ class ApplicationService:
         if self._worker:
             self._worker.wake()
 
-    def enqueue(self, vacancy_id: int, kind: str = "apply") -> Application | None:
+    def enqueue(self, vacancy_id: int, kind: str = "apply", *, fresh: bool = False) -> Application | None:
         """▶ (kind apply) puts the vacancy into the sidebar's purgatory: nothing is made until Generate (user,
         18.11.2026). N (kind not_now: the Obsidian note with the skills) starts by itself after the Undo window.
         A «не сейчас» note, then ▶: the same application becomes an apply and waits for Generate (the note is reused)."""
@@ -101,6 +101,10 @@ class ApplicationService:
         state = ApplicationState.DRAFT if kind == "apply" else ApplicationState.QUEUED
         if app is None:
             app = self._repo.create(vacancy_id, due, kind, state)
+        elif fresh:
+            if app.state == ApplicationState.WORKING:
+                raise ApplyError("The previous attempt is still stopping. Try again after the current step finishes.")
+            self._repo.restart(app.id, due, kind, state)
         elif app.kind != kind:
             if kind == "not_now" and app.started:  # applied earlier, now Not now: the apply stops, its files stay
                 self.stop(app.id)
@@ -121,43 +125,39 @@ class ApplicationService:
             with_cv = False
         elif not with_cv:
             with_letter = False
-        app = self._repo.get(application_id)
-        if app is None or app.kind != "apply" or app.state != ApplicationState.DRAFT:
-            return False
-        self._repo.update(app.id, state=ApplicationState.QUEUED, due_at=self._clock(), with_cv=int(with_cv),
-                          with_letter=int(with_letter), error=None, cancel_requested=0)
+        with self._repo.db.transaction():
+            app = self._repo.get(application_id)
+            if app is None or app.dismissed or app.kind != "apply" or app.state != ApplicationState.DRAFT:
+                return False
+            self._repo.update(app.id, state=ApplicationState.QUEUED, due_at=self._clock(), with_cv=int(with_cv),
+                              with_letter=int(with_letter), error=None, cancel_requested=0)
         self._wake()
         return True
 
-    def withdraw(self, vacancy_id: int) -> None:
-        """Undo of ▶ / another status: a row still in the purgatory goes away (nothing was made); one that has
-        started stops and stays as «Stopped» (what is made stays; Retry continues). User, 30.10.2026."""
+    def withdraw(self, vacancy_id: int, *, hide: bool = False) -> None:
+        """Stop the current attempt, hiding it when the vacancy returns to the Feed."""
         app = self._repo.for_vacancy(vacancy_id)
         if app is None:
             return
-        if app.state == ApplicationState.DRAFT and not app.started:
+        if app.state == ApplicationState.DRAFT and not app.started and app.generation == 1:
             self._repo.delete(app.id)
-        elif app.state == ApplicationState.DRAFT:  # a «не сейчас» note was there: it stays, the row shows Stopped
+        elif app.state == ApplicationState.DRAFT:
             self._repo.update(app.id, state=ApplicationState.CANCELLED)
         else:
             self.stop(app.id)
+        if hide:
+            self._repo.update(app.id, dismissed=1)
 
     def stop(self, application_id: int) -> bool:
         """Stop button / Undo. A step in progress (a Claude call) finishes first, then nothing more is done."""
-        app = self._repo.get(application_id)
-        if app is None or app.state in (ApplicationState.DONE, ApplicationState.CANCELLED, ApplicationState.DRAFT):
-            return False
-        if app.state == ApplicationState.WORKING:
-            self._repo.update(app.id, cancel_requested=1)
-        else:
-            self._repo.update(app.id, state=ApplicationState.CANCELLED, dismissed=0)
-        return True
+        return self._repo.stop(application_id)
 
     def retry(self, application_id: int) -> bool:
-        app = self._repo.get(application_id)
-        if app is None or app.state == ApplicationState.WORKING:
-            return False
-        self._repo.update(app.id, state=ApplicationState.QUEUED, due_at=self._clock(), error=None, cancel_requested=0)
+        with self._repo.db.transaction():
+            app = self._repo.get(application_id)
+            if app is None or app.dismissed or app.state in (ApplicationState.WORKING, ApplicationState.DRAFT):
+                return False
+            self._repo.update(app.id, state=ApplicationState.QUEUED, due_at=self._clock(), error=None, cancel_requested=0)
         self._wake()
         return True
 

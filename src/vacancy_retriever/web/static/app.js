@@ -258,11 +258,15 @@ function reflect(id, status) {
 async function setStatus(row, status) {
   const id = row.dataset.id;
   const previous = tab === "processed" ? row.querySelector(".st").className.replace("st st-", "") : "new";
+  await setVacancyStatus(id, previous, status, rowTitle(row));
+}
+
+async function setVacancyStatus(id, previous, status, title) {
   try { await postStatus(id, status); } catch (e) { toast(e.message); return; }
-  history.undo.push({ id, from: previous, to: status, title: rowTitle(row) });
+  history.undo.push({ id, from: previous, to: status, title });
   history.redo = [];
   saveHistory();
-  if (belongsHere(status)) reflect(id, status); else takeOff(row);
+  reflect(id, status);
   toast(LABELS[status] || "Saved", undo);
 }
 

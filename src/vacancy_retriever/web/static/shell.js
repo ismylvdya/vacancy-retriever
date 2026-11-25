@@ -79,6 +79,7 @@ document.addEventListener("keydown", (event) => {
    Sections and their order come from the server (views.SIDEBAR_SECTIONS). ---------- */
 const applySidebar = $("apply-sidebar");
 let applyTimer = null;
+let applyRefresh = 0;
 let applyItems = 0;
 let applyCurrent = 0;  // rows of the current session's sections: the number on the sidebar button
 
@@ -94,6 +95,10 @@ function applicationRow(item) {
   }
   head.append(title);
   li.append(head);
+  const back = el("button", "btn small app-return", "Return to feed");
+  back.type = "button";
+  back.addEventListener("click", () => setVacancyStatus(String(item.vacancy_id), item.vacancy_status, "new", item.title));
+  li.append(back);
   if (item.employer) li.append(el("div", "app-employer", item.employer));
   li.append(el("div", "app-status", item.status));
   if (item.error) li.append(el("div", "app-error", item.error));
@@ -170,8 +175,10 @@ function layoutSidebar() {
 async function refreshApplications() {
   if (!applySidebar) return;
   clearTimeout(applyTimer);
+  const refresh = ++applyRefresh;
   try {
     const data = await api("GET", "/api/applications");
+    if (refresh !== applyRefresh) return;
     const items = data.sections.flatMap((section) => section.items);
     applyItems = items.length;
     applyCurrent = data.sections.filter((section) => section.current).reduce((n, section) => n + section.items.length, 0);
@@ -187,7 +194,7 @@ async function refreshApplications() {
     applyTimer = setTimeout(refreshApplications,
       items.some((item) => item.active) ? UI.applications.activeMs : UI.applications.idleMs);
   } catch (e) {
-    applyTimer = setTimeout(refreshApplications, UI.applications.retryMs);
+    if (refresh === applyRefresh) applyTimer = setTimeout(refreshApplications, UI.applications.retryMs);
   }
 }
 

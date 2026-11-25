@@ -6,6 +6,7 @@ from collections.abc import Iterator
 from dataclasses import dataclass
 from datetime import date
 from pathlib import Path
+from tempfile import TemporaryDirectory
 from urllib.parse import quote
 
 import yaml
@@ -86,7 +87,7 @@ class NoteRenderer:
 
 
 class ObsidianVault:
-    """Vacancy notes in the user's vault. Only the app's own blocks and empty properties are ever changed."""
+    """Vacancy notes in the user's vault. A fresh generation can replace its existing note."""
 
     def __init__(self, root: Path, settings: ObsidianSettings):
         self.root = root
@@ -111,27 +112,33 @@ class ObsidianVault:
         """The note of this vacancy: the stored path, else any note with its retriever_id (the user renamed it)."""
         if known and Path(known).is_file():
             return Path(known)
-        marker = re.compile(rf"^{ID_PROPERTY}:\s*{vacancy_id}\s*$", re.M)
         for path in self._notes():
-            head = path.read_text(encoding="utf-8", errors="ignore")[:4000]
-            if head.startswith("---") and marker.search(head):
+            text = path.read_text(encoding="utf-8", errors="ignore")
+            if f"{ID_PROPERTY}:" in text and str(frontmatter(text).get(ID_PROPERTY)) == str(vacancy_id):
                 return path
         return None
 
     def create(self, dossier: VacancyDossier, not_now: bool = False, mine: bool = True) -> Path:
         existing = self.find(dossier.vacancy_id)
+        content = self.renderer.render(dossier, self.employer_link(dossier.employer), not_now=not_now, mine=mine)
         if existing:
+            with TemporaryDirectory(prefix=".vr-note-", dir=existing.parent) as work:
+                replacement = Path(work) / existing.name
+                replacement.write_text(content, encoding="utf-8")
+                replacement.replace(existing)
             return existing
         folder = self.root / self.settings.folder if self.settings.folder else self.root
         folder.mkdir(parents=True, exist_ok=True)
         base = note_file_name(dossier.name_title or dossier.title, dossier.employer)
         mark = f" {self.settings.app_mark}" if self.settings.app_mark else ""
         path, n = folder / f"{base}{mark}.md", 2
-        while path.exists():  # a name taken by another note: «… 2 🦆», «… 3 🦆» (the user's choice, 28.10.2026)
-            path, n = folder / f"{base} {n}{mark}.md", n + 1
-        path.write_text(self.renderer.render(dossier, self.employer_link(dossier.employer), not_now=not_now,
-                                             mine=mine), encoding="utf-8")
-        return path
+        while True:
+            try:
+                with path.open("x", encoding="utf-8") as note:
+                    note.write(content)
+                return path
+            except FileExistsError:
+                path, n = folder / f"{base} {n}{mark}.md", n + 1
 
     def employer_link(self, employer: str) -> str | None:
         wanted = normalize_company(employer)

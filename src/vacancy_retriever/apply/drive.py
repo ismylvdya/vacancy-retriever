@@ -44,10 +44,10 @@ class CloudFolders(ABC):
     def available(self) -> bool: ...
 
     @abstractmethod
-    def ensure_folder(self, key: int, name: str) -> DriveItem: ...
+    def ensure_folder(self, key: int | str, name: str) -> DriveItem: ...
 
     @abstractmethod
-    def upload_pdf(self, key: int, folder_id: str, path: Path) -> DriveItem: ...
+    def upload_pdf(self, key: int | str, folder_id: str, path: Path) -> DriveItem: ...
 
 
 class NoDrive(CloudFolders):
@@ -58,10 +58,10 @@ class NoDrive(CloudFolders):
     def available(self) -> bool:
         return False
 
-    def ensure_folder(self, key: int, name: str) -> DriveItem:
+    def ensure_folder(self, key: int | str, name: str) -> DriveItem:
         raise ApplyError(self.reason, kind="setup")
 
-    def upload_pdf(self, key: int, folder_id: str, path: Path) -> DriveItem:
+    def upload_pdf(self, key: int | str, folder_id: str, path: Path) -> DriveItem:
         raise ApplyError(self.reason, kind="setup")
 
 
@@ -77,10 +77,10 @@ class StubDrive(CloudFolders):
     def available(self) -> bool:
         return True
 
-    def ensure_folder(self, key: int, name: str) -> DriveItem:
+    def ensure_folder(self, key: int | str, name: str) -> DriveItem:
         return DriveItem(f"stub-folder-{key}", f"{self.STUB_HOST}/folder/{key}")
 
-    def upload_pdf(self, key: int, folder_id: str, path: Path) -> DriveItem:
+    def upload_pdf(self, key: int | str, folder_id: str, path: Path) -> DriveItem:
         return DriveItem(f"stub-pdf-{key}", f"{self.STUB_HOST}/folder/{key}/{path.name}")
 
 
@@ -205,7 +205,7 @@ class GoogleDrive(CloudFolders):
         found = self._find(f"appProperties has {{ key='vr_root' and value='1' }} and mimeType = '{FOLDER_MIME}'")
         return found or self._create_folder(self._settings.root_folder, None, {"vr_root": "1"})
 
-    def ensure_folder(self, key: int, name: str) -> DriveItem:
+    def ensure_folder(self, key: int | str, name: str) -> DriveItem:
         folder_id = self._find(f"appProperties has {{ key='vr_vacancy' and value='{key}' }}"
                                f" and mimeType = '{FOLDER_MIME}'")
         if folder_id is None:
@@ -214,7 +214,7 @@ class GoogleDrive(CloudFolders):
             self._call("POST", f"{API}/files/{folder_id}/permissions", json={"type": "anyone", "role": "reader"})
         return DriveItem(folder_id, folder_url(folder_id))
 
-    def upload_pdf(self, key: int, folder_id: str, path: Path) -> DriveItem:
+    def upload_pdf(self, key: int | str, folder_id: str, path: Path) -> DriveItem:
         content = path.read_bytes()
         file_id = self._find(f"appProperties has {{ key='vr_pdf' and value='{key}' }} and '{_quote(folder_id)}' in parents")
         if file_id:

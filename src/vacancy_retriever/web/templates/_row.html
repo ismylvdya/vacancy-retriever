@@ -63,6 +63,7 @@
       <button class="btn btn-quiet" data-action="open-source" title="The vacancy's site (its first source)">Open source<kbd>↵</kbd></button>
     </div>
     <div class="debug-panel">
+      {% if c.reports %}<div class="debug-only reports"><h4>Reports</h4>{% for r in c.reports %}<p><span class="muted small">{{ r.date }}</span> <span class="report-text">{{ r.text }}</span></p>{% endfor %}</div>{% endif %}
       <details class="parsed-description" open>
         <summary class="debug-only">Parsed description</summary>
         {% if c.description_note %}<div class="debug-only debug-content muted">{{ c.description_note }}</div>{% endif %}
@@ -77,7 +78,6 @@
         <div class="debug-content">
           {% if c.run_started %}<div class="muted">Run {{ c.run_started }}</div>{% endif %}
           <div class="debug-box" data-loaded=""></div>
-          {% if c.reports %}<div class="reports"><h4>Reports</h4>{% for r in c.reports %}<p><span class="muted small">{{ r.date }}</span> <span class="report-text">{{ r.text }}</span></p>{% endfor %}</div>{% endif %}
           <div class="actions">
             <button class="btn btn-quiet" data-action="copy-id" type="button">Copy ID</button>
             <button class="btn btn-quiet" data-action="report" type="button"{% if c.reports %} data-report="{{ c.reports[-1].text }}" title="Edit your report"{% endif %}>Report</button>

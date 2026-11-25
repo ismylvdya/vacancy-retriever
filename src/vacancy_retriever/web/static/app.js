@@ -354,9 +354,9 @@ function openReport(row) {
 function showReport(row, text) {
   let box = row.querySelector(".reports");
   if (!box) {
-    box = el("div", "reports");
+    box = el("div", "debug-only reports");
     box.append(el("h4", "", "Reports"));
-    row.querySelector(".debug-box").after(box);
+    row.querySelector(".parsed-description").before(box);
   }
   let line = box.querySelector("p:last-child .report-text");
   if (!line) {

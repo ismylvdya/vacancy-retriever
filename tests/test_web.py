@@ -61,7 +61,7 @@ def test_pages_render(client):
     assert "<span>Junior</span>" in feed and "<span>Russian company with a Serbian d.o.o.</span>" in feed
     assert "Ad Russian" in feed and "Requires English, Russian" in feed, "grade, employer type and languages on the card"
     assert 'flag flag-ru">Russian-speaking<' in feed and "🇬🇧" not in feed
-    assert 'class="debug-only parsed-title">Parsed description' in feed and "The post / card text" in feed
+    assert '<details class="parsed-description" open>' in feed and "The post / card text" in feed
     assert "IT and data in Serbia" in feed
     assert "1500–2000 €" in feed
     assert "https://telegram.me/serbiawork/1" in feed
@@ -206,6 +206,7 @@ def test_debug_controls_are_rendered_and_hidden_tab_works(client):
     assert 'id="debug-toggle"' in feed and "copy-debug" not in feed and "Copy text" not in feed and "Copy id" not in feed
     assert f'data-action="copy-id" title="Copy the id">#{client.vacancy_id}</button>' in feed
     assert "Run " in feed  # the debug line with the run's date
+    assert feed.index('data-action="report"') < feed.index('class="debug-panel"')
     run_id = client.storage.runs.start({})
     ad = RawItem("serbiawork", "2", "https://telegram.me/serbiawork/2", "Крипто-карта walllet.com", utcnow())
     raw_id = client.storage.items.insert(run_id, ad, "hidden", skip_reason="Advertisement")

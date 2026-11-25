@@ -60,6 +60,7 @@
         <button class="btn" data-action="status" data-status="applied" title="Applied: CV, cover letter, Obsidian note and Drive folder are made in the sidebar">Apply<kbd>▶</kbd></button>
       {% endif %}
       <span class="spacer"></span>
+      <button class="btn btn-quiet debug-only" data-action="report" type="button"{% if c.reports %} data-report="{{ c.reports[-1].text }}" title="Edit your report"{% endif %}>Report</button>
       <button class="btn btn-quiet" data-action="open-source" title="The vacancy's site (its first source)">Open source<kbd>↵</kbd></button>
     </div>
     <div class="debug-panel">
@@ -75,14 +76,7 @@
       </details>
       <details class="debug-only">
         <summary>Decision explanation</summary>
-        <div class="debug-content">
-          {% if c.run_started %}<div class="muted">Run {{ c.run_started }}</div>{% endif %}
-          <div class="debug-box" data-loaded=""></div>
-          <div class="actions">
-            <button class="btn btn-quiet" data-action="copy-id" type="button">Copy ID</button>
-            <button class="btn btn-quiet" data-action="report" type="button"{% if c.reports %} data-report="{{ c.reports[-1].text }}" title="Edit your report"{% endif %}>Report</button>
-          </div>
-        </div>
+        <div class="debug-content"><div class="debug-box" data-loaded=""></div></div>
       </details>
     </div>
   </div>

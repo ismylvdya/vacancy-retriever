@@ -318,7 +318,6 @@ body:not(.debug) .debug-only { display: none !important; }
 .debug-toggle input:focus-visible + .switch { outline: 2px solid var(--accent); outline-offset: 2px; }
 body.debug .debug-toggle { color: var(--accent); }
 .vac-id { font: 11px ui-monospace, SFMono-Regular, Menlo, monospace; color: var(--faint); margin-right: 8px; font-weight: 400; }
-body.debug .vac.open .role .debug-only { display: none; }
 body.debug .debug-panel { margin-top: 12px; padding-top: 10px; border-top: 1px solid var(--line-strong); }
 .debug-panel > .reports { margin: 0 0 10px; }
 .debug-panel > details + details { margin-top: 8px; }

@@ -351,8 +351,7 @@ class FinalizeStep(Step):
         if note is not None:
             ctx.vault.become_applied(note, ctx.dossier.employer)  # type: ignore[union-attr]  # was «не сейчас»
             mine = ctx.vault.mine_section(app.folder_url, letter,  # type: ignore[union-attr]
-                                          folder=wants_cv(app) and not ctx.dossier.manual,
-                                          pdf_url=app.pdf_url if app.provided_pdf else None)
+                                          folder=wants_cv(app) and not ctx.dossier.manual)
             if ctx.vault.set_mine(note, mine, app.note_mine):  # app.note_mine: what the app wrote there last time
                 updates["note_mine"] = mine
             else:

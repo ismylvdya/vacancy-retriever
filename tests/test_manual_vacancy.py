@@ -117,7 +117,10 @@ def test_manual_vacancy_with_existing_materials(env, tmp_path, monkeypatch,
         text = Path(done.note_path).read_text()
         assert ("### моё" in text) == any((generate_cv, generate_letter, ready_cv, ready_letter))
         if ready_cv:
-            assert done.pdf_path == str(pdf) and file_url("P1") in text
+            assert done.pdf_path == str(pdf) and done.pdf_url == file_url("P1")
+            assert f"[папка на Google Drive]({done.folder_url})" in text
+            assert "[резюме PDF]" not in text
+            assert (done.pdf_url in text) == generate_letter
         if ready_letter:
             assert done.letter == supplied and supplied in text
         if generate_letter:

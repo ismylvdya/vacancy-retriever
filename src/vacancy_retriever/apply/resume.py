@@ -17,6 +17,14 @@ from .models import ApplyError, Materials, VacancyDossier
 PLACEHOLDER = re.compile("(?:❗️?)+\\s*ВСТАВИТЬ\\s*(?:❗️?)+")
 _PDF_LINE = re.compile(r"^PDF: (.+?)\s+pages=(\d+)", re.M)
 _STRAIGHT_QUOTES = str.maketrans({quote: '"' for quote in "\u00ab\u00bb\u201c\u201d\u201e\u201f\u2039\u203a"})
+_MARKDOWN_LINK = re.compile(
+    r"""!?\[(?:\\.|\[[^\]\n]*\]|[^\[\]\\\n])*\]\([ \t]*
+    (?:<(?P<angle>(?:https?://|mailto:)[^<>\s]+)>|
+        (?P<bare>(?:https?://|mailto:)(?:\\[()]|[^\s()\\<>]|\([^()\s]*\))+))
+    (?:[ \t]+(?:"[^"\n]*"|'[^'\n]*'|\([^()\n]*\)))?[ \t]*\)""",
+    re.VERBOSE,
+)
+_MARKDOWN_AUTOLINK = re.compile(r"<((?:https?://|mailto:)[^<>\s]+)>")
 
 APP_RULES = """You are running inside the Vacancy Retriever app, without tools: you cannot run commands or read files.
 The supplied resume-tailor instructions contain all the reference material for this request.
@@ -257,8 +265,12 @@ class MaterialsWriter:
             five_hour_resets_at=usage.five_hour_resets_at if usage else None))
 
 
-def normalize_letter_quotes(letter: str) -> str:
-    return letter.translate(_STRAIGHT_QUOTES)
+def normalize_letter_format(letter: str) -> str:
+    def bare_url(match: re.Match[str]) -> str:
+        return re.sub(r"\\([()])", r"\1", match["angle"] or match["bare"])
+
+    letter = _MARKDOWN_LINK.sub(bare_url, letter.translate(_STRAIGHT_QUOTES))
+    return _MARKDOWN_AUTOLINK.sub(r"\1", letter)
 
 
 def insert_cv_link(letter: str, pdf_url: str | None) -> str:

@@ -87,8 +87,10 @@ def test_manual_vacancy_with_existing_materials(env, tmp_path, monkeypatch,
     revealed = []
     monkeypatch.setattr("vacancy_retriever.web.app.reveal_in_finder", lambda path: revealed.append(path) or True)
     app = create_app(env.config, env.storage, port=PORT, applications=env.service)
-    supplied = "Письмо для «Acme».\n\nВторой абзац."
-    expected_letter = 'Письмо для "Acme".\n\nВторой абзац.'
+    supplied = ('Письмо для «Acme».\n\n'
+                '[Портфолио](https://example.test/Skills_(BI) "О проекте")\n'
+                '<https://github.com/example>')
+    expected_letter = 'Письмо для "Acme".\n\nhttps://example.test/Skills_(BI)\nhttps://github.com/example'
     with TestClient(app, base_url=f"http://127.0.0.1:{PORT}") as client:
         token = None
         if ready_cv:

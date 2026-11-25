@@ -60,14 +60,31 @@
         <button class="btn" data-action="status" data-status="applied" title="Applied: CV, cover letter, Obsidian note and Drive folder are made in the sidebar">Apply<kbd>▶</kbd></button>
       {% endif %}
       <span class="spacer"></span>
-      <button class="btn btn-quiet debug-only" data-action="report"{% if c.reports %} data-report="{{ c.reports[-1].text }}" title="Edit your report"{% endif %}>Report</button>
       <button class="btn btn-quiet" data-action="open-source" title="The vacancy's site (its first source)">Open source<kbd>↵</kbd></button>
     </div>
-    {% if c.reports %}<div class="debug-only reports"><h4>Reports</h4>{% for r in c.reports %}<p><span class="muted small">{{ r.date }}</span> <span class="report-text">{{ r.text }}</span></p>{% endfor %}</div>{% endif %}
-    <div class="debug-only debug-box" data-loaded=""></div>
-    {#- debug mode: what the retriever parsed as the description is always shown in an open card (user, 18.11.2026) -#}
-    <h4 class="debug-only parsed-title">Parsed description <span class="muted">· {{ c.description_note }}</span></h4>
-    <pre class="fulltext" hidden>{{ c.description }}</pre>
+    <div class="debug-panel">
+      <details class="parsed-description" open>
+        <summary class="debug-only">Parsed description</summary>
+        {% if c.description_note %}<div class="debug-only debug-content muted">{{ c.description_note }}</div>{% endif %}
+        <pre class="fulltext" hidden>{{ c.description }}</pre>
+      </details>
+      <details class="debug-only">
+        <summary>Facts JSON</summary>
+        <div class="debug-content"><pre class="debug-facts"></pre></div>
+      </details>
+      <details class="debug-only">
+        <summary>Decision explanation</summary>
+        <div class="debug-content">
+          {% if c.run_started %}<div class="muted">Run {{ c.run_started }}</div>{% endif %}
+          <div class="debug-box" data-loaded=""></div>
+          {% if c.reports %}<div class="reports"><h4>Reports</h4>{% for r in c.reports %}<p><span class="muted small">{{ r.date }}</span> <span class="report-text">{{ r.text }}</span></p>{% endfor %}</div>{% endif %}
+          <div class="actions">
+            <button class="btn btn-quiet" data-action="copy-id" type="button">Copy ID</button>
+            <button class="btn btn-quiet" data-action="report" type="button"{% if c.reports %} data-report="{{ c.reports[-1].text }}" title="Edit your report"{% endif %}>Report</button>
+          </div>
+        </div>
+      </details>
+    </div>
   </div>
 </article>
 {% endmacro %}

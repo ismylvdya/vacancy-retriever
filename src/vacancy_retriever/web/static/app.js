@@ -302,6 +302,7 @@ function setDebug(on) {
   debugToggle.checked = on;
   try { localStorage.setItem("vr-debug", on ? "1" : ""); } catch (e) { /* private mode */ }
   if (on && current && current.classList.contains("open")) loadDebug(current);
+  if (!on) document.querySelectorAll(".parsed-description:not([open])").forEach((parsed) => { parsed.open = true; });
 }
 try { setDebug(localStorage.getItem("vr-debug") === "1"); } catch (e) { setDebug(false); }
 debugToggle.addEventListener("change", () => setDebug(debugToggle.checked));
@@ -319,9 +320,9 @@ async function loadDebug(row) {
   try {
     const info = await debugInfo(row);
     const list = (items) => `<ul>${items.map((line) => `<li>${escapeHtml(line)}</li>`).join("")}</ul>`;
+    row.querySelector(".debug-facts").textContent = info.facts || "No facts available";
     box.innerHTML = `<h4>id ${info.id} · ${escapeHtml(info.verdict)}</h4>${list(info.explain)}`
-      + `<h4>Raw items</h4>${list(info.raw)}`
-      + (info.facts ? `<details><summary>Facts JSON</summary><pre>${escapeHtml(info.facts)}</pre></details>` : "");
+      + `<h4>Raw items</h4>${list(info.raw)}`;
   } catch (e) { box.dataset.loaded = ""; toast(e.message); }
 }
 async function copyId(row) {
@@ -353,9 +354,9 @@ function openReport(row) {
 function showReport(row, text) {
   let box = row.querySelector(".reports");
   if (!box) {
-    box = el("div", "debug-only reports");
+    box = el("div", "reports");
     box.append(el("h4", "", "Reports"));
-    row.querySelector(".debug-box").before(box);
+    row.querySelector(".debug-box").after(box);
   }
   let line = box.querySelector("p:last-child .report-text");
   if (!line) {
@@ -396,8 +397,15 @@ $("report-text").addEventListener("keydown", (event) => {
 });
 
 function toggleFullText(row) {
-  const pre = row.querySelector(".fulltext");
-  if (pre) pre.hidden = !pre.hidden;
+  const parsed = row.querySelector(".parsed-description");
+  if (!parsed) return;
+  if (debugOn()) {
+    parsed.open = !parsed.open;
+    return;
+  }
+  parsed.open = true;
+  const pre = parsed.querySelector(".fulltext");
+  pre.hidden = !pre.hidden;
 }
 
 /* Return: a folded card opens with its full text; on an open card it opens the vacancy's site (the first source),
@@ -405,7 +413,8 @@ function toggleFullText(row) {
 function enterRow(row) {
   if (!row.classList.contains("open")) {
     row.classList.add("open");
-    toggleFullText(row);
+    if (debugOn()) loadDebug(row);
+    else toggleFullText(row);
     return;
   }
   openSource(row);

@@ -14,9 +14,16 @@ from ..llm.base import LlmError, LlmProvider
 from ..storage.llm_calls import LlmCallRecord, LlmCallRepository
 from .models import ApplyError, Materials, VacancyDossier
 
-PLACEHOLDER = re.compile("(?:❗️?)+\\s*ВСТАВИТЬ\\s*(?:❗️?)+")
+CV_LINK_MARKER = "[ВСТАВИТЬ]"
+PLACEHOLDER = re.compile(r"\[ВСТАВИТЬ\]|(?:❗️?)+\s*ВСТАВИТЬ\s*(?:❗️?)+")
 _PDF_LINE = re.compile(r"^PDF: (.+?)\s+pages=(\d+)", re.M)
 _STRAIGHT_QUOTES = str.maketrans({quote: '"' for quote in "\u00ab\u00bb\u201c\u201d\u201e\u201f\u2039\u203a"})
+_LETTER_PUNCTUATION = str.maketrans({
+    **dict.fromkeys("‒–—―−←→↔⇒⟶➜", "--"),
+    **dict.fromkeys("‘’‚‛", "'"),
+    **dict.fromkeys("\u00a0\u2009\u202f", " "),
+    "…": "...", "•": "-", "‑": "-",
+})
 _MARKDOWN_LINK = re.compile(
     r"""!?\[(?:\\.|\[[^\]\n]*\]|[^\[\]\\\n])*\]\([ \t]*
     (?:<(?P<angle>(?:https?://|mailto:)[^<>\s]+)>|
@@ -25,6 +32,7 @@ _MARKDOWN_LINK = re.compile(
     re.VERBOSE,
 )
 _MARKDOWN_AUTOLINK = re.compile(r"<((?:https?://|mailto:)[^<>\s]+)>")
+_LETTER_URL = re.compile(r"((?:https?://|mailto:)[^<>\s]+)")
 
 APP_RULES = """You are running inside the Vacancy Retriever app, without tools: you cannot run commands or read files.
 The supplied resume-tailor instructions contain all the reference material for this request.
@@ -46,7 +54,7 @@ WITH_LETTER = {
     "request": "The user has explicitly asked for BOTH the tailored resume and a motivation letter for this vacancy. "
                "Use the motivation-letter format from references/letters.md.",
     "letter_key": '\n "letter": "<the letter as plain text without a code fence, ending with the verbatim Резюме/CV '
-                  '❗️ВСТАВИТЬ❗️ and GitHub lines>",',
+                  '[ВСТАВИТЬ] and GitHub lines>",',
 }
 CV_ONLY = {"request": "The user has asked ONLY for the tailored resume: no cover letter.", "letter_key": ""}
 SELECTION_KEY = '"selection": <selection.json exactly as in the skill\'s schema, valid JSON without comments>,'
@@ -270,9 +278,11 @@ def normalize_letter_format(letter: str) -> str:
         return re.sub(r"\\([()])", r"\1", match["angle"] or match["bare"])
 
     letter = _MARKDOWN_LINK.sub(bare_url, letter.translate(_STRAIGHT_QUOTES))
-    return _MARKDOWN_AUTOLINK.sub(r"\1", letter)
+    letter = _MARKDOWN_AUTOLINK.sub(r"\1", letter)
+    return "".join(part if index % 2 else part.translate(_LETTER_PUNCTUATION)
+                   for index, part in enumerate(_LETTER_URL.split(letter)))
 
 
 def insert_cv_link(letter: str, pdf_url: str | None) -> str:
-    """The skill leaves «Резюме: ❗️…ВСТАВИТЬ…❗️»; the link to the PDF on Drive goes there."""
-    return PLACEHOLDER.sub(pdf_url, letter, count=1) if pdf_url else letter
+    """Fill the CV link, keeping a keyboard-only marker until the PDF URL is available."""
+    return PLACEHOLDER.sub(lambda _: pdf_url or CV_LINK_MARKER, letter, count=1)

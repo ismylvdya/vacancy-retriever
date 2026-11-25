@@ -329,6 +329,8 @@ def test_names_and_links():
     assert note_file_name("Data Analyst / BI", "Citrus: iGaming") == "Citrus iGaming • Data Analyst BI"
     assert normalize_company("Linea Milanovic d.o.o.") == normalize_company("LINEA MILANOVIC") == "linea milanovic"
     assert insert_cv_link(LETTER, "https://drive/x").count("https://drive/x") == 1
+    assert insert_cv_link("Резюме: [ВСТАВИТЬ]", "https://drive/x") == "Резюме: https://drive/x"
+    assert "Резюме: [ВСТАВИТЬ]" in insert_cv_link(LETTER, None)
     assert employer_links(["https://www.linkedin.com/jobs/view/1", "https://citrus.careers-page.com/jobs/1?utm_x=1",
                            "https://indeed.com/1", "http://plain.example/1"]) == ["https://citrus.careers-page.com/jobs/1"]
 

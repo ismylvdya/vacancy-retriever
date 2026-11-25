@@ -34,8 +34,8 @@ Reply with ONE JSON object and nothing else:
 
 
 WITH_LETTER = {
-    "request": "The user has explicitly asked for BOTH the tailored resume and a cover letter for the vacancy in the user "
-               "message (the short cover-letter type, unless the vacancy is an internship with a selection process).",
+    "request": "The user has explicitly asked for BOTH the tailored resume and a motivation letter for this vacancy. "
+               "Use the motivation-letter format from references/letters.md.",
     "letter_key": '\n "letter": "<the letter as plain text without a code fence, ending with the verbatim Резюме/CV '
                   '❗️ВСТАВИТЬ❗️ and GitHub lines>",',
 }

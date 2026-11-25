@@ -126,6 +126,20 @@ class Card:
     created_at: datetime | None = None
     last_report_at: datetime | None = None
 
+    @property
+    def summary_lines(self) -> list[tuple[str, str]]:
+        lines = []
+        for line in self.summary.splitlines():
+            line = line.strip()
+            if not line:
+                continue
+            label, _, value = line.partition(":")
+            if label in ("Кто Что", "Опыт", "Стэк") and value.strip():
+                lines.append((label, value.strip()))
+            else:
+                lines.append(("", line))
+        return lines
+
     def acted_at(self, tab: str | None) -> datetime | None:
         """When the user did what put the card on this tab (old cards may have no date: when it was collected)."""
         status_date = self.status_changed_at if self.user_status != "new" else None

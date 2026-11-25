@@ -39,7 +39,13 @@
   </div>
   {% endif %}
   <div class="detail">
-    {% if c.summary %}<p class="summary">{{ c.summary }}</p>{% endif %}
+    {% if c.summary %}
+    <p class="summary">
+      {%- for label, text in c.summary_lines %}
+        {%- if label %}<strong>{{ label }}:</strong> {% endif %}{{ text }}{% if not loop.last %}<br>{% endif %}
+      {%- endfor -%}
+    </p>
+    {% endif %}
     {% if permit_column and c.permit_reason %}<p class="why">Permit {{ c.permit | lower }}, based on “{{ c.permit_reason }}”</p>{% endif %}
     {% if c.grade or c.employer_type or c.ad_language or c.required_languages %}
     <p class="facts">

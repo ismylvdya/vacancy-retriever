@@ -32,7 +32,10 @@ Fields of each vacancy (enums are exact lowercase strings):
 - serbian_entity: yes|likely|no|unknown — employer has a Serbian legal entity; serbian_entity_evidence: short quote ("d.o.o.", "офис в Белграде", "поможем с ВНЖ")
 - employment: official|informal|freelance_contract|unknown ("оплата наличными", "частный мастер ищет помощника" → informal)
 - visa_support: yes|no|not_mentioned (help with Serbian residence/work permit or relocation visa)
-- summary_ru: 1–2 short lines IN RUSSIAN (always, any ad language), ≤ 200 chars: what to do + key requirements
+- summary_ru: brief, always in Russian (any ad language), ≤ 200 chars total. Use these exact plain-text labels in this order, separated by JSON-escaped newlines (\n). No Markdown:
+  - Кто Что: who is sought and what they will do, with the key requirements. For programmes, include stated dates, deadlines, format and city.
+  - Опыт: the explicit experience in years, including any stated minimum or range. Say whether it is required («обязательно») or preferred («желательно») according to the ad. If both are stated separately, distinguish them. Omit this line entirely when no number of years is given.
+  - Стэк: 4–8 core skills and tools actually mentioned, most important for this role first. Use standard skill names and commas. List fewer if fewer are evidenced; omit the line if none are given. Never invent skills or requirements.
 - salary_text: keep it short (≤ 60 chars)
 - link: direct URL of this specific vacancy if present in the text, else ""
 - confidence: high|medium|low (low = vague post like "ищем ребят, пишите в личку")
@@ -76,7 +79,7 @@ Examples (input → vacancies, key fields only; omitted fields = defaults):
 7. "1) Junior BI-аналитик (Power BI), удалёнка, РФ; 2) Senior Go Developer; 3) QA-стажёр" → three records: {"role_category":"bi_dwh","seniority":"junior","seniority_source":"title","stack_overlap":"partial","work_format":"remote","employer_type":"russian"}, {"role_category":"other_dev","seniority":"senior","seniority_source":"title"}, {"role_category":"qa","seniority":"intern","seniority_source":"title"}
 8. "Ищем талантливых ребят в команду, подробности в личке" → {"role_category":"other","confidence":"low"}
 9. "Сдаётся квартира в Белграде" / "Розыгрыш сертификата" → {"role_category":"not_a_vacancy"}
-9a. "Открыт набор на летнюю стажировку в Т-Банке: аналитика, ML, разработка. Заявки до 15 марта, Москва, гибрид" → {"kind":"programme","title_original":"Стажировка в Т-Банке: аналитика, ML, разработка","role_category":"data_analyst","seniority":"intern","seniority_source":"title","employer_name":"Т-Банк","employer_type":"russian","country":"Russia","city":"Moscow","work_format":"hybrid","summary_ru":"Набор на летнюю стажировку до 15 марта: аналитика, ML, разработка","confidence":"high"}
+9a. "Открыт набор на летнюю стажировку в Т-Банке: аналитика, ML, разработка. Заявки до 15 марта, Москва, гибрид" → {"kind":"programme","title_original":"Стажировка в Т-Банке: аналитика, ML, разработка","role_category":"data_analyst","seniority":"intern","seniority_source":"title","employer_name":"Т-Банк","employer_type":"russian","country":"Russia","city":"Moscow","work_format":"hybrid","summary_ru":"Кто Что: Летняя стажировка в аналитике, ML и разработке. Москва, гибрид, заявки до 15 марта","confidence":"high"}
 10. "Junior ML Engineer, полная удалёнка, сербское d.o.o. российской компании, контракт по сербскому закону" → {"role_category":"ds_ml","seniority":"junior","seniority_source":"title","work_format":"remote","employer_type":"ru_with_serbian_entity","serbian_entity":"yes","serbian_entity_evidence":"сербское d.o.o.","employment":"official","country":"Serbia","confidence":"high"}
 11. "Мастер по ремонту квартир, TRUSTONE DOO BEOGRAD, Белград, 100 000 дин./мес, команда — бомба" (no language mentioned) → {"role_category":"manual_trades","ad_language":"ru","required_languages":[],"serbian_required":false,"country":"Serbia","city":"Belgrade","employer_name":"TRUSTONE DOO BEOGRAD","salary_text":"100 000 RSD/мес","stack_overlap":"n_a","confidence":"high"}
 

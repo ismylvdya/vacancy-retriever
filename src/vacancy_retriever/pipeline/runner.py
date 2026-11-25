@@ -125,7 +125,7 @@ def programme_safety_net(item: StoredRawItem, records: list[VacancyFacts]) -> No
     subject = str((item.meta.get("email") or {}).get("subject") or item.title or "")
     first.title_original = first.title_original or subject
     first.title_ru = first.title_ru or subject
-    first.summary_ru = first.summary_ru or "Письмо о наборе на стажировку (проверьте вручную: LLM не уверена)"
+    first.summary_ru = first.summary_ru or "Кто Что: Письмо о наборе на стажировку (проверьте вручную: LLM не уверена)"
     del records[1:]
 
 class Pipeline:

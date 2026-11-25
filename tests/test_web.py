@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 from datetime import timedelta
 
 import pytest
@@ -61,11 +62,25 @@ def test_pages_render(client):
     assert "<span>Junior</span>" in feed and "<span>Russian company with a Serbian d.o.o.</span>" in feed
     assert "Ad Russian" in feed and "Requires English, Russian" in feed, "grade, employer type and languages on the card"
     assert 'flag flag-ru">Russian-speaking<' in feed and "🇬🇧" not in feed
+    assert '<p class="summary">SQL + Python, дашборды</p>' in feed
     assert '<details class="parsed-description" open>' in feed and "The post / card text" in feed
     assert "IT and data in Serbia" in feed
     assert "1500–2000 €" in feed
     assert "https://telegram.me/serbiawork/1" in feed
     assert "t.me/" not in feed.replace("telegram.me/", "")
+
+
+@pytest.mark.parametrize("experience", ["", "Опыт: от 2 лет (желательно)\n"])
+def test_card_summary_renders_labeled_lines(client, experience):
+    record = client.storage.vacancies.get(client.vacancy_id)
+    facts = record.facts.model_dump()
+    facts["summary_ru"] = f"Кто Что: Аналитик для отчётов <BI>\n{experience}Стэк: SQL, Python, Git, Tableau"
+    client.storage.db.execute("UPDATE vacancies SET facts_json = ? WHERE id = ?",
+                              (json.dumps(facts, ensure_ascii=False), record.id))
+    feed = client.get("/").text
+    assert '<p class="summary"><strong>Кто Что:</strong> Аналитик для отчётов &lt;BI&gt;<br>' in feed
+    assert ("<strong>Опыт:</strong> от 2 лет (желательно)<br>" in feed) == bool(experience)
+    assert "<strong>Стэк:</strong> SQL, Python, Git, Tableau</p>" in feed
 
 
 def test_status_does_not_start_a_run(client):

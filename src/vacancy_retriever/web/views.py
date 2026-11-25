@@ -648,7 +648,7 @@ def measured_limit_share(calls: list[dict[str, Any]], earlier: list[dict[str, An
 
 def tokens(config: AppConfig, storage: Storage) -> dict[str, Any]:
     """Totals for the Statistics header and tokens per run for the Runs table."""
-    limit = config.llm.claude_sdk.pro_5h_limit_tokens if config.llm.provider == "claude_sdk" else None
+    limit = config.llm.claude_sdk.pro_5h_limit_tokens
     per_run: dict[int | None, int] = defaultdict(int)
     failed: dict[int | None, int] = defaultdict(int)
     calls = storage.llm_calls.all()
@@ -662,12 +662,13 @@ def tokens(config: AppConfig, storage: Storage) -> dict[str, Any]:
     for call in calls:
         per_run[call["run_id"]] += _call_tokens(call)
         failed[call["run_id"]] += 0 if call["ok"] else 1
+    non_claude_runs = {c["run_id"] for c in calls if c["provider"] != "claude_sdk"}
     total = sum(per_run.values())
     return {
         "total": total, "calls": len(calls), "pro_limit": limit, "provider": config.llm.provider,
         "auth_source": storage.llm_calls.last_auth_source(),
         "per_run": {run_id: {"tokens": n, "failed": failed[run_id],
-                             "limit_share": round(100 * n / limit, 1) if limit else None,
+                             "limit_share": round(100 * n / limit, 1) if limit and run_id not in non_claude_runs else None,
                              "measured": measured.get(run_id)}
                     for run_id, n in per_run.items()},
     }
@@ -675,14 +676,14 @@ def tokens(config: AppConfig, storage: Storage) -> dict[str, Any]:
 
 
 
-STEP_SHORT = {"note": "note", "folder": "Drive folder", "materials": "CV + letter (Claude)",
-              "skills": "skills (Claude)", "pdf": "PDF", "upload": "upload", "finalize": "finish"}
+STEP_SHORT = {"note": "note", "folder": "Drive folder", "materials": "CV + letter",
+              "skills": "skills", "pdf": "PDF", "upload": "upload", "finalize": "finish"}
 
 
 def apply_stats(config: AppConfig, storage: Storage) -> list[dict[str, Any]]:
     """Statistics → Applies: one row per ▶ / Not now — time of every step and the Claude calls with their tokens.
     Calls made before 30.10.2026 were not tied to an application and are not counted here."""
-    limit = config.llm.claude_sdk.pro_5h_limit_tokens if config.llm.provider == "claude_sdk" else None
+    limit = config.llm.claude_sdk.pro_5h_limit_tokens
     calls = storage.llm_calls.by_application()
     rows = []
     for app in storage.applications.history():
@@ -690,15 +691,21 @@ def apply_stats(config: AppConfig, storage: Storage) -> list[dict[str, Any]]:
         steps = app.stats.get("steps", {})
         own = calls.get(app.id, [])
         tokens = sum(_call_tokens(c) for c in own)
+        step_names = STEP_SHORT.copy()
+        providers = {c["provider"] for c in own}
+        name = {"claude_sdk": "Claude", "codex_cli": "Codex"}.get(next(iter(providers))) if len(providers) == 1 else None
+        if name:
+            for key in ("materials", "skills"):
+                step_names[key] += f" ({name})"
         rows.append({
             "started": format_local(app.created_at), "kind": "Not now" if app.kind == "not_now" else "Apply",
             "title": (record.facts.display_title if record and record.facts else "") or (record.title if record else "?"),
             "employer": record.employer if record else "", "state": app.state.value,
             "seconds": round(sum(steps.values())) if steps else None,
-            "steps": " · ".join(f"{STEP_SHORT.get(k, k)} {v:.0f}s" for k, v in steps.items()),
+            "steps": " · ".join(f"{step_names.get(k, k)} {v:.0f}s" for k, v in steps.items()),
             "calls": len(own), "failed": sum(1 for c in own if not c["ok"]), "tokens": tokens,
             "models": ", ".join(sorted({model_label(c["model"]) for c in own if c["model"]})),
-            "limit_share": round(100 * tokens / limit, 1) if limit and own else None,
+            "limit_share": round(100 * tokens / limit, 1) if limit and own and all(c["provider"] == "claude_sdk" for c in own) else None,
         })
     return rows
 
@@ -753,7 +760,7 @@ STEP_LABELS = {
     "note": "Writing the Obsidian note…",
     "folder": "Creating the Drive folder…",
     "materials": "Tailoring CV & cover letter (Claude)…",
-    "skills": "Picking the vacancy's skills (Claude)…",
+    "skills": "Picking the vacancy's skills…",
     "pdf": "Building the PDF…",
     "upload": "Uploading the CV to Drive…",
     "finalize": "Finishing…",

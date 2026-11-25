@@ -3,12 +3,15 @@ from __future__ import annotations
 from ..config import AppConfig, ClaudeSdkSettings
 from .base import LlmProvider
 from .claude_sdk import ClaudeSdkProvider
+from .codex_cli import CodexCliProvider
 from .http_providers import AnthropicApiProvider, OpenAiApiProvider
 
 
 def create_provider(config: AppConfig, claude_sdk: ClaudeSdkSettings | None = None) -> LlmProvider:
     """claude_sdk: other CLI settings for one task (e.g. more effort for the CV than for fact extraction)."""
     llm = config.llm
+    if llm.provider == "codex_cli":
+        return CodexCliProvider(llm.codex_cli, config.paths.llm_cwd, llm.stage_models.resume)
     if llm.provider == "claude_sdk":
         return ClaudeSdkProvider(claude_sdk or llm.claude_sdk, config.paths.llm_cwd)
     if llm.provider == "anthropic_api":

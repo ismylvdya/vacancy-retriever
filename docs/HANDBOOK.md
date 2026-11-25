@@ -339,6 +339,8 @@ Processed → Skipped. *Report* — окно жалобы на оценку (м�
 
 ## 9. Как сменить LLM
 
+По умолчанию включён `codex_cli` с подпиской ChatGPT. Модели этапов заданы в `models.codex_cli` файла `config/llm.yaml`. Возврат на Claude — выбрать `claude_sdk` и перезапустить приложение. Подробности в [OPENAI.md](OPENAI.md).
+
 Вся смена — в `config/llm.yaml` (+ ключ в `config/.env` для API). Код менять не нужно.
 
 **(а) Другая модель Claude по подписке.** В `models.claude_sdk` поменяйте `scoring: haiku` на `sonnet`
@@ -361,7 +363,7 @@ Processed → Skipped. *Report* — окно жалобы на оценку (м�
 4. В `config/llm.yaml`: `provider: openai_api` (модели — `models.openai_api`, по умолчанию `gpt-5.4-nano`).
 5. Проверка — как в (б). Документация: https://platform.openai.com/docs , цены: https://openai.com/api/pricing .
 
-**(г) Подписка ChatGPT вместо Claude** (через Codex CLI) — пошагово в `docs/OPENAI.md`; провайдер `codex_cli` ещё не написан.
+**(г) Подписка ChatGPT вместо Claude** (через Codex CLI) — пошагово в `docs/OPENAI.md`.
 
 ⚠ Интерфейсы консолей меняются; ищите разделы «API keys», «Billing», «Limits/Usage».
 Цены в `llm.yaml → pricing` нужны только для оценки «сколько стоило бы по API» (в интерфейсе сейчас не показываются) — обновляйте по официальным страницам.

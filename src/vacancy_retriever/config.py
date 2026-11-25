@@ -182,6 +182,13 @@ class ClaudeSdkSettings(_Strict):
     pro_5h_limit_tokens: int | None = None
 
 
+class CodexCliSettings(_Strict):
+    cli_path: str | None = None
+    timeout_seconds: int = Field(default=300, gt=0)
+    effort: Literal["low", "medium", "high"] = "low"
+    resume_effort: Literal["low", "medium", "high"] = "medium"
+
+
 class ApiSettings(_Strict):
     base_url: str
     timeout_seconds: int = 120
@@ -189,13 +196,14 @@ class ApiSettings(_Strict):
 
 class LlmConfig(_Strict):
     dedup_with_llm: bool = True
-    provider: Literal["claude_sdk", "anthropic_api", "openai_api"]
+    provider: Literal["codex_cli", "claude_sdk", "anthropic_api", "openai_api"]
     models: dict[str, StageModels]
     batch_size: int = 10
     max_concurrency: int = 2
     max_input_chars: int = 4000
     max_input_chars_multi: int = 9000
     retries: int = 2
+    codex_cli: CodexCliSettings = Field(default_factory=CodexCliSettings)
     claude_sdk: ClaudeSdkSettings = Field(default_factory=ClaudeSdkSettings)
     anthropic_api: ApiSettings = Field(
         default_factory=lambda: ApiSettings(base_url="https://api.anthropic.com")

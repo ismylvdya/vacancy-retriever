@@ -1,11 +1,12 @@
 # Настройки LLM.
 #
 # provider — через что идут запросы:
-#   claude_sdk     — по подписке Claude (Pro/Max) через залогиненный Claude Code CLI. Без API-ключа. По умолчанию.
+#   claude_sdk     — по подписке Claude (Pro/Max) через залогиненный Claude Code CLI. Без API-ключа.
+#   codex_cli      — по подписке ChatGPT через Codex CLI.
 #   anthropic_api  — платный API Anthropic. Нужен ANTHROPIC_API_KEY в config/.env.
 #   openai_api     — платный API OpenAI. Нужен OPENAI_API_KEY в config/.env.
 # Смена провайдера = поменять эту строку (+ ключ в .env). Подробно — docs/HANDBOOK.md, раздел "Как сменить LLM".
-provider: claude_sdk
+provider: codex_cli
 
 # Модели по этапам для каждого провайдера.
 #   scoring — извлечение фактов из вакансий (основной расход токенов)
@@ -14,6 +15,7 @@ provider: claude_sdk
 # Для claude_sdk можно писать алиасы: haiku, sonnet, opus.
 # Рекомендация по модели — в EVAL.md.
 models:
+  codex_cli:     {scoring: gpt-6.2-sol, dedup: gpt-6.2-sol, resume: gpt-6.2-astra}
   claude_sdk:    {scoring: sonnet, dedup: haiku, resume: sonnet}
   anthropic_api: {scoring: claude-haiku-5-5, dedup: claude-haiku-5-5, resume: claude-sonnet-5-5}
   openai_api:    {scoring: gpt-5.4-nano, dedup: gpt-5.4-nano}
@@ -32,6 +34,12 @@ max_input_chars: 4000
 max_input_chars_multi: 9000
 # Сколько раз повторять упавший запрос (с паузой), потом элементы ждут следующего прогона.
 retries: 2
+
+codex_cli:
+  cli_path: null
+  timeout_seconds: 300
+  effort: low
+  resume_effort: medium
 
 claude_sdk:
   # Путь к claude CLI. Пусто = искать в PATH, затем /opt/homebrew/bin/claude, /usr/local/bin/claude, ~/.local/bin/claude.

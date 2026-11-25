@@ -174,13 +174,16 @@ SECTIONS: tuple[Section, ...] = (
     ),
     Section(
         "llm", "LLM",
-        "Which Claude model does what (subscription through Claude Code). Facts need little: Haiku is enough.",
+        "Subscription CLI or API provider and models by task.",
         fields=(
-            Field("llm", "models.claude_sdk.scoring", "choice", "Facts from vacancies", options=CLAUDE_MODELS),
-            Field("llm", "models.claude_sdk.dedup", "choice", "Same vacancy?", options=CLAUDE_MODELS),
-            Field("llm", "models.claude_sdk.resume", "choice", "CV and cover letter", options=CLAUDE_MODELS),
+            Field("llm", "provider", "choice", "Active provider", "Restart Vacancy Retriever after switching.", options=(
+                ("codex_cli", "Codex (ChatGPT)"), ("claude_sdk", "Claude Code"),
+                ("openai_api", "OpenAI API"), ("anthropic_api", "Anthropic API"))),
+            Field("llm", "models.claude_sdk.scoring", "choice", "Claude · Facts from vacancies", options=CLAUDE_MODELS),
+            Field("llm", "models.claude_sdk.dedup", "choice", "Claude · Same vacancy?", options=CLAUDE_MODELS),
+            Field("llm", "models.claude_sdk.resume", "choice", "Claude · CV and cover letter", options=CLAUDE_MODELS),
             Field("llm", "batch_size", "number", "Vacancies per request", min=1, max=30, step=1),
-            Field("llm", "max_concurrency", "number", "Requests at once", "Each one is a Claude Code process.",
+            Field("llm", "max_concurrency", "number", "Requests at once", "Each CLI request starts a process.",
                   min=1, max=4, step=1),
             Field("llm", "dedup_with_llm", "toggle", "Ask the LLM about similar pairs",
                   "Off: only identical title + company are merged (free)."),

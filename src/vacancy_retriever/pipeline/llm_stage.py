@@ -60,7 +60,7 @@ class LlmCaller:
         while True:
             started = time.monotonic()
             try:
-                response = await self._provider.complete_json(system, user, model, schema or RESULTS_SCHEMA)
+                response = await self._provider.complete_json(system, user, model, schema)
             except asyncio.CancelledError:
                 self._record(stage, model, n_items, started, None, ok=False, error="cancelled", unknown=True)
                 raise
@@ -212,7 +212,7 @@ class VacancyScorer:
     async def score(self, stage: str, batch: list[StoredRawItem]) -> list[ScoredItem]:
         try:
             response = await self._caller.call(
-                stage, self._system, self.user_prompt(batch), self._config.llm.stage_models.scoring, len(batch)
+                stage, self._system, self.user_prompt(batch), self._config.llm.stage_models.scoring, len(batch), RESULTS_SCHEMA
             )
         except LlmError as exc:
             if exc.kind != "parse" or len(batch) == 1:

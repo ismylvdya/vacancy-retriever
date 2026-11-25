@@ -52,9 +52,7 @@ obsidian:
 
 resume:
   # Папка скилла resume-tailor (SKILL.md, scripts/build.py, references/).
-  # Актуальная копия скилла из claude.ai лежит в папке Claude; только чтение (путь меняется при пересинхронизации).
-  # Копия в ~/.claude/skills/synced/ устарела (28.10.2026, без правил не-IT писем). Выяснено 02.11.2026.
-  skill_dir: ~/Library/Application Support/Claude/local-agent-mode-sessions/skills-plugin/8437cc82-309a-4070-9f7c-de6326094222/f6e7bee1-9ee5-4fe7-b462-2a288701e268/skills/resume-tailor
+  skill_dir: ~/.agents/skills/resume-tailor
   # Папка с xelatex, если его нет в PATH (например /Library/TeX/texbin после brew install --cask basictex).
   # scripts/tex — обёртка «xelatex» над Tectonic (brew install tectonic, без sudo; кэш в .cache/tectonic).
   tex_bin_dir: scripts/tex

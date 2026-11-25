@@ -15,6 +15,7 @@ from pydantic import BaseModel
 
 from ..app_info import APP_NAME, APP_VERSION
 from ..apply.drive import DriveParent, GoogleDrive
+from ..apply.manual import ManualCvPicker, ManualError, ManualIntake
 from ..apply.models import ApplyError
 from ..apply.service import PARENT_FILE, ApplicationService, create_application_service, create_drive, reveal_in_finder
 from ..config import Secrets, AppConfig, SourceConfig
@@ -69,6 +70,8 @@ class ManualVacancyInput(BaseModel):
     company: str = ""  # optional: the note's and the folder's names carry it
     cv: bool = True
     letter: bool = True
+    pdf_token: str | None = None
+    cover_letter: str | None = None
 
 
 class DriveChoice(BaseModel):
@@ -130,6 +133,7 @@ def create_app(config: AppConfig, storage: Storage, port: int, manager: RunManag
     app = FastAPI(title=APP_NAME, version=APP_VERSION, docs_url=None, redoc_url=None, openapi_url=None)
     manager = manager or RunManager(config, storage)
     applications = applications or create_application_service(config, storage)
+    manual_cv = ManualCvPicker()
     app.state.applications = applications
     manager.recover()
     templates = Jinja2Templates(directory=str(WEB_DIR / "templates"))
@@ -398,19 +402,42 @@ def create_app(config: AppConfig, storage: Storage, port: int, manager: RunManag
 
     @app.post("/api/applications/manual")
     def add_manual_vacancy(entry: ManualVacancyInput) -> dict[str, Any]:
-        """Title, link and description typed by the user (no page is opened, no LLM reads it): an ordinary vacancy of
-        the source «manual» (status Applied, not in the feed), queued at once with the chosen boxes — the same pipeline
-        and sidebar row as Generate (user, 20.11.2026)."""
-        from ..apply.manual import ManualError, ManualIntake
-
+        """Add the manually entered vacancy and queue its requested or provided materials."""
         if not applications.enabled:
             raise HTTPException(409, "Apply is off (config/apply.yaml → enabled)")
         try:
-            added = ManualIntake(storage).create(entry.title, entry.url, entry.description, entry.company)
+            pdf = manual_cv.resolve(entry.pdf_token) if entry.pdf_token else None
+            added = ManualIntake(storage).create(entry.title, entry.url, entry.description, entry.company,
+                                                 cv=entry.cv, letter=entry.letter, pdf=pdf,
+                                                 cover_letter=entry.cover_letter)
         except ManualError as exc:
             raise HTTPException(400, str(exc)) from exc
-        applications.generate(added.application.id, entry.cv, entry.letter)
+        applications.wake_worker()
         return {"ok": True, "application_id": added.application.id, "vacancy_id": added.vacancy_id}
+
+    @app.post("/api/applications/manual/cv")
+    def pick_manual_cv() -> dict[str, Any]:
+        if not applications.enabled:
+            raise HTTPException(409, "Apply is off (config/apply.yaml → enabled)")
+        try:
+            return {"file": manual_cv.pick()}
+        except ManualError as exc:
+            raise HTTPException(400, str(exc)) from exc
+
+    @app.post("/api/applications/manual/cv/{token}/reveal")
+    def reveal_manual_cv(token: str) -> dict[str, bool]:
+        try:
+            path = manual_cv.resolve(token)
+        except ManualError as exc:
+            raise HTTPException(404, str(exc)) from exc
+        if not reveal_in_finder(path):
+            raise HTTPException(404, "The PDF is not there")
+        return {"ok": True}
+
+    @app.delete("/api/applications/manual/cv/{token}")
+    def clear_manual_cv(token: str) -> dict[str, bool]:
+        manual_cv.clear(token)
+        return {"ok": True}
 
     @app.post("/api/applications/{application_id}/reveal")
     def reveal_pdf(application_id: int) -> dict[str, Any]:

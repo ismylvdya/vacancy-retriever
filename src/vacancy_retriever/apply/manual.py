@@ -1,17 +1,21 @@
 """A vacancy the user found himself (decision of the user 20.11.2026): «+ Add vacancy» in the sidebar.
 
-The user copies from the site the title, the link and the description (all three required) and, optionally, the
-company. Nothing is parsed or guessed: no page is opened, no LLM call is made for it (user: no tokens on reading the
-site). It becomes an ordinary vacancy of the source «manual» (never in the feed, status Applied), so the Apply
-pipeline — the Obsidian note, the Drive folder, the CV, the cover letter, the sidebar row with Stop / Retry — works for
-it unchanged. Without facts, «👾где» and the grade in the names stay empty: the note's other parts are as usual.
+The user enters the title, link, description and optional company. The vacancy is added as Applied without opening
+or scoring the source page. The Apply pipeline creates the Obsidian note with any requested or provided materials.
+Without scored facts, «👾где» and the grade in the names stay empty.
 """
 
 from __future__ import annotations
 
 import hashlib
+import subprocess
+from contextlib import suppress
 from dataclasses import dataclass
+from pathlib import Path
+from threading import Lock
+from time import monotonic
 from urllib.parse import urlparse
+from uuid import uuid4
 
 from ..collectors.base import RawItem
 from ..storage import Storage
@@ -24,6 +28,66 @@ SOURCE_ID = "manual"
 
 class ManualError(ValueError):
     """Bad input of the «Add vacancy» window (shown to the user as is)."""
+
+def choose_pdf() -> Path | None:
+    script = """use scripting additions
+try
+    activate
+    return POSIX path of (choose file with prompt "Choose a CV (PDF)" of type {"com.adobe.pdf"})
+on error number -128
+    return ""
+end try"""
+    try:
+        result = subprocess.run(["/usr/bin/osascript", "-e", script], capture_output=True, text=True, timeout=300)
+    except (OSError, subprocess.TimeoutExpired) as exc:
+        raise ManualError("The macOS file chooser could not open. Try again.") from exc
+    if result.returncode:
+        raise ManualError("The macOS file chooser could not open. Try again.")
+    selected = result.stdout.removesuffix("\n")
+    return Path(selected) if selected else None
+
+
+def validate_pdf(path: Path) -> None:
+    if path.suffix.lower() == ".pdf" and path.is_file():
+        with suppress(OSError):
+            with path.open("rb") as file:
+                if file.read(5) == b"%PDF-":
+                    return
+    raise ManualError("Choose a readable PDF file.")
+
+
+class ManualCvPicker:
+    """Let the web form refer to files chosen on this Mac without accepting arbitrary local paths."""
+
+    def __init__(self) -> None:
+        self._selected: dict[str, tuple[Path, float]] = {}
+        self._lock = Lock()
+
+    def pick(self) -> dict[str, str] | None:
+        path = choose_pdf()
+        if path is None:
+            return None
+        validate_pdf(path)
+        token = uuid4().hex
+        now = monotonic()
+        with self._lock:
+            self._selected = {key: value for key, value in self._selected.items() if value[1] > now}
+            self._selected[token] = (path, now + 86400)
+        return {"token": token, "name": path.name}
+
+    def resolve(self, token: str) -> Path:
+        with self._lock:
+            selected = self._selected.get(token)
+        if selected is None or selected[1] <= monotonic():
+            raise ManualError("Choose the PDF again.")
+        path = selected[0]
+        validate_pdf(path)
+        return path
+
+    def clear(self, token: str) -> None:
+        with self._lock:
+            self._selected.pop(token, None)
+
 
 
 def check_url(url: str) -> str:
@@ -41,13 +105,17 @@ class ManualVacancy:
 
 
 class ManualIntake:
-    """«Add vacancy» → a vacancy of the source «manual» + its application (the caller queues it with the boxes)."""
+    """Save a manually entered vacancy together with its requested or provided materials."""
 
     def __init__(self, storage: Storage):
         self._storage = storage
 
-    def create(self, title: str, url: str, description: str, company: str = "") -> ManualVacancy:
+    def create(self, title: str, url: str, description: str, company: str = "", *, cv: bool = True,
+               letter: bool = True, pdf: Path | None = None, cover_letter: str | None = None) -> ManualVacancy:
         title, description, company = (title or "").strip(), (description or "").strip(), (company or "").strip()
+        cover_letter = cover_letter if cover_letter and cover_letter.strip() else None
+        if (cv and pdf) or (letter and cover_letter):
+            raise ManualError("Choose generation or an existing item for each attachment.")
         if not title:
             raise ManualError("Type the vacancy's title")
         url = check_url(url)
@@ -68,7 +136,10 @@ class ManualIntake:
             db.execute("UPDATE vacancies SET staged = 0, user_status = 'applied', user_set = 1, status_changed_at = ?"
                        " WHERE id = ?", (to_iso(now), vacancy_id))
             db.execute("UPDATE vacancy_sources SET staged = 0 WHERE vacancy_id = ?", (vacancy_id,))
-        # An instant in the purgatory state: ApplicationService.generate queues it with the boxes (the same path as
-        # Generate in the sidebar).
-        application = self._storage.applications.create(vacancy_id, now, "apply", ApplicationState.DRAFT)
+            repo = self._storage.applications
+            application = repo.create(vacancy_id, now, "apply", ApplicationState.QUEUED)
+            repo.update(application.id, with_cv=int(cv), with_letter=int(letter), provided_pdf=str(pdf) if pdf else None,
+                        provided_letter=cover_letter)
+            application = repo.get(application.id)
+            assert application is not None
         return ManualVacancy(vacancy_id, application)

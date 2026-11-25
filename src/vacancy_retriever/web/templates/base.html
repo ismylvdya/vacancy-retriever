@@ -111,9 +111,21 @@
     <label class="field-label" for="manual-text">Description</label>
     <textarea id="manual-text" rows="9" required placeholder="Paste the vacancy's text from the site"></textarea>
     <p class="manual-error" id="manual-error" hidden></p>
-    <div class="report-actions app-generate">
-      <label class="app-option"><input type="checkbox" name="cv" checked> CV</label>
-      <label class="app-option"><input type="checkbox" name="letter" checked> Cover letter</label>
+    <div class="app-generate">
+      <label class="app-option"><input type="checkbox" name="cv" checked> Generate CV</label>
+      <label class="app-option"><input type="checkbox" name="letter" checked> Generate cover letter</label>
+    </div>
+    <div class="manual-materials">
+      <div class="manual-pdf">
+        <button type="button" class="btn manual-pdf-file" id="manual-pdf-file" aria-label="Choose a CV PDF" disabled>
+          <span class="manual-pdf-icon" aria-hidden="true">PDF</span>
+          <span class="manual-pdf-name" id="manual-pdf-name">Choose</span>
+        </button>
+        <button type="button" class="manual-pdf-remove" id="manual-pdf-remove" aria-label="Remove CV" hidden>×</button>
+      </div>
+      <textarea id="manual-letter-text" rows="2" aria-label="Existing cover letter" placeholder="Paste your cover letter" disabled></textarea>
+    </div>
+    <div class="report-actions">
       <span class="spacer"></span>
       <button class="btn" value="cancel" formnovalidate>Cancel</button>
       <button class="btn primary" id="manual-submit" value="submit">Generate Obsidian note</button>

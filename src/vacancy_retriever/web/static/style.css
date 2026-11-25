@@ -297,7 +297,25 @@ body.running .feed-content { display: none; }
 .manual-dialog .field { width: 100%; font: inherit; font-size: 13px; padding: 7px 10px; color: var(--text);
   background: var(--bg); border: 1px solid var(--line-strong); border-radius: 8px; }
 .manual-dialog textarea { margin-top: 0; }
-.manual-dialog .app-generate .btn { margin-left: 0; }
+.manual-dialog .report-actions { justify-content: flex-end; }
+.manual-materials { display: grid; grid-template-columns: 3.5rem minmax(0, 1fr); gap: var(--space-2);
+  margin: var(--space-2) 0 var(--space-3); }
+.manual-dialog .manual-materials textarea { height: 3.5rem; margin: 0; resize: none; }
+.manual-pdf { position: relative; }
+.manual-pdf-file.btn { display: flex; flex-direction: column; justify-content: center; gap: 3px; width: 100%;
+  height: 3.5rem; padding: 4px; background: var(--bg); }
+.manual-pdf-icon { border: 1px solid currentColor; border-radius: 3px; padding: 1px 3px;
+  color: var(--danger); font-size: 9px; font-weight: 600; }
+.manual-pdf-name { display: block; max-width: 100%; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  font-size: 10px; }
+.manual-materials :disabled { opacity: .45; cursor: default; }
+.manual-pdf-remove { position: absolute; top: -4px; right: -4px; width: 18px; height: 18px; padding: 0;
+  border-radius: 50%; border: 1px solid var(--line-strong); background: var(--panel); color: var(--text);
+  cursor: pointer; opacity: 0; }
+.manual-pdf:hover .manual-pdf-remove, .manual-pdf:focus-within .manual-pdf-remove { opacity: 1; }
+@media (hover: none) {
+  .manual-pdf-remove { opacity: 1; }
+}
 .dialog-close { position: absolute; top: 10px; right: 12px; width: 28px; height: 28px; font-size: 20px; line-height: 1;
   color: var(--muted); background: transparent; border: 0; border-radius: 6px; cursor: pointer; }
 .dialog-close:hover { color: var(--text); background: var(--bg); }

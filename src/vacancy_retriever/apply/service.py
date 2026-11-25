@@ -86,7 +86,7 @@ class ApplicationService:
         if self._worker:
             self._worker.stop()
 
-    def _wake(self) -> None:
+    def wake_worker(self) -> None:
         if self._worker:
             self._worker.wake()
 
@@ -114,7 +114,7 @@ class ApplicationService:
             self._repo.update(app.id, state=state, due_at=due, dismissed=0, cancel_requested=0, error=None)
         else:
             self._repo.update(app.id, dismissed=0, cancel_requested=0)
-        self._wake()
+        self.wake_worker()
         return self._repo.get(app.id)
 
     def generate(self, application_id: int, with_cv: bool, with_letter: bool, manual: bool = False) -> bool:
@@ -131,7 +131,7 @@ class ApplicationService:
                 return False
             self._repo.update(app.id, state=ApplicationState.QUEUED, due_at=self._clock(), with_cv=int(with_cv),
                               with_letter=int(with_letter), error=None, cancel_requested=0)
-        self._wake()
+        self.wake_worker()
         return True
 
     def withdraw(self, vacancy_id: int, *, hide: bool = False) -> None:
@@ -158,7 +158,7 @@ class ApplicationService:
             if app is None or app.dismissed or app.state in (ApplicationState.WORKING, ApplicationState.DRAFT):
                 return False
             self._repo.update(app.id, state=ApplicationState.QUEUED, due_at=self._clock(), error=None, cancel_requested=0)
-        self._wake()
+        self.wake_worker()
         return True
 
     def get(self, application_id: int) -> Application | None:
@@ -171,8 +171,7 @@ class ApplicationService:
 def reveal_in_finder(path: Path) -> bool:
     if not path.exists():
         return False
-    subprocess.run(["open", "-R", str(path)], check=False)
-    return True
+    return subprocess.run(["open", "-R", str(path)], check=False).returncode == 0
 
 
 PARENT_FILE = "google_drive_parent.json"

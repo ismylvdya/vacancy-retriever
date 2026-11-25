@@ -802,8 +802,12 @@ def application_item(config: AppConfig, storage: Storage, application: Applicati
     elif state == "working" and application.cancel_requested:
         status = "Stopping after this step…"
     elif state == "working":
-        status = ("Writing the cover letter (Claude)…" if manual and application.step == "materials"
-                  else STEP_LABELS.get(application.step or "", "Working…"))
+        if application.step == "materials" and (manual or not application.with_cv):
+            status = "Writing the cover letter…"
+        elif application.step == "pdf" and application.provided_pdf:
+            status = "Preparing the selected PDF…"
+        else:
+            status = STEP_LABELS.get(application.step or "", "Working…")
     elif state == "waiting":
         status = f"Claude limit — retry at {format_local(application.due_at, '%H:%M')}"
     elif state == "failed":
@@ -824,7 +828,7 @@ def application_item(config: AppConfig, storage: Storage, application: Applicati
         "error": application.error, "warning": application.warning,
         "has_pdf": bool(not manual and application.pdf_path and Path(application.pdf_path).exists()),
         # the user deleted the PDF from Downloads: «Rebuild PDF» makes it again without LLM
-        "pdf_removed": bool(not manual and state == "done" and application.pdf_path
+        "pdf_removed": bool(not manual and state == "done" and application.pdf_path and not application.provided_pdf
                             and not Path(application.pdf_path).exists()), "has_letter": bool(application.letter),
         "note_url": f"obsidian://open?path={quote(application.note_path)}" if application.note_path else None,
         "folder_url": application.folder_url, "pdf_url": application.pdf_url,

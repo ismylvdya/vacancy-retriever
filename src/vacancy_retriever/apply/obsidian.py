@@ -199,12 +199,15 @@ class ObsidianVault:
         return True
 
     @staticmethod
-    def mine_section(folder_url: str | None, letter: str | None, folder: bool = True) -> str:
+    def mine_section(folder_url: str | None, letter: str | None, folder: bool = True, *,
+                     pdf_url: str | None = None) -> str:
         """«### моё»: the Drive folder (when a CV was made), then the letter (with the link to the CV file) in a code
         block (when one was asked for). Hands-on work has no CV and no folder: only the letter."""
         parts = []
         if folder:
             parts.append(f"[папка на Google Drive]({folder_url})" if folder_url else "_Google Drive не подключён — папки нет._")
+        if pdf_url:
+            parts.append(f"[резюме PDF]({pdf_url})")
         if letter:
             parts.append(f"**cover letter:**\n{_fence(letter)}")
         return "\n\n".join(parts)

@@ -18,8 +18,8 @@ PLACEHOLDER = re.compile("(?:❗️?)+\\s*ВСТАВИТЬ\\s*(?:❗️?)+")
 _PDF_LINE = re.compile(r"^PDF: (.+?)\s+pages=(\d+)", re.M)
 
 APP_RULES = """You are running inside the Vacancy Retriever app, without tools: you cannot run commands or read files.
-Everything the resume-tailor skill would make you look up is given below: SKILL.md, references/letters.md,
-references/projects_facts.md and the output of `build.py catalog`. The app runs `build.py build` itself.
+The supplied resume-tailor instructions contain all the reference material for this request.
+The app runs `build.py build` itself when a CV is requested.
 
 %(request)s Follow the skill's decisions and honesty rules exactly.
 
@@ -28,7 +28,7 @@ If the company is not stated, never write "Unknown" (or "unknown", «Неизв�
 letter or the CV title.
 
 Reply with ONE JSON object and nothing else:
-{"selection": <selection.json exactly as in the skill's schema, valid JSON without comments>,%(letter_key)s
+{%(selection_key)s%(letter_key)s
  "skills": [<3-%(max)d key hard skills / tools the VACANCY requires, short canonical names (Python, SQL, A/B testing),
             most important first, in the vacancy's terms — not limited to the candidate's skills>]}"""
 
@@ -40,6 +40,7 @@ WITH_LETTER = {
                   '❗️ВСТАВИТЬ❗️ and GitHub lines>",',
 }
 CV_ONLY = {"request": "The user has asked ONLY for the tailored resume: no cover letter.", "letter_key": ""}
+SELECTION_KEY = '"selection": <selection.json exactly as in the skill\'s schema, valid JSON without comments>,'
 
 
 MANUAL_RULES = """You are running inside the Vacancy Retriever app, without tools. This vacancy is NON-IT (manual /
@@ -157,10 +158,20 @@ class MaterialsWriter:
         self._max_skills = max_skills
         self._max_input_chars = max_input_chars
 
-    def system_prompt(self, letter: bool = True) -> str:
-        """The CV alone when the letter's box was not checked at Generate (user, 19.11.2026)."""
-        rules = APP_RULES % {"max": self._max_skills, **(WITH_LETTER if letter else CV_ONLY)}
-        return "\n\n".join([rules, self._skill.instructions(), f"===== build.py catalog =====\n{self._skill.catalog()}"])
+    def system_prompt(self, letter: bool = True, *, cv: bool = True, cv_link: bool = True) -> str:
+        """Build the prompt for the requested materials."""
+        choice = dict(WITH_LETTER if letter else CV_ONLY)
+        if not cv:
+            choice["request"] = "The user has asked for only a motivation letter. Follow references/letters.md."
+            if not cv_link:
+                choice["request"] += (" No CV is attached. Omit the CV/Résumé footer line and references to the CV."
+                                      " Keep the GitHub line.")
+                choice["letter_key"] = '\n "letter": "<the letter as plain text, ending with the GitHub line>",'
+        rules = APP_RULES % {"max": self._max_skills, "selection_key": SELECTION_KEY if cv else "", **choice}
+        parts = [rules, self._skill.instructions()]
+        if cv:
+            parts.append(f"===== build.py catalog =====\n{self._skill.catalog()}")
+        return "\n\n".join(parts)
 
     def user_prompt(self, dossier: VacancyDossier) -> str:
         head = [f"Vacancy: {dossier.title}"]
@@ -177,6 +188,15 @@ class MaterialsWriter:
         response = await self._call("resume", self.system_prompt(letter), self.user_prompt(dossier), self._model,
                                     application_id)
         return self.parse(response.data, self._max_skills, letter)
+
+    async def write_letter(self, dossier: VacancyDossier, application_id: int, *, cv_link: bool) -> Materials:
+        response = await self._call("letter", self.system_prompt(cv=False, cv_link=cv_link),
+                                    self.user_prompt(dossier), self._model, application_id)
+        materials = self.parse(response.data, self._max_skills, with_cv=False)
+        if not cv_link:
+            materials.letter = "".join(line for line in materials.letter.splitlines(keepends=True)
+                                       if not PLACEHOLDER.search(line)).strip()
+        return materials
 
     async def write_manual(self, dossier: VacancyDossier, application_id: int | None = None) -> Materials:
         """Hands-on work: one call for the letter and the vacancy's skills; no CV selection, no catalog."""
@@ -209,9 +229,11 @@ class MaterialsWriter:
         return response
 
     @staticmethod
-    def parse(data: dict[str, Any], max_skills: int = 10, with_letter: bool = True) -> Materials:
-        selection, letter = data.get("selection"), data.get("letter") if with_letter else ""
-        if not isinstance(selection, dict) or not {"lang", "company", "role_abbr"} <= selection.keys():
+    def parse(data: dict[str, Any], max_skills: int = 10, with_letter: bool = True, *,
+              with_cv: bool = True) -> Materials:
+        selection = data.get("selection") if with_cv else {}
+        letter = data.get("letter") if with_letter else ""
+        if with_cv and (not isinstance(selection, dict) or not {"lang", "company", "role_abbr"} <= selection.keys()):
             raise ApplyError("LLM reply has no valid selection (lang, company, role_abbr)")
         if with_letter and (not isinstance(letter, str) or not letter.strip()):
             raise ApplyError("LLM reply has no cover letter")

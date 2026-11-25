@@ -77,6 +77,8 @@ class Application:
     note_mine: str | None = None  # what the app last wrote into «### моё»
     stats_json: str | None = None
     generation: int = 1
+    provided_pdf: str | None = None
+    provided_letter: str | None = None
 
     @property
     def drive_key(self) -> int | str:
@@ -111,6 +113,7 @@ class Application:
             updated_at=from_iso(row["updated_at"]), kind=row["kind"] or "apply", note_mine=row["note_mine"],
             with_cv=bool(row["with_cv"]), with_letter=bool(row["with_letter"]),
             stats_json=row["stats_json"], generation=row["generation"],
+            provided_pdf=row["provided_pdf"], provided_letter=row["provided_letter"],
         )
 
 
@@ -128,3 +131,4 @@ class VacancyDossier:
     company_hint: str = ""
     name_title: str = ""  # the title for the note / folder names: with the grade (DossierBuilder.name_title)  # e.g. the country, helps the LLM choose photo / language
     manual: bool = False  # hands-on work (kind: manual in rules.yaml): the note and a letter, no CV and no Drive
+    entered_manually: bool = False  # typed into the Add vacancy form

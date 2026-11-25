@@ -20,6 +20,7 @@ from ..storage import Storage
 from ..timeutil import utcnow
 from .drive import CloudFolders, StubDrive
 from .description import LetterDescriptions
+from .manual import SOURCE_ID, ManualError, validate_pdf
 from .models import Application, ApplicationState, ApplyError, VacancyDossier
 from .obsidian import SKILLS_PROPERTY, ObsidianVault
 from .resume import MaterialsWriter, ResumeSkill, insert_cv_link
@@ -97,7 +98,7 @@ class DossierBuilder:
         return VacancyDossier(vacancy_id=record.id, title=title, name_title=self.name_title(english_title(title), facts),
                               employer=employer, text=text, links=[(label, url) for url, label in unique.items()],
                               where=self.where(record.facts), labels=self.labels(record.category), company_hint=hint,
-                              manual=self.manual(record.category))
+                              manual=self.manual(record.category), entered_manually=record.origin == SOURCE_ID)
 
     def name_title(self, title: str, facts: Any) -> str:
         """«Junior Data Analyst», «Intern ML Engineer»; an internship at a Russian employer — «Аналитик данных стажа».
@@ -204,20 +205,15 @@ class StepContext:
 
 
 def wants_cv(app: Application) -> bool:
-    """The CV (its PDF and the Drive folder): only for ▶ with that box checked at Generate."""
-    return app.kind == APPLY and app.with_cv
+    return app.kind == APPLY and bool(app.with_cv or app.provided_pdf)
 
 
 def wants_letter(app: Application) -> bool:
-    """The cover letter: ▶ with that box checked (for IT it comes only with the CV — it carries the CV's link)."""
-    return app.kind == APPLY and app.with_letter
+    return app.kind == APPLY and bool(app.with_letter or app.provided_letter)
 
 
 def wants_materials(app: Application) -> bool:
-    """The one Claude call that picks the CV's blocks and / or writes the letter."""
     return wants_cv(app) or wants_letter(app)
-
-
 
 class Step(ABC):
     name: str
@@ -268,13 +264,15 @@ class MaterialsStep(Step):
     name = "materials"
 
     def needed(self, app: Application, ctx: StepContext) -> bool:
-        return wants_materials(app) and not app.materials_json
+        return app.kind == APPLY and (app.with_cv or app.with_letter) and not app.materials_json
 
     def run(self, app: Application, ctx: StepContext) -> dict[str, Any]:
         if ctx.dossier.manual:
             materials = asyncio.run(ctx.writer.write_manual(ctx.dossier, app.id))
+        elif not app.with_cv:
+            materials = asyncio.run(ctx.writer.write_letter(ctx.dossier, app.id, cv_link=bool(app.provided_pdf)))
         else:
-            materials = asyncio.run(ctx.writer.write(ctx.dossier, app.id, letter=wants_letter(app)))
+            materials = asyncio.run(ctx.writer.write(ctx.dossier, app.id, letter=app.with_letter))
         return {"materials_json": materials.to_json(), "skills": ", ".join(materials.skills)}
 
 
@@ -291,10 +289,18 @@ class PdfStep(Step):
     name = "pdf"
 
     def needed(self, app: Application, ctx: StepContext) -> bool:
+        if app.provided_pdf:
+            return wants_cv(app) and not app.pdf_path
         return wants_cv(app) and not (app.pdf_path and Path(app.pdf_path).exists()) and not ctx.dossier.manual
 
     def run(self, app: Application, ctx: StepContext) -> dict[str, Any]:
         """Built in a temporary folder; only the PDF is kept, in ~/Downloads (user, 30.10.2026: nothing in data/)."""
+        if app.provided_pdf:
+            try:
+                validate_pdf(Path(app.provided_pdf))
+            except ManualError as exc:
+                raise ApplyError("The selected CV is unavailable. Restore it to its original location and retry.") from exc
+            return {"pdf_path": app.provided_pdf}
         assert app.materials is not None
         with tempfile.TemporaryDirectory(prefix="vr-cv-") as work:
             pdf, warning = ctx.skill.build(app.materials.selection, Path(work))
@@ -315,6 +321,8 @@ class UploadStep(Step):
 
     def run(self, app: Application, ctx: StepContext) -> dict[str, Any]:
         assert app.folder_id and app.pdf_path
+        if app.provided_pdf and not Path(app.pdf_path).is_file():
+            raise ApplyError("The selected CV is unavailable. Restore it to its original location and retry.")
         item = ctx.drive.upload_pdf(app.drive_key, app.folder_id, Path(app.pdf_path))
         return {"pdf_file_id": item.id, "pdf_url": item.url}
 
@@ -325,7 +333,7 @@ class FinalizeStep(Step):
     name = "finalize"
 
     def needed(self, app: Application, ctx: StepContext) -> bool:
-        return app.materials is not None if wants_materials(app) else bool(app.skills)
+        return wants_materials(app) or bool(app.skills)
 
     def run(self, app: Application, ctx: StepContext) -> dict[str, Any]:
         note = ctx.vault.find(app.vacancy_id, app.note_path) if ctx.vault else None
@@ -335,13 +343,16 @@ class FinalizeStep(Step):
             if note is not None and app.skills:
                 ctx.vault.fill_property(note, SKILLS_PROPERTY, app.skills)  # type: ignore[union-attr]
             return {"note_path": str(note)} if note else {}
-        assert app.materials is not None
-        letter = insert_cv_link(app.materials.letter, app.pdf_url) if wants_letter(app) else None
+        letter = app.provided_letter
+        if app.with_letter:
+            assert app.materials is not None
+            letter = insert_cv_link(app.materials.letter, app.pdf_url)
         updates: dict[str, Any] = {"letter": letter}
         if note is not None:
             ctx.vault.become_applied(note, ctx.dossier.employer)  # type: ignore[union-attr]  # was «не сейчас»
             mine = ctx.vault.mine_section(app.folder_url, letter,  # type: ignore[union-attr]
-                                          folder=wants_cv(app) and not ctx.dossier.manual)
+                                          folder=wants_cv(app) and not ctx.dossier.manual,
+                                          pdf_url=app.pdf_url if app.provided_pdf else None)
             if ctx.vault.set_mine(note, mine, app.note_mine):  # app.note_mine: what the app wrote there last time
                 updates["note_mine"] = mine
             else:
@@ -361,7 +372,8 @@ class SkillsStep(Step):
     name = "skills"
 
     def needed(self, app: Application, ctx: StepContext) -> bool:
-        return not wants_materials(app) and not app.skills
+        return (not wants_materials(app) and not app.skills
+                and (app.kind != APPLY or not ctx.dossier.entered_manually))
 
     def run(self, app: Application, ctx: StepContext) -> dict[str, Any]:
         return {"skills": ", ".join(asyncio.run(ctx.writer.skills(ctx.dossier, app.id)))}

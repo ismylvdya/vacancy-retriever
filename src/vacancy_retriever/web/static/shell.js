@@ -242,19 +242,60 @@ function setupManualVacancy() {
   if (!dialog || !$("add-vacancy")) return;
   const cv = form.querySelector('input[name="cv"]');
   const letter = form.querySelector('input[name="letter"]');
+  const pdfButton = $("manual-pdf-file");
+  const removePdf = $("manual-pdf-remove");
+  const letterText = $("manual-letter-text");
   const error = $("manual-error");
-  const sync = () => {
-    letter.disabled = !cv.checked;
-    if (!cv.checked) letter.checked = false;
-    letter.parentElement.classList.toggle("is-disabled", letter.disabled);
+  let pdf = null;
+  let busy = false;
+  const showError = (e) => {
+    error.textContent = e.message;
+    error.hidden = false;
   };
-  cv.addEventListener("change", sync);
+
   // Generate only when the title, the link and the description are filled (user, 20.11.2026)
   const required = ["manual-title", "manual-url", "manual-text"].map((id) => $(id));
   const ready = () => {
-    $("manual-submit").disabled = !required.every((input) => input.value.trim())
+    $("manual-submit").disabled = busy || !required.every((input) => input.value.trim())
       || !/^https?:\/\/\S+$/.test($("manual-url").value.trim());
   };
+  const sync = () => {
+    pdfButton.disabled = cv.checked || busy;
+    letterText.disabled = letter.checked;
+    removePdf.hidden = !pdf;
+    removePdf.disabled = pdfButton.disabled;
+    $("manual-pdf-name").textContent = pdf?.name || "Choose";
+    pdfButton.title = pdf?.name || "Choose a CV PDF";
+    pdfButton.setAttribute("aria-label", pdf ? `Show ${pdf.name} in Finder` : "Choose a CV PDF");
+    ready();
+  };
+  const clearPdf = () => {
+    if (pdf) api("DELETE", `/api/applications/manual/cv/${pdf.token}`).catch(() => {});
+    pdf = null;
+    sync();
+  };
+  cv.addEventListener("change", sync);
+  letter.addEventListener("change", sync);
+  removePdf.addEventListener("click", () => { clearPdf(); pdfButton.focus(); });
+  pdfButton.addEventListener("click", async () => {
+    error.hidden = true;
+    busy = true;
+    sync();
+    try {
+      if (pdf) {
+        await api("POST", `/api/applications/manual/cv/${pdf.token}/reveal`);
+        return;
+      }
+      const { file } = await api("POST", "/api/applications/manual/cv");
+      if (file && dialog.open) pdf = file;
+      else if (file) await api("DELETE", `/api/applications/manual/cv/${file.token}`);
+    } catch (e) {
+      showError(e);
+    } finally {
+      busy = false;
+      sync();
+    }
+  });
   required.forEach((input) => input.addEventListener("input", ready));
   let pushed = false;
   const open = () => {
@@ -262,11 +303,11 @@ function setupManualVacancy() {
     dialog.showModal();
     ready();
     $("manual-title").focus();
-    history.pushState({ manual: true }, "");
+    window.history.pushState({ manual: true }, "");
     pushed = true;
   };
   dialog.addEventListener("close", () => {
-    if (pushed) { pushed = false; history.back(); }
+    if (pushed) { pushed = false; window.history.back(); }
   });
   window.addEventListener("popstate", () => {
     if (dialog.open) { pushed = false; dialog.close(); }
@@ -280,24 +321,27 @@ function setupManualVacancy() {
     event.preventDefault();
     const button = $("manual-submit");
     if (button.disabled) return;
-    button.disabled = true;
+    busy = true;
+    sync();
     error.hidden = true;
     try {
       await api("POST", "/api/applications/manual", {
         title: $("manual-title").value.trim(), company: $("manual-company").value.trim(),
         url: $("manual-url").value.trim(), description: $("manual-text").value, cv: cv.checked, letter: letter.checked,
+        pdf_token: cv.checked ? null : pdf?.token,
+        cover_letter: letter.checked ? null : letterText.value,
       });
       form.reset();
-      sync();
+      clearPdf();
       dialog.close();
       store.set(UI.storage.sidebarOpen, "1");
       toast("Added — the progress is in the sidebar");
       refreshApplications();
     } catch (e) {
-      error.textContent = e.message;
-      error.hidden = false;
+      showError(e);
     } finally {
-      ready();
+      busy = false;
+      sync();
     }
   });
   sync();

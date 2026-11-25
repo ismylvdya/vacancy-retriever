@@ -10,7 +10,7 @@ from .db import Database
 _RESULT_FIELDS = {
     "state", "step", "due_at", "note_path", "folder_id", "folder_url", "materials_json", "pdf_path", "pdf_file_id",
     "pdf_url", "letter", "skills", "error", "warning", "cancel_requested", "dismissed", "kind", "note_mine",
-    "stats_json", "with_cv", "with_letter",
+    "stats_json", "with_cv", "with_letter", "provided_pdf", "provided_letter",
 }
 
 
@@ -69,7 +69,8 @@ class ApplicationRepository:
             "UPDATE applications SET generation = generation + 1, kind = ?, state = ?, due_at = ?,"
             " created_at = ?, updated_at = ?, step = NULL, note_path = NULL, note_mine = NULL,"
             " folder_id = NULL, folder_url = NULL, materials_json = NULL, pdf_path = NULL, pdf_file_id = NULL,"
-            " pdf_url = NULL, letter = NULL, skills = NULL, error = NULL, warning = NULL, stats_json = NULL,"
+            " pdf_url = NULL, letter = NULL, provided_pdf = NULL, provided_letter = NULL,"
+            " skills = NULL, error = NULL, warning = NULL, stats_json = NULL,"
             " cancel_requested = 0, dismissed = 0, with_cv = 1, with_letter = 1 WHERE id = ?",
             (kind, state, to_iso(due_at), now, now, application_id),
         )

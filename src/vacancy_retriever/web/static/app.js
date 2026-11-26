@@ -516,12 +516,15 @@ if (recalc) {
   });
 }
 
-/* ---------- processed: multi-select filters ---------- */
+/* ---------- Feed and Processed filters ---------- */
 const filterForm = $("filters");
 if (filterForm) {
-  const scroller = filterForm.querySelector(".filters-row");
-  const fade = () => $("filters-scroll").classList.toggle("more",
-    scroller.scrollLeft + scroller.clientWidth < scroller.scrollWidth - 2);
+  const scrollContainer = $("filters-scroll");
+  const scroller = scrollContainer.querySelector(".filters-row");
+  const updateFades = () => {
+    scrollContainer.classList.toggle("more-left", scroller.scrollLeft > 2);
+    scrollContainer.classList.toggle("more-right", scroller.scrollLeft + scroller.clientWidth < scroller.scrollWidth - 2);
+  };
   const selects = [...filterForm.querySelectorAll(".fsel")];
   const snapshot = () => new URLSearchParams(new FormData(filterForm)).toString();
   const initial = snapshot();
@@ -545,8 +548,9 @@ if (filterForm) {
   const closeAll = () => selects.forEach((select) => { select.open = false; });
   document.addEventListener("click", (event) => { if (!event.target.closest(".fsel")) closeAll(); });
   document.addEventListener("keydown", (event) => { if (event.key === "Escape") closeAll(); });
-  scroller.addEventListener("scroll", () => { closeAll(); fade(); });
-  window.addEventListener("resize", fade);
+  scroller.addEventListener("scroll", () => { closeAll(); updateFades(); });
+  if (window.ResizeObserver) new ResizeObserver(updateFades).observe(scroller);
+  else window.addEventListener("resize", updateFades);
   // The open list is inside the scroller in the DOM: its wheel events must scroll the list, not the filter row.
   scroller.addEventListener("wheel", (event) => {
     if (event.target.closest(".fsel-menu")) return;
@@ -554,7 +558,7 @@ if (filterForm) {
   }, { passive: false });
   window.addEventListener("scroll", () => { if (!document.querySelector(".fsel[open]")) return; closeAll(); },
     { passive: true });
-  fade();
+  updateFades();
 }
 
 if (tab === "feed") focusRow(visibleRows()[0], { scroll: false });

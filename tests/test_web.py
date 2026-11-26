@@ -183,7 +183,7 @@ def test_processed_search_fields_and_filters(client):
     assert "Nothing matches" in client.get("/processed?q=acme&country=Cyprus").text
     page = client.get("/processed?filter=skipped&q=acme&in=employer").text
     assert 'href="/processed?filter=applied&amp;q=acme&amp;in=employer"' in page, "sub-tabs keep the search"
-    assert 'name="q" value="acme"' in page and '<option value="employer" selected>' in page
+    assert 'name="q" value="acme"' in page and 'name="in" value="employer" checked' in page
 
 
 def test_source_options_are_alphabetical(config=None):
@@ -383,7 +383,7 @@ def test_feed_fit_threshold_defaults_to_four_stars(client):
 def test_feed_search_combines_with_fit_and_facets(client):
     page = client.get("/?q=acme&in=employer&country=Serbia").text
     assert "Junior Data Scientist" in page
-    assert 'name="q" value="acme"' in page and '<option value="employer" selected>' in page
+    assert 'name="q" value="acme"' in page and 'name="in" value="employer" checked' in page
     assert "Nothing with these filters" in client.get("/?q=acme&in=title").text
     assert "Nothing with these filters" in client.get("/?q=acme&country=Cyprus").text
     client.storage.db.execute("UPDATE vacancies SET stars = 3 WHERE id = ?", (client.vacancy_id,))
@@ -391,7 +391,7 @@ def test_feed_search_combines_with_fit_and_facets(client):
     assert "Junior Data Scientist" in client.get("/?q=acme&stars=3").text
 
 
-def test_filter_results_follow_reset_inside_the_scrolling_row(client):
+def test_filter_bar_scrolls_facets_and_results_between_search_and_reset(client):
     from bs4 import BeautifulSoup
 
     feed = client.get("/?country=Cyprus").text
@@ -399,7 +399,10 @@ def test_filter_results_follow_reset_inside_the_scrolling_row(client):
     processed = client.get("/processed?q=acme").text
     for page, expected in ((feed, "Showing 0 of 1"), (processed, "1 matching")):
         html = BeautifulSoup(page, "html.parser")
-        results = html.select_one(".filters-row > details.fsel + .reset + .filter-results")
+        assert html.select_one("#filters > .search-box + details.fsel.search-in > summary > .caret")
+        assert html.select_one(".search-in input[name=in][value=all][checked]")
+        assert html.select_one("#filters > .search-in + .filters-separator + .filters-label + .filters-scroll + .reset")
+        results = html.select_one(".filters-row > details.fsel + .filter-results:last-child")
         assert results and results.get_text(strip=True).startswith(expected)
 
 

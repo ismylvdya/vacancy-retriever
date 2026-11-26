@@ -11,12 +11,16 @@
 {%- endmacro %}
 
 {% macro search_controls(search, where, search_fields) -%}
-<span class="search">
-  <input class="search-box" type="search" name="q" value="{{ search }}" placeholder="Search…" aria-label="Search" autocomplete="off">
-  <select class="search-in" name="in" aria-label="Search in">
-    {% for key, label in search_fields %}<option value="{{ key }}" {% if key == where %}selected{% endif %}>{{ label }}</option>{% endfor %}
-  </select>
-</span>
+<input class="search-box" type="search" name="q" value="{{ search }}" placeholder="Search…" aria-label="Search" autocomplete="off">
+{% set scope = dict(search_fields)[where] %}
+<details class="fsel search-in{{ ' on' if where != 'all' }}">
+  <summary aria-label="Search in: {{ scope }}">{{ scope }}<i class="caret"></i></summary>
+  <div class="fsel-menu" role="group" aria-label="Search in">
+    {% for key, label in search_fields %}
+    <label class="fsel-opt"><input type="radio" name="in" value="{{ key }}" {% if key == where %}checked{% endif %}><span>{{ label }}</span></label>
+    {% endfor %}
+  </div>
+</details>
 <span class="filters-separator" aria-hidden="true">|</span>
 {%- endmacro %}
 
@@ -26,8 +30,8 @@
   <div class="filters-row">
     {{ caller() if caller is defined }}
     {% for f in facets %}{{ facet(f) }}{% endfor %}
-    <a class="btn reset{{ ' off' if not active }}" href="{{ reset_href }}"{% if not active %} aria-disabled="true" tabindex="-1"{% endif %}>Reset</a>
     {% if results %}<span class="filter-results">{{ results }}</span>{% endif %}
   </div>
 </div>
+<a class="btn reset{{ ' off' if not active }}" href="{{ reset_href }}"{% if not active %} aria-disabled="true" tabindex="-1"{% endif %}>Reset</a>
 {%- endmacro %}

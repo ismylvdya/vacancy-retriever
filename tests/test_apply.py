@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import time
+from dataclasses import replace
 from datetime import date, timedelta
 from pathlib import Path
 from typing import Any
@@ -465,9 +466,12 @@ def test_sidebar_sections(env):
     [section] = sidebar_sections(env.config, env.storage, env.service.visible())
     assert section["key"] == "purgatory"
     env.service.generate(app.id, True, True)
-    run_all(env)
-    keys = [s["key"] for s in sidebar_sections(env.config, env.storage, env.service.visible())]
-    assert keys == ["generated"]
+    done = run_all(env)
+    draft = replace(done, id=done.id + 1, state=ApplicationState.DRAFT)
+    sections = sidebar_sections(env.config, env.storage, [draft, done])
+    assert [(s["key"], s["title"]) for s in sections] == [
+        ("purgatory", "Purgatory"), ("generated", "Generated today"),
+    ]
 
 
 def test_obsidian_settings_defaults_match_the_vault_format():
@@ -683,7 +687,7 @@ def test_sidebar_previous_days_start_at_three_in_the_morning(env, monkeypatch):
     from zoneinfo import ZoneInfo
 
     from vacancy_retriever import timeutil
-    from vacancy_retriever.web.views import sidebar_section
+    from vacancy_retriever.web import views
 
     belgrade = ZoneInfo("Europe/Belgrade")
     monkeypatch.setattr(timeutil, "machine_timezone", lambda: belgrade)
@@ -693,12 +697,18 @@ def test_sidebar_previous_days_start_at_three_in_the_morning(env, monkeypatch):
     env.storage.applications.db.execute("UPDATE applications SET created_at = ? WHERE id = ?",
                                         (timeutil.to_iso(sent), app.id))
     app = env.storage.applications.get(app.id)
-    assert sidebar_section(env.config, app, dt(2026, 11, 20, 2, 59, tzinfo=belgrade)) == "generated", "before 03:00"
-    assert sidebar_section(env.config, app, dt(2026, 11, 20, 3, 0, tzinfo=belgrade)) == "previous", "from 03:00"
+    before = dt(2026, 11, 20, 2, 59, tzinfo=belgrade)
+    cutoff = dt(2026, 11, 20, 3, 0, tzinfo=belgrade)
+    assert views.sidebar_section(env.config, app, before) == "generated"
+    assert views.sidebar_section(env.config, app, cutoff) == "previous"
+    monkeypatch.setattr(views, "utcnow", lambda: cutoff)
+    assert views.sidebar_sections(env.config, env.storage, [app]) == []
+    active = replace(app, state=ApplicationState.WORKING)
+    assert views.sidebar_sections(env.config, env.storage, [active])[0]["key"] == "purgatory"
     env.storage.applications.update(app.id, state=ApplicationState.DRAFT)
     draft = env.storage.applications.get(app.id)
-    assert sidebar_section(env.config, draft, dt(2026, 11, 20, 1, 0, tzinfo=belgrade)) == "purgatory"
-    assert sidebar_section(env.config, draft, dt(2026, 11, 21, 9, 0, tzinfo=belgrade)) == "previous"
+    assert views.sidebar_section(env.config, draft, before) == "purgatory"
+    assert views.sidebar_section(env.config, draft, cutoff) == "previous"
 
 
 

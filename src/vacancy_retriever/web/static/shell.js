@@ -83,11 +83,12 @@ let applyRefresh = 0;
 let applyItems = 0;
 let applyCurrent = 0;  // rows of the current session's sections: the number on the sidebar button
 
-function applicationRow(item) {
+function applicationRow(item, number) {
   const li = el("li", `app-item app-${item.state} app-kind-${item.kind}`);
   li.dataset.id = item.id;
   const head = el("div", "app-head");
   if (item.active) head.append(el("span", "spinner"));
+  head.append(el("span", "app-number", String(number)));
   const title = el(item.card_url ? "a" : "b", "app-item-title", item.title);
   if (item.card_url) {
     title.href = item.card_url;
@@ -182,13 +183,10 @@ async function refreshApplications() {
     const items = data.sections.flatMap((section) => section.items);
     applyItems = items.length;
     applyCurrent = data.sections.filter((section) => section.current).reduce((n, section) => n + section.items.length, 0);
+    let number = applyItems;
     $("apply-list").replaceChildren(...data.sections.flatMap((section) => [
       el("li", `app-section app-section-${section.key}`, section.title),
-      ...section.items.map((item) => {
-        const row = applicationRow(item);
-        row.classList.add(`app-in-${section.key}`);
-        return row;
-      }),
+      ...section.items.map((item) => applicationRow(item, number--)),
     ]));
     layoutSidebar();
     applyTimer = setTimeout(refreshApplications,

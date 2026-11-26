@@ -844,11 +844,10 @@ def is_manual(config: AppConfig, record: VacancyRecord | None) -> bool:
     return bool(rule and rule.kind == "manual")
 
 
-# The sidebar's sections, top to bottom (user, 18.11.2026). «current» ones are counted on the sidebar button.
+# The visible sidebar sections, top to bottom.
 SIDEBAR_SECTIONS = (
-    {"key": "generated", "title": "Generated", "current": True},
     {"key": "purgatory", "title": "Purgatory", "current": True},
-    {"key": "previous", "title": "Previous days", "current": False},
+    {"key": "generated", "title": "Generated today", "current": True},
 )
 
 

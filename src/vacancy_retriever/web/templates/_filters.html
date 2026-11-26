@@ -10,6 +10,16 @@
 </details>
 {%- endmacro %}
 
+{% macro search_controls(search, where, search_fields) -%}
+<span class="search">
+  <input class="search-box" type="search" name="q" value="{{ search }}" placeholder="Search…" aria-label="Search" autocomplete="off">
+  <select class="search-in" name="in" aria-label="Search in">
+    {% for key, label in search_fields %}<option value="{{ key }}" {% if key == where %}selected{% endif %}>{{ label }}</option>{% endfor %}
+  </select>
+</span>
+<span class="filters-separator" aria-hidden="true">|</span>
+{%- endmacro %}
+
 {% macro filter_bar(facets, reset_href, active) -%}
 <span class="filters-label">Filters</span>
 <div class="filters-scroll" id="filters-scroll">

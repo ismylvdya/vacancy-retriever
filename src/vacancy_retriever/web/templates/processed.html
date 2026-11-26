@@ -1,6 +1,6 @@
 {% extends "base.html" %}
 {% from "_row.html" import row %}
-{% from "_filters.html" import filter_bar %}
+{% from "_filters.html" import filter_bar, search_controls %}
 {% block content %}
 <div class="subbar">
 <div class="segmented" role="tablist">
@@ -16,13 +16,9 @@
 {% if facets or active %}
 <form class="filters" id="filters" method="get" action="/processed">
   {% if current != 'all' %}<input type="hidden" name="filter" value="{{ current }}">{% endif %}
-  <span class="search">
-    <input class="search-box" type="search" name="q" value="{{ search }}" placeholder="Search…" aria-label="Search" autocomplete="off">
-    <select class="search-in" name="in" aria-label="Search in">
-      {% for key, label in search_fields %}<option value="{{ key }}" {% if key == where %}selected{% endif %}>{{ label }}</option>{% endfor %}
-    </select>
-  </span>
+  {{ search_controls(search, where, search_fields) }}
   {{ filter_bar(facets, "/processed" ~ ("?filter=" ~ current if current != "all" else ""), active) }}
+  {% if active %}<span class="filter-results">{{ total }} matching</span>{% endif %}
 </form>
 {% endif %}
 </div>
@@ -44,7 +40,6 @@
 <section class="empty-state"><h1>Nothing hidden</h1><p>Ads and non-vacancy posts land here.</p></section>
 {% endfor %}
 {% elif runs %}
-{% if active %}<p class="note">{{ total }} matching</p>{% endif %}
 {% for run in runs %}
 <section class="group">
   <div class="card-head">

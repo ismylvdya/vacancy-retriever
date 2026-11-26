@@ -376,8 +376,21 @@ def test_feed_fit_threshold_defaults_to_four_stars(client):
     storage.db.execute("UPDATE vacancies SET stars = 3 WHERE id = ?", (client.vacancy_id,))
     page = client.get("/").text
     assert "Junior Data Scientist" not in page and "Nothing with these filters" in page
+    filters = page.split('id="filters"', 1)[1].split("</form>", 1)[0]
+    assert filters.index('class="fsel') < filters.index('class="filter-results">Showing 0 of 1')
     assert "Junior Data Scientist" in client.get("/?stars=3").text and "Junior Data Scientist" in client.get("/?stars=0").text
     assert "Junior Data Scientist" not in client.get("/?stars=0&city=Novi Sad").text  # facets work with the threshold
+
+
+def test_feed_search_combines_with_fit_and_facets(client):
+    page = client.get("/?q=acme&in=employer&country=Serbia").text
+    assert "Junior Data Scientist" in page
+    assert 'name="q" value="acme"' in page and '<option value="employer" selected>' in page
+    assert "Nothing with these filters" in client.get("/?q=acme&in=title").text
+    assert "Nothing with these filters" in client.get("/?q=acme&country=Cyprus").text
+    client.storage.db.execute("UPDATE vacancies SET stars = 3 WHERE id = ?", (client.vacancy_id,))
+    assert "Nothing with these filters" in client.get("/?q=acme").text
+    assert "Junior Data Scientist" in client.get("/?q=acme&stars=3").text
 
 
 def test_statistics_applies_tab(client):

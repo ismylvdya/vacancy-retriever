@@ -181,22 +181,30 @@ def create_app(config: AppConfig, storage: Storage, port: int, manager: RunManag
     def health_problems() -> int:
         return sum(1 for row in views.latest_source_states(views.health(config, storage, limit=6)) if row.warn)
 
+    def search_params(request: Request) -> tuple[str, str]:
+        search = request.query_params.get("q", "").strip()
+        where = request.query_params.get("in", "all")
+        return search, where if where in dict(views.SEARCH_FIELDS) else "all"
+
     @app.get("/", response_class=HTMLResponse)
     def feed(request: Request, stars: str | None = None) -> HTMLResponse:
         """Filters like in Processed, plus the minimum fit (★5 / ★4+ … / all; ★4+ by default, user 28.10.2026)."""
         min_stars = views.FEED_MIN_STARS_DEFAULT if stars is None else (int(stars) if stars.isdigit() else 0)
         chosen: dict[str, set[str]] = {}
         for key, value in request.query_params.multi_items():
-            if key != "stars" and value:
+            if key not in ("stars", "q", "in") and value:
                 chosen.setdefault(key, set()).add(value)
+        search, where = search_params(request)
         records = storage.vacancies.feed()
         above = [r for r in records if (r.stars or 0) >= min_stars]
-        kept, facets = views.apply_filters(config, above, chosen, skip={"reason", "fit"})
+        matched = views.search_records(storage, above, search, where)
+        kept, facets = views.apply_filters(config, matched, chosen, skip={"reason", "fit"})
         cards = views.CardBuilder(config, storage)  # per request: latest run, reports and rates change over time
         built = [cards.build(record) for record in kept]
         return page(request, "feed.html", "feed", groups=views.group_feed(built, config), facets=facets,
                     min_stars=min_stars, star_options=views.star_options(records, min_stars),
-                    active=bool(chosen) or min_stars != views.FEED_MIN_STARS_DEFAULT,
+                    active=bool(chosen or search) or min_stars != views.FEED_MIN_STARS_DEFAULT,
+                    search=search, where=where, search_fields=views.SEARCH_FIELDS,
                     shown=len(built), all_count=len(records))
 
     processed_tabs = [("all", "All manually"), ("applied", "Applied"), ("not_now", "Not now"), ("skipped", "Skipped")]
@@ -212,9 +220,7 @@ def create_app(config: AppConfig, storage: Storage, port: int, manager: RunManag
         for key, value in request.query_params.multi_items():
             if key not in ("filter", "q", "in") and value:
                 chosen.setdefault(key, set()).add(value)
-        search = request.query_params.get("q", "").strip()
-        where = request.query_params.get("in", "all")
-        where = where if where in dict(views.SEARCH_FIELDS) else "all"
+        search, where = search_params(request)
         records = views.search_records(storage, storage.vacancies.processed(filter, limit=10000), search, where)
         kept, filters = views.apply_filters(config, records, chosen)
         cards = views.CardBuilder(config, storage)

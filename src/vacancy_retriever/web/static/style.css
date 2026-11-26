@@ -352,15 +352,15 @@ body.debug .parsed-description > .fulltext { margin-top: 6px; overflow-wrap: any
 .hidden-meta { display: flex; gap: 12px; align-items: center; margin-bottom: 4px; }
 .hidden-text { color: var(--muted); }
 
-/* ---------- processed filters ---------- */
+/* ---------- Feed and Processed filters ---------- */
 .filters { display: flex; align-items: center; gap: var(--space-2); min-width: 0; }
-.search { display: inline-flex; gap: 6px; flex: none; }
+.search { display: inline-flex; gap: 6px; min-width: 0; }
 .search-box, .search-in { font: inherit; font-size: var(--font-m); color: var(--text); background: transparent;
-  border: 1px solid var(--line-strong); border-radius: var(--radius); height: var(--control-h); padding: 0 9px; }
-.search-box { width: 170px; }
+  border: 1px solid var(--line-strong); border-radius: 999px; height: var(--control-h); padding: 0 10px; }
+.search-box { width: clamp(85px, 13vw, 170px); min-width: 0; }
 .search-box:focus-visible, .search-in:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
-.filters-label { color: var(--muted); font-size: var(--font-m); flex: none; margin-left: var(--space-2); }
-.filters-label:first-child { margin-left: 0; }
+.filters-label, .filters-separator, .filter-results { color: var(--muted); font-size: var(--font-m); flex: none; }
+.filter-results { max-width: 27%; text-align: right; }
 .filters-scroll { position: relative; flex: 1; min-width: 0; }
 .filters-scroll::after { content: ""; position: absolute; top: 0; right: 0; bottom: 0; width: 32px; pointer-events: none;
   background: linear-gradient(to right, color-mix(in srgb, var(--bg) 0%, transparent), var(--bg)); opacity: 0; transition: opacity .15s; }

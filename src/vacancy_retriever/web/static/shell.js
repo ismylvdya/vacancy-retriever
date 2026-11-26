@@ -88,7 +88,7 @@ function applicationRow(item, number) {
   li.dataset.id = item.id;
   const head = el("div", "app-head");
   if (item.active) head.append(el("span", "spinner"));
-  head.append(el("span", "app-number", String(number)));
+  if (number !== undefined) head.append(el("span", "app-number", `${number}.`));
   const title = el(item.card_url ? "a" : "b", "app-item-title", item.title);
   if (item.card_url) {
     title.href = item.card_url;
@@ -183,10 +183,11 @@ async function refreshApplications() {
     const items = data.sections.flatMap((section) => section.items);
     applyItems = items.length;
     applyCurrent = data.sections.filter((section) => section.current).reduce((n, section) => n + section.items.length, 0);
-    let number = applyItems;
     $("apply-list").replaceChildren(...data.sections.flatMap((section) => [
       el("li", `app-section app-section-${section.key}`, section.title),
-      ...section.items.map((item) => applicationRow(item, number--)),
+      ...section.items.map((item, index) => applicationRow(
+        item, section.key === "generated" ? section.items.length - index : undefined,
+      )),
     ]));
     layoutSidebar();
     applyTimer = setTimeout(refreshApplications,

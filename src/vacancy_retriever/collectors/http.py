@@ -62,6 +62,8 @@ class PoliteHttpClient:
         timeout: float = 25.0,
         retries: int = 2,
         transport: httpx.BaseTransport | None = None,
+        *,
+        follow_redirects: bool = True,
     ):
         self._min_delay = min_delay
         self._max_delay = max_delay
@@ -75,7 +77,7 @@ class PoliteHttpClient:
                 "Accept": "text/html,application/json;q=0.9,*/*;q=0.8",
             },
             timeout=timeout,
-            follow_redirects=True,
+            follow_redirects=follow_redirects,
             transport=transport,
             verify=_system_trust(),
         )

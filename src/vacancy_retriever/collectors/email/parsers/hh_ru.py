@@ -7,8 +7,8 @@ The name of a saved search no longer means remote: «для 🦆 vacancy-retriev
 
 Every vacancy is a table row: title link to hh.ru/vacancy/<id>, optional salary, company, "Посмотреть вакансию".
 Links in these letters carry `loginkey=` — a token that logs into the user's hh account. It must never be stored,
-shown or opened, so only the clean https://hh.ru/vacancy/<id> is kept. hh pages are not fetched (the site
-answers 406 to non-browser clients) — the LLM gets what the letter says; hh vacancies are in Russia.
+shown or opened, so only the clean https://hh.ru/vacancy/<id> is kept. The detail URL points to a public copy
+on Get-Works; hh vacancies are in Russia.
 """
 
 from __future__ import annotations
@@ -16,6 +16,7 @@ from __future__ import annotations
 import re
 from email.message import Message
 
+from ...hh_descriptions import hh_description_url
 from . import IgnoreLetter, ParsedVacancy, UnknownLetter, clean, html_soup, register_parser, subject
 
 _VACANCY = re.compile(r"hh\.ru/vacancy/(\d+)")
@@ -61,7 +62,7 @@ def parse(message: Message) -> list[ParsedVacancy]:
         work_format = "remote" if remote else "office" if _METRO.search(location) else None
         text = "\n".join(filter(None, [title, company, location, f"Зарплата: {salary}" if salary else "", origin]))
         vacancies.append(ParsedVacancy(title=title, url=url, company=company, location=location, text=text,
-                                       key=f"hh:{job_id}",
+                                       key=f"hh:{job_id}", detail_url=hh_description_url(url),
                                        extra={"template": "hh_resume_picks" if picks else "hh_saved_search",
                                               **({"salary": salary} if salary else {}),
                                               **({"work_format": work_format} if work_format else {})}))

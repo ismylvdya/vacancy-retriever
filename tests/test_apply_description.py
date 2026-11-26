@@ -1,4 +1,4 @@
-"""A letter-only vacancy gets its description when it is applied to: only the search API is asked, never hh or LinkedIn."""
+"""A letter-only vacancy gets its description on apply, without opening HH or LinkedIn."""
 
 from __future__ import annotations
 
@@ -7,6 +7,7 @@ import pytest
 
 from vacancy_retriever.apply.description import LetterDescriptions
 from vacancy_retriever.collectors.base import RawItem
+from vacancy_retriever.collectors.hh_descriptions import HhDescriptions
 from vacancy_retriever.collectors.job_search import JobSearchLookup, ProviderSettings
 from vacancy_retriever.config import AppConfig
 from vacancy_retriever.storage import Storage
@@ -27,10 +28,19 @@ def world(tmp_paths, monkeypatch):
                "job_publisher": "Google", "job_apply_link": "https://jobs.example.com/1", "apply_options": []}
         return httpx.Response(200, json={"status": "OK", "data": {"jobs": [job] if world_state["found"] else []}})
 
-    world_state = {"found": True}
+    world_state = {"found": True, "mirror": ""}
     lookup = lambda _config: JobSearchLookup([ProviderSettings("jsearch", "k", 200)], tmp_paths.data / "js.json", 40,
                                              transport=httpx.MockTransport(answer), second_query=False)
     monkeypatch.setattr("vacancy_retriever.apply.description.create_lookup", lookup)
+
+    def mirror(request):
+        assert request.url.host == 'get-works.ru'
+        if world_state['mirror']:
+            return httpx.Response(200, text=world_state['mirror'])
+        return httpx.Response(404)
+
+    monkeypatch.setattr('vacancy_retriever.apply.description.HhDescriptions',
+                        lambda: HhDescriptions(httpx.MockTransport(mirror)))
 
     def raw(url, detail=None):
         run_id = storage.runs.start({})
@@ -52,6 +62,18 @@ def test_found_description_is_kept_and_only_the_api_was_asked(world):
     assert "Полное описание" in text and "Полное описание" in storage.items.get(item.id).full_text
     assert not storage.items.get(item.id).email_only
     assert set(seen) == {"api.openwebninja.com"}
+
+
+def test_existing_hh_card_uses_the_exact_copy_on_apply(world):
+    descriptions, raw, storage, seen, state = world
+    state['mirror'] = '''
+        <h2 class="detail-title">Описание вакансии</h2>
+        <div class="p-otstup"><p>Задачи аналитика</p></div>
+        <a href="https://hh.ru/vacancy/138936181">Источник</a>
+    '''
+    item = raw('https://hh.ru/vacancy/138936181')
+    assert descriptions.complete(item) == item.text + '\n\nЗадачи аналитика'
+    assert not storage.items.get(item.id).email_only and seen == []
 
 
 def test_linkedin_letter_only_asks_the_api(world):

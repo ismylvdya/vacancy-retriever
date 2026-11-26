@@ -11,6 +11,7 @@ from typing import Any, ClassVar
 
 from ...config import AppConfig, MailboxConfig, SenderRule
 from ...notices import add_once
+from ..hh_descriptions import HhDescriptions, hh_description_url
 from ..linkedin_guest import JOB_URL as LINKEDIN_JOB_URL
 from ..linkedin_guest import GuestSettings, LinkedInGuestFetcher, create_egress
 from ..job_search import JobSearchLookup, create_lookup
@@ -107,6 +108,7 @@ class EmailCollector(Collector):
         self._detail_cache: dict[str, DetailResult] = {}
         self._guest: LinkedInGuestFetcher | None = None
         self._search: JobSearchLookup | None = None
+        self._hh_descriptions: HhDescriptions | None = None
         self._stop = threading.Event()
 
     def bind_stop(self, event: threading.Event) -> None:
@@ -165,7 +167,7 @@ class EmailCollector(Collector):
         return "; ".join(filter(None, [x.note for x in (self._search, self._guest) if x])) or None
 
     def finish_details(self) -> None:
-        for helper in (self._search, self._guest):
+        for helper in (self._search, self._guest, self._hh_descriptions):
             if helper is not None:
                 helper.close()
 
@@ -288,6 +290,12 @@ class EmailCollector(Collector):
                 log.info("Notice: first %s letter (%s)", template, subject)
 
     def fetch_detail(self, item: RawItem) -> str | None:
+        if (item.meta.get('email') or {}).get('parser') == 'hh_ru':
+            if not item.detail_url or item.detail_url != hh_description_url(item.url):
+                return None
+            if self._hh_descriptions is None:
+                self._hh_descriptions = HhDescriptions()
+            return self._hh_descriptions.fetch(item.url, item.text)
         match = LINKEDIN_JOB_URL.match(item.detail_url or "")
         if match:
             search = self._job_search()

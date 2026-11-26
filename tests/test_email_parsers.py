@@ -4,12 +4,16 @@ from __future__ import annotations
 
 from email.message import EmailMessage
 
-from vacancy_retriever.collectors.email.collector import items_from_message
+import httpx
+
+from vacancy_retriever.collectors.email.collector import EmailCollector, items_from_message
 from vacancy_retriever.collectors.email.parsers import DETAIL_PARSERS, PARSERS, load_parsers, office_abroad
 from vacancy_retriever.collectors.email.parsers.changellenge import real_url
 from vacancy_retriever.collectors.email.parsers.linkedin import location_hints
 from vacancy_retriever.collectors.email.parsers.superjob import real_path
-from vacancy_retriever.config import SenderRule
+from vacancy_retriever.collectors.hh_descriptions import HhDescriptions
+from vacancy_retriever.collectors.http import PoliteHttpClient
+from vacancy_retriever.config import SenderRule, SourceConfig
 
 from .conftest import SAMPLES
 
@@ -74,9 +78,63 @@ def test_hh_links_keep_only_the_vacancy_id():
             "</td></tr></table>")
     [vacancy] = PARSERS["hh_ru"](letter("hh.ru <noreply@hh.ru>", html + "<p>Удалённая работа</p>", "Новые вакансии"))
     assert vacancy.url == "https://hh.ru/vacancy/123" and vacancy.key == "hh:123"
+    assert vacancy.detail_url == "https://get-works.ru/job-detail.php?vac=123"
     assert vacancy.company == "X5 Tech"
     assert vacancy.extra == {"template": "hh_saved_search", "salary": "от 120000 ₽ за месяц", "work_format": "remote"}
     assert "SECRET" not in vacancy.text
+
+
+def test_hh_email_enriches_the_exact_vacancy_without_opening_hh(config, monkeypatch):
+    load_parsers()
+    seen = []
+
+    def answer(request):
+        seen.append(str(request.url))
+        assert 'authorization' not in request.headers and 'cookie' not in request.headers
+        return httpx.Response(200, text='''
+            <div class="row-bottom">
+                <h2 class="detail-title">Описание вакансии</h2>
+                <div class="p-otstup"><p><strong>Обязанности:</strong></p><ul><li>Поддерживать отчёты</li></ul></div>
+                <a href="https://hh.ru/vacancy/123">Посмотреть контакты работодателя</a>
+            </div><h2>Похожие вакансии</h2>
+        ''', headers={'Content-Type': 'text/html; charset=utf-8'})
+
+    lookup = HhDescriptions(httpx.MockTransport(answer))
+    monkeypatch.setattr('vacancy_retriever.collectors.email.collector.HhDescriptions', lambda: lookup)
+    html = '<table><tr><td><a href="https://hh.ru/vacancy/123?loginkey=secret">Аналитик</a><p>OSTIN, Москва</p></td></tr></table>'
+    rule = SenderRule(match='noreply@hh.ru', name='hh.ru', parser='hh_ru')
+    [item] = items_from_message('mail', 'mail', '1', letter('noreply@hh.ru', html), rule).items
+    http = PoliteHttpClient()
+    collector = EmailCollector(SourceConfig(id='mail', type='email', name='Mail'), http)
+    try:
+        assert collector.can_fetch_detail(item.detail_url, set(config.sources.detail_domains))
+        description = collector.fetch_detail(item)
+        assert description == item.text + '\n\nОбязанности:\nПоддерживать отчёты'
+        assert seen == ['https://get-works.ru/job-detail.php?vac=123']
+    finally:
+        collector.finish_details()
+        http.close()
+
+
+def test_hh_copy_rejects_a_different_original_and_never_follows_redirects():
+    seen = []
+
+    def answer(request):
+        seen.append(request.url.host)
+        if request.url.params['vac'] == '123':
+            return httpx.Response(200, text='''
+                <h2 class="detail-title">Описание вакансии</h2>
+                <div class="p-otstup">Чужое описание</div><a href="https://hh.ru/vacancy/456">Источник</a>
+            ''')
+        return httpx.Response(302, headers={'Location': 'https://hh.ru/vacancy/456'})
+
+    for vacancy_id in ('123', '456'):
+        lookup = HhDescriptions(httpx.MockTransport(answer))
+        try:
+            assert lookup.fetch(f'https://hh.ru/vacancy/{vacancy_id}', 'Исходное письмо') is None
+        finally:
+            lookup.close()
+    assert seen == ['get-works.ru', 'get-works.ru']
 
 
 def test_unknown_template_goes_to_mail_triage():

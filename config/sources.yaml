@@ -135,5 +135,6 @@ detail_domains:
   - www.tbank.ru
   - hirehi.ru
   - talent-move.ru
-  # страницы вакансий из писем (hh.ru не докачивается: сайт отвечает 406 клиентам-не-браузерам)
+  # страницы вакансий из писем. для HH открываем публичные копии на Get-Works
   - internship.vk.company
+  - get-works.ru

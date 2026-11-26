@@ -20,13 +20,14 @@
 <span class="filters-separator" aria-hidden="true">|</span>
 {%- endmacro %}
 
-{% macro filter_bar(facets, reset_href, active) -%}
+{% macro filter_bar(facets, reset_href, active, results="") -%}
 <span class="filters-label">Filters</span>
 <div class="filters-scroll" id="filters-scroll">
   <div class="filters-row">
     {{ caller() if caller is defined }}
     {% for f in facets %}{{ facet(f) }}{% endfor %}
+    <a class="btn reset{{ ' off' if not active }}" href="{{ reset_href }}"{% if not active %} aria-disabled="true" tabindex="-1"{% endif %}>Reset</a>
+    {% if results %}<span class="filter-results">{{ results }}</span>{% endif %}
   </div>
 </div>
-<a class="btn reset{{ ' off' if not active }}" href="{{ reset_href }}"{% if not active %} aria-disabled="true" tabindex="-1"{% endif %}>Reset</a>
 {%- endmacro %}

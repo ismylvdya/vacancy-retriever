@@ -376,8 +376,6 @@ def test_feed_fit_threshold_defaults_to_four_stars(client):
     storage.db.execute("UPDATE vacancies SET stars = 3 WHERE id = ?", (client.vacancy_id,))
     page = client.get("/").text
     assert "Junior Data Scientist" not in page and "Nothing with these filters" in page
-    filters = page.split('id="filters"', 1)[1].split("</form>", 1)[0]
-    assert filters.index('class="fsel') < filters.index('class="filter-results">Showing 0 of 1')
     assert "Junior Data Scientist" in client.get("/?stars=3").text and "Junior Data Scientist" in client.get("/?stars=0").text
     assert "Junior Data Scientist" not in client.get("/?stars=0&city=Novi Sad").text  # facets work with the threshold
 
@@ -391,6 +389,18 @@ def test_feed_search_combines_with_fit_and_facets(client):
     client.storage.db.execute("UPDATE vacancies SET stars = 3 WHERE id = ?", (client.vacancy_id,))
     assert "Nothing with these filters" in client.get("/?q=acme").text
     assert "Junior Data Scientist" in client.get("/?q=acme&stars=3").text
+
+
+def test_filter_results_follow_reset_inside_the_scrolling_row(client):
+    from bs4 import BeautifulSoup
+
+    feed = client.get("/?country=Cyprus").text
+    client.post(f"/api/vacancies/{client.vacancy_id}/status", json={"status": "skipped"}, headers=ORIGIN)
+    processed = client.get("/processed?q=acme").text
+    for page, expected in ((feed, "Showing 0 of 1"), (processed, "1 matching")):
+        html = BeautifulSoup(page, "html.parser")
+        results = html.select_one(".filters-row > details.fsel + .reset + .filter-results")
+        assert results and results.get_text(strip=True).startswith(expected)
 
 
 def test_statistics_applies_tab(client):

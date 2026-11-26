@@ -10,10 +10,11 @@
 <div class="feed-content">
 {% if all_count %}
 {% set star = star_options | selectattr('selected') | first %}
+{% set results %}{% if shown < all_count %}Showing {{ shown }} of {{ all_count }} — the rest are below the filters (Fit {{ star.label if star else 'All' }}).{% endif %}{% endset %}
 <div class="subbar">
 <form class="filters" id="filters" method="get" action="/">
   {{ search_controls(search, where, search_fields) }}
-  {% call filter_bar(facets, "/", active) %}
+  {% call filter_bar(facets, "/", active, results) %}
       {#- the minimum fit: one choice, ★4 and 5 by default -#}
       {#- filled (like any active filter) whenever the threshold hides something; «All» hides nothing — unfilled -#}
       <details class="fsel{{ ' on' if star and star.count < all_count }}" data-key="stars">
@@ -25,7 +26,6 @@
         </div>
       </details>
   {% endcall %}
-  {% if shown < all_count %}<span class="filter-results">Showing {{ shown }} of {{ all_count }} — the rest are below the filters (Fit {{ star.label if star else 'All' }}).</span>{% endif %}
 </form>
 </div>
 {% endif %}

@@ -17,8 +17,7 @@
 <form class="filters" id="filters" method="get" action="/processed">
   {% if current != 'all' %}<input type="hidden" name="filter" value="{{ current }}">{% endif %}
   {{ search_controls(search, where, search_fields) }}
-  {{ filter_bar(facets, "/processed" ~ ("?filter=" ~ current if current != "all" else ""), active) }}
-  {% if active %}<span class="filter-results">{{ total }} matching</span>{% endif %}
+  {{ filter_bar(facets, "/processed" ~ ("?filter=" ~ current if current != "all" else ""), active, total ~ " matching" if active else "") }}
 </form>
 {% endif %}
 </div>

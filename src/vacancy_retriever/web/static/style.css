@@ -360,12 +360,12 @@ body.debug .parsed-description > .fulltext { margin-top: 6px; overflow-wrap: any
 .search-box { width: clamp(85px, 13vw, 170px); min-width: 0; }
 .search-box:focus-visible, .search-in:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
 .filters-label, .filters-separator, .filter-results { color: var(--muted); font-size: var(--font-m); flex: none; }
-.filter-results { max-width: 27%; text-align: right; }
+.filter-results { white-space: nowrap; }
 .filters-scroll { position: relative; flex: 1; min-width: 0; }
 .filters-scroll::after { content: ""; position: absolute; top: 0; right: 0; bottom: 0; width: 32px; pointer-events: none;
   background: linear-gradient(to right, color-mix(in srgb, var(--bg) 0%, transparent), var(--bg)); opacity: 0; transition: opacity .15s; }
 .filters-scroll.more::after { opacity: 1; }
-.filters-row { display: flex; gap: 6px; overflow-x: auto; scrollbar-width: none; padding: 1px; }
+.filters-row { display: flex; align-items: center; gap: 6px; overflow-x: auto; scrollbar-width: none; padding: 1px; }
 .filters-row::-webkit-scrollbar { display: none; }
 .fsel { flex: none; }
 .fsel > summary { list-style: none; cursor: pointer; display: inline-flex; align-items: center; gap: 6px; white-space: nowrap;

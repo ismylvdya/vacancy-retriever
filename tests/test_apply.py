@@ -383,6 +383,31 @@ def test_apply_from_the_feed_and_sidebar_api(env):
         assert client.get("/api/applications").json()["sections"] == []
 
 
+def test_pdf_action_reveals_file_and_copies_only_its_name(env, tmp_path, monkeypatch):
+    from subprocess import CompletedProcess
+
+    pdf = tmp_path / "CV — Аналитик.pdf"
+    pdf.touch()
+    application = env.storage.applications.create(env.vacancy_id, utcnow(), state=ApplicationState.DONE)
+    env.storage.applications.update(application.id, pdf_path=str(pdf))
+    calls = []
+
+    def run(args, **kwargs):
+        calls.append((args, kwargs.get("input")))
+        return CompletedProcess(args, 0)
+
+    monkeypatch.setattr("vacancy_retriever.apply.service.subprocess.run", run)
+    app = create_app(env.config, env.storage, port=PORT, applications=env.service)
+    with TestClient(app, base_url=f"http://127.0.0.1:{PORT}") as client:
+        url = f"/api/applications/{application.id}/reveal"
+        assert client.post(url, headers=ORIGIN).status_code == 200
+        assert calls == [(["open", "-R", str(pdf)], None), (["pbcopy"], pdf.name.encode("utf-8"))]
+        pdf.unlink()
+        calls.clear()
+        assert client.post(url, headers=ORIGIN).status_code == 404
+        assert calls == []
+
+
 @pytest.mark.parametrize("keep_note", [False, True])
 def test_return_to_feed_then_generate_again(env, keep_note):
     app = create_app(env.config, env.storage, port=PORT, applications=env.service)

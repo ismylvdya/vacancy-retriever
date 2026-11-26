@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import logging
+import os
 import subprocess
 import threading
 from collections.abc import Callable
@@ -171,7 +172,14 @@ class ApplicationService:
 def reveal_in_finder(path: Path) -> bool:
     if not path.exists():
         return False
-    return subprocess.run(["open", "-R", str(path)], check=False).returncode == 0
+    if subprocess.run(["open", "-R", str(path)], check=False).returncode != 0:
+        return False
+    try:
+        subprocess.run(["pbcopy"], input=path.name.encode("utf-8"), check=True,
+                       env={**os.environ, "LC_ALL": "en_US.UTF-8"})
+    except (OSError, subprocess.CalledProcessError) as exc:
+        raise ApplyError("Finder opened, but the PDF filename could not be copied") from exc
+    return True
 
 
 PARENT_FILE = "google_drive_parent.json"

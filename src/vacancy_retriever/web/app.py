@@ -430,15 +430,21 @@ def create_app(config: AppConfig, storage: Storage, port: int, manager: RunManag
         except ManualError as exc:
             raise HTTPException(400, str(exc)) from exc
 
+    def reveal_cv(path: Path) -> dict[str, bool]:
+        try:
+            if not reveal_in_finder(path):
+                raise HTTPException(404, "The PDF is not there")
+        except ApplyError as exc:
+            raise HTTPException(500, str(exc)) from exc
+        return {"ok": True}
+
     @app.post("/api/applications/manual/cv/{token}/reveal")
     def reveal_manual_cv(token: str) -> dict[str, bool]:
         try:
             path = manual_cv.resolve(token)
         except ManualError as exc:
             raise HTTPException(404, str(exc)) from exc
-        if not reveal_in_finder(path):
-            raise HTTPException(404, "The PDF is not there")
-        return {"ok": True}
+        return reveal_cv(path)
 
     @app.delete("/api/applications/manual/cv/{token}")
     def clear_manual_cv(token: str) -> dict[str, bool]:
@@ -446,11 +452,11 @@ def create_app(config: AppConfig, storage: Storage, port: int, manager: RunManag
         return {"ok": True}
 
     @app.post("/api/applications/{application_id}/reveal")
-    def reveal_pdf(application_id: int) -> dict[str, Any]:
+    def reveal_pdf(application_id: int) -> dict[str, bool]:
         found = _application(application_id)
-        if not found.pdf_path or not reveal_in_finder(Path(found.pdf_path)):
+        if not found.pdf_path:
             raise HTTPException(404, "The PDF is not there")
-        return {"ok": True}
+        return reveal_cv(Path(found.pdf_path))
 
     @app.get("/api/applications/{application_id}/letter")
     def application_letter(application_id: int) -> dict[str, str]:

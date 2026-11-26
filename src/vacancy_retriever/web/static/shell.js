@@ -221,6 +221,10 @@ if (applySidebar) {
         return;
       }
       await api("POST", `/api/applications/${id}/${action}`);
+      if (action === "reveal") {
+        toast("PDF filename copied");
+        return;
+      }
       if (action === "retry") toast("Continuing from where it stopped");
       if (action === "stop") toast("Stopped — what is made stays; Retry continues");
     } catch (e) { toast(e.message); }

@@ -120,12 +120,20 @@ groups:
   5: {title: "Unclear", collapsed: true}
   6: {title: "Remote in Russia", note: "No residence permit"}
   7: {title: "Office in Moscow", note: "Office or hybrid"}
-  8: {title: "Russia, no IT accreditation", note: "Not in the register of accredited IT companies", collapsed: true}
+  8: {title: "Russia, no IT accreditation", note: "Not in the register, or the vacancy itself rules it out", collapsed: true}
 
 # Порядок категорий внутри группы ленты при равных звёздах (решение пользователя 27.11.2026: сначала ML, потом
 # аналитика). Категории не из списка идут после, по дате. Звёзды важнее: 5★ аналитика выше 4★ ML.
-feed_category_order: [ds_ml, cv, nlp_llm, data_analyst, bi_dwh, data_engineer, data_labeling, python_backend,
-                      sys_business_analyst]
+feed_category_order:
+  - ds_ml
+  - cv
+  - nlp_llm
+  - data_analyst
+  - bi_dwh
+  - data_engineer
+  - data_labeling
+  - python_backend
+  - sys_business_analyst
 
 # Порядок групп в ленте (перетаскивается в Settings → Feed groups). Решения пользователя: 15.11.2026 — Россия первой,
 # 16.11.2026 — очная работа в Москве первой (ищет работу в России, в том числе очную).
@@ -149,9 +157,22 @@ no_it_accreditation_group: 8
 no_it_accreditation_signs:
   employer_types: [private_person]
   placeholder_employer: true
-  words: ["гпх", "гражданско-правов*", "договор гпх", "самозанят*", "ип", "индивидуальный предприниматель",
-          "индивидуального предпринимателя", "физлиц*", "физ. лиц*", "физическое лицо", "физическим лицом",
-          "физического лица", "частное лицо", "частным лицом", "частного лица"]
+  words:
+    - гпх
+    - "гражданско-правов*"
+    - договор гпх
+    - "самозанят*"
+    - ип
+    - индивидуальный предприниматель
+    - индивидуального предпринимателя
+    - "физлиц*"
+    - "физ. лиц*"
+    - физическое лицо
+    - физическим лицом
+    - физического лица
+    - частное лицо
+    - частным лицом
+    - частного лица
 
 # Группы, где работодатель по смыслу группы российский / русскоязычный: метку «Russian-speaking» в них не показывать —
 # и так очевидно (решение пользователя 20.11.2026). Метка «English team» показывается как обычно.

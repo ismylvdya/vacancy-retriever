@@ -81,7 +81,7 @@ class ScoringEngine:
         in_serbia = self._works_in_serbia(facts)
         country = facts.country or "unknown"
         lines = [f"Category: {facts.role_category} → {category.kind} (base {category.base}★, cap {category.cap}★)",
-                 self._requirements_line(facts)]
+                 *self._requirements_lines(facts)]
         lines.append(f"Works in Serbia: {'yes' if in_serbia else 'no'} (country {country}, "
                      f"serbian_entity {facts.serbian_entity})")
         skip = self._skip_reason(facts, category, in_serbia, published_at, now) or self._salary_too_high(facts, rates)
@@ -101,16 +101,23 @@ class ScoringEngine:
         lines.append(f"Decision: skip — {skip}" if skip else "Decision: show (no skip rule matched)")
         return lines
 
-    def _requirements_line(self, facts: VacancyFacts) -> str:
-        places = {"text": "description", "title": "title", "label": "page data", "none": "nowhere"}
-        years = (f"{facts.experience_years:g} years from the {places[facts.experience_source]}"
-                 if facts.experience_years is not None else "no years")
-        if facts.experience_years is not None and not facts.requirements_by_place:
-            years = f"{facts.experience_years:g} years (scored before places were told apart)"
-        found = ", ".join(f"{places[p]} {facts.experience_by[p]:g}" for p in facts.experience_by)
-        grades = ", ".join(f"{places[p]} {facts.grade_by[p]}" for p in facts.grade_by)
-        return (f"Requirements: {years}; grade {facts.seniority} from the {places[facts.seniority_source]}"
-                + (f" (years found: {found})" if found else "") + (f" (grades found: {grades})" if grades else ""))
+    _PLACES = {"text": "the description", "title": "the title", "label": "the page data", "none": "nowhere"}
+
+    def _requirements_lines(self, facts: VacancyFacts) -> list[str]:
+        """Where the deciding years and grade came from, and what each place said (scoring/requirements.py)."""
+        places = self._PLACES
+        if facts.experience_years is None:
+            years = "Experience: no years stated"
+        else:
+            unit = "year" if facts.experience_years == 1 else "years"
+            origin = (f"from {places[facts.experience_source]}" if facts.requirements_by_place
+                      else "(scored before places were told apart)")
+            years = f"Experience: {facts.experience_years:g} {unit} {origin}"
+        found = "; ".join(f"{places[p]} {facts.experience_by[p]:g}" for p in facts.experience_by)
+        grade = (f"Grade: {facts.seniority} from {places[facts.seniority_source]}" if facts.seniority != "unknown"
+                 else "Grade: none stated")
+        grades = "; ".join(f"{places[p]} {facts.grade_by[p]}" for p in facts.grade_by)
+        return [years + (f" (found in {found})" if found else ""), grade + (f" (found in {grades})" if grades else "")]
 
     def fit(self, facts: VacancyFacts) -> tuple[int, str]:
         """Stars and how they were counted (the settings screen shows them for every combination of facts)."""

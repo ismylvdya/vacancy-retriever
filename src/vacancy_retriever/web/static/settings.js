@@ -48,6 +48,7 @@ const Settings = (() => {
       case "stars": return stars(id, current, { nullable: field.nullable || id.endsWith("max_stars") });
       case "choice": return choice(id, current, field.options);
       case "chips": return chips(id, current || [], field.options);
+      case "categories": return categoryOrder(id, current || []);
       case "number": return number(id, current, field);
       default: return text(id, current);
     }
@@ -133,6 +134,36 @@ const Settings = (() => {
       setTimeout(() => { const again = root.querySelector(`[data-field="${CSS.escape(id)}"] .chip-add`); if (again) again.focus(); });
     });
     box.append(add);
+    return box;
+  }
+
+  /* An ordered list of role categories: numbered chips by label, the next one picked from a menu. */
+  function categoryOrder(id, current) {
+    const box = el("div", "chips");
+    const label = (key) => (snapshot.categories.find((c) => c.key === key) || { label: key }).label;
+    current.forEach((key, index) => {
+      const chip = el("span", "chip");
+      chip.append(el("span", "chip-rank", String(index + 1)), el("span", "", label(key)));
+      const remove = el("button", "chip-remove");
+      Object.assign(remove, { type: "button", title: `Remove «${label(key)}»` });
+      remove.setAttribute("aria-label", `Remove ${label(key)}`);
+      remove.innerHTML = '<svg viewBox="0 0 16 16" aria-hidden="true"><path d="M4.5 4.5l7 7M11.5 4.5l-7 7"/></svg>';
+      remove.addEventListener("click", () => change(id, current.filter((k) => k !== key), { rerender: true }));
+      chip.append(remove);
+      box.append(chip);
+    });
+    const rest = snapshot.categories.filter((c) => !current.includes(c.key)
+      && ["it", "manual", "other"].includes(value(`rules:categories.${c.key}.kind`)));
+    if (rest.length) {
+      const add = el("select", "chip-add chip-pick");
+      add.setAttribute("aria-label", "Add a category");
+      const prompt = el("option", "", "Add…");
+      Object.assign(prompt, { value: "", disabled: true, selected: true });
+      add.append(prompt);
+      rest.forEach((c) => { const o = el("option", "", c.label); o.value = c.key; add.append(o); });
+      add.addEventListener("change", () => change(id, [...current, add.value], { rerender: true }));
+      box.append(add);
+    }
     return box;
   }
 

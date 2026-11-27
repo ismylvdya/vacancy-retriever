@@ -242,6 +242,10 @@ def _coerce(f: Field, raw: Any) -> Any:
         if f.options and raw not in {v for v, _ in f.options}:
             raise ValueError("not one of the choices")
         return str(raw)
+    if f.kind == "categories":  # an ordered list of category keys; rules.yaml validation names an unknown one
+        if not isinstance(raw, list):
+            raise ValueError("must be a list")
+        return list(dict.fromkeys(str(x).strip() for x in raw if str(x).strip()))
     if f.kind == "chips":
         if not isinstance(raw, list):
             raise ValueError("must be a list")

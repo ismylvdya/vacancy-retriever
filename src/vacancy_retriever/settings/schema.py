@@ -10,7 +10,7 @@ from __future__ import annotations
 from dataclasses import asdict, dataclass, field
 from typing import Any, Literal
 
-FieldKind = Literal["toggle", "number", "stars", "choice", "chips", "text"]
+FieldKind = Literal["toggle", "number", "stars", "choice", "chips", "categories", "text"]
 CONFIG_FILES = ("rules", "sources", "mail", "llm", "apply")
 
 
@@ -84,9 +84,8 @@ SECTIONS: tuple[Section, ...] = (
                   unit="★", min=0, max=4, step=1),
             Field("rules", "penalties.email_only_max_stars", "stars", "E-mail only: at most",
                   "Known only from a job-alert letter, no description: the evaluation is less reliable."),
-            Field("rules", "feed_category_order", "chips", "Equal stars: these categories first",
-                  "Inside a feed group, among vacancies with the same stars, in this order. Category keys as in "
-                  "rules.yaml, for example ds_ml for Data Science / ML."),
+            Field("rules", "feed_category_order", "categories", "Equal stars: these categories first",
+                  "Inside a feed group, among vacancies with the same stars, in this order. The rest follow by date."),
         ),
     ),
     Section(

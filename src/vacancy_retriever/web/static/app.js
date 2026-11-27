@@ -505,17 +505,6 @@ if (location.hash.startsWith("#vac-")) {
   window.addEventListener("load", () => setTimeout(focusFromHash));
 }
 
-const recalc = $("recalc-btn");
-if (recalc) {
-  recalc.addEventListener("click", async () => {
-    try {
-      const data = await api("POST", "/api/recalculate");
-      toast(`Recalculated ${data.total}, changed ${data.changed}`);
-      setTimeout(() => location.reload(), 800);
-    } catch (e) { toast(e.message); }
-  });
-}
-
 /* ---------- Feed and Processed filters ---------- */
 const filterForm = $("filters");
 if (filterForm) {

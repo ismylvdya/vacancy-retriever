@@ -119,3 +119,25 @@ def test_cancel_event_is_fresh_per_run(setup):
     first.set()
     assert isinstance(first, threading.Event)
     assert manager.cancel() is False
+
+
+def test_rules_saved_during_a_run_are_applied_when_it_ends(tmp_paths, monkeypatch):
+    """The feed's Recalculate button is gone (27.11.2026): a settings change made during a run waits for its end."""
+    from vacancy_retriever.config import AppConfig
+    from vacancy_retriever.pipeline import manager as manager_module
+    from vacancy_retriever.pipeline.manager import RunManager
+    from vacancy_retriever.storage import Storage
+
+    storage = Storage.open(tmp_paths.default_db, tmp_paths.token_log)
+    manager = RunManager(AppConfig(tmp_paths), storage)
+    calls = []
+    monkeypatch.setattr(manager_module, "recalculate", lambda config, storage: calls.append(1))
+    monkeypatch.setattr(RunManager, "_pipeline", lambda self: type("P", (), {"run": lambda _, options: None})())
+    manager._lock.acquire()
+    manager._execute(None)
+    assert calls == [], "no change, no recalculation"
+    manager.recalculate_after_run()
+    manager._lock.acquire()
+    manager._execute(None)
+    assert calls == [1]
+    storage.db.close()

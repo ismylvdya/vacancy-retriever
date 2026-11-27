@@ -29,7 +29,7 @@ from ..icons import IconStore
 from ..rates import RatesStore
 from ..llm.base import LlmError, LlmProvider
 from ..scoring.engine import ScoringEngine
-from ..scoring.text_facts import fill_from_text
+from ..scoring.text_facts import TextFacts
 from ..scoring.facts import VacancyFacts
 from ..storage import Storage
 from ..storage.items import StoredRawItem
@@ -122,6 +122,7 @@ def programme_safety_net(item: StoredRawItem, records: list[VacancyFacts]) -> No
     first.role_category = "other"
     first.kind = "programme"
     first.seniority = "intern"
+    first.grade_by["title"] = "intern"
     first.confidence = "low"
     subject = str((item.meta.get("email") or {}).get("subject") or item.title or "")
     first.title_original = first.title_original or subject
@@ -153,6 +154,7 @@ class Pipeline:
         self.now = now
         self.engine = ScoringEngine(config.rules)
         self.prefilter = Prefilter(config.rules)
+        self.text_facts = TextFacts(config.rules)
         self.icons = IconStore(config.paths)
         self.stats = SourceStats(config.paths.source_stats)
         self._collectors: dict[str, Collector] = {}
@@ -180,6 +182,7 @@ class Pipeline:
             self._prefilter(run_id)
             self._fetch_details(run_id)
             self._language_filter(run_id)
+            self._requirements_filter(run_id)
             self._score(run_id)
             self._dedup(run_id)
             self._check_cancel()
@@ -462,6 +465,13 @@ class Pipeline:
             if result.action == "skip":
                 self._skip_before_llm(run_id, item, result.reason)
 
+    def _requirements_filter(self, run_id: int) -> None:
+        """The grade drops before the LLM only a vacancy whose text and page state no years (Prefilter.check_requirements)."""
+        for item in self.storage.items.by_run(run_id, "pending_llm"):
+            result = self.prefilter.check_requirements(item)
+            if result.action == "skip":
+                self._skip_before_llm(run_id, item, result.reason)
+
     # ------------------------------------------------------------------ 4. LLM facts
     def _score(self, run_id: int) -> None:
         pending = (self.storage.items.pending_from_previous_runs() + self._released
@@ -543,7 +553,7 @@ class Pipeline:
     def _vacancy_from_facts(self, item: StoredRawItem, facts: VacancyFacts, now: datetime) -> NewVacancy | None:
         if not facts.employer_name or facts.employer_name == "unknown":
             facts.employer_name = item.meta.get("company") or facts.employer_name
-        fill_from_text(facts, self.config.rules, item)
+        self.text_facts.fill(facts, item)
         facts.wave = facts.kind == "programme" or item.meta.get("letter_kind") == "wave"
         verdict = self.engine.evaluate(facts, item.published_at, now, getattr(self, "_rates", None), item.email_only)
         if verdict.decision == "hidden":

@@ -21,6 +21,12 @@ def prefilter(config):
     return Prefilter(config.rules)
 
 
+def before_llm(prefilter, stored):
+    """Both checks of a run: before the details (roles, age, ads) and after them (years, then grade)."""
+    result = prefilter.check(stored, NOW)
+    return prefilter.check_requirements(stored) if result.action == "keep" else result
+
+
 @pytest.mark.parametrize(("title", "action"), [
     ("Senior Data Scientist", "skip"),
     ("Middle+ Data Analyst", "skip"),
@@ -35,7 +41,13 @@ def prefilter(config):
     ("Junior QA", "skip"),
 ])
 def test_title_rules(prefilter, title, action):
-    assert prefilter.check(item(title), NOW).action == action
+    assert before_llm(prefilter, item(title)).action == action
+
+
+def test_title_grade_waits_for_the_years_of_the_description(prefilter):
+    assert prefilter.check(item("Senior Data Scientist"), NOW).action == "keep"
+    assert prefilter.check_requirements(item("Senior Data Scientist", "Опыт работы от 1 года, SQL")).action == "keep"
+    assert prefilter.check_requirements(item("Data Scientist", "Опыт работы от 3 лет")).reason == "Experience: 3+ years"
 
 
 def test_multi_vacancy_posts_ignore_keywords(prefilter):
@@ -53,14 +65,19 @@ def test_rvc_real_posts(prefilter):
     results = {}
     for post in posts:
         stored = item(post.title, post.text, multi=post.multi, age_days=0, **post.meta)
-        results[post.external_id] = prefilter.check(stored, NOW)
+        results[post.external_id] = before_llm(prefilter, stored)
     actions = {r.action for r in results.values()}
     assert {"keep", "skip", "hide"} <= actions
     ad = next(r for pid, r in results.items() if "walllet" in next(p.text for p in posts if p.external_id == pid))
     assert ad.action == "hide"
-    senior = [r for pid, r in results.items()
-              if "| Senior |" in next(p.text for p in posts if p.external_id == pid)]
-    assert senior and all(r.action == "skip" and r.reason.startswith("RVC grade") for r in senior)
+    first_lines = {p.external_id: p.text.split("\n", 1)[0] for p in posts}
+    senior = [r for pid, r in results.items() if "| Senior" in first_lines[pid]]
+    assert senior and all(r.action == "skip" for r in senior)
+    # «| 5 year(s) | Senior |»: the years decide; «| Senior» alone: the RVC grade
+    reasons = {r.reason.split(":")[0] for r in senior}
+    assert {"Experience", "RVC grade"} <= reasons <= {"Experience", "RVC grade", "Title keyword"}
+    junior = [r for pid, r in results.items() if "| 1 year(s) | Junior" in first_lines[pid]]
+    assert junior and all(r.action == "keep" for r in junior)
 
 
 @pytest.mark.parametrize(("text", "languages", "action"), [
@@ -108,6 +125,7 @@ def test_grade_from_site_data_is_dropped_for_free(config):
                              {"grade": grade}, "pending_llm", None)
 
     prefilter = Prefilter(config.rules)
-    assert prefilter.check(item("Senior"), datetime.now(UTC)).reason == "Grade: senior"
-    assert prefilter.check(item(None), datetime.now(UTC)).action == "keep"
-    assert prefilter.check(item("Junior"), datetime.now(UTC)).action == "keep"
+    assert prefilter.check(item("Senior"), datetime.now(UTC)).action == "keep"  # the description is not read yet
+    assert prefilter.check_requirements(item("Senior")).reason == "Grade: senior"
+    assert prefilter.check_requirements(item(None)).action == "keep"
+    assert prefilter.check_requirements(item("Junior")).action == "keep"

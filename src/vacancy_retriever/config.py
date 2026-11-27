@@ -6,7 +6,7 @@ from typing import Any, Literal
 
 import yaml
 from datetime import time as dt_time
-from pydantic import BaseModel, ConfigDict, Field, ValidationError, field_validator
+from pydantic import BaseModel, ConfigDict, Field, ValidationError, field_validator, model_validator
 
 from .paths import PATHS, ProjectPaths
 
@@ -79,6 +79,22 @@ class ExperienceDropRules(_Strict):
     years_unless_junior: float | None = None
 
 
+class RequirementRules(_Strict):
+    # Where required experience and grade are looked for, the deciding place first (scoring/requirements.py):
+    # text — the description, title — the title, label — the data above the description (tags, «Опыт работы»).
+    priority: list[Literal["text", "title", "label"]] = Field(default_factory=lambda: ["text", "title", "label"])
+    # Years found anywhere decide alone: the grade (dropped_seniority, grade words of the title) skips only a
+    # vacancy that states no years at all.
+    years_over_grade: bool = True
+
+
+class NoAccreditationSigns(_Strict):
+    # Signs that an employer surely has no IT accreditation, without the register (scoring/text_facts.py).
+    employer_types: list[str] = Field(default_factory=list)   # facts.employer_type, e.g. private_person
+    placeholder_employer: bool = False                         # the LLM says the name is a placeholder
+    words: list[str] = Field(default_factory=list)            # in the text or the page's data; * = any ending
+
+
 GROUP_NUMBERS = (1, 2, 3, 4, 5, 6, 7, 8)  # the groups scoring/engine.py can set
 
 
@@ -116,6 +132,7 @@ class Rules(_Strict):
     dropped_seniority: list[str] = Field(default_factory=lambda: ["middle", "senior", "lead"])
     drop_seniority_from_text: bool = False
     experience_drop: ExperienceDropRules = Field(default_factory=ExperienceDropRules)
+    requirements: RequirementRules = Field(default_factory=RequirementRules)
     russian_link_words: list[str] = Field(default_factory=list)
     salary: SalaryRules = Field(default_factory=SalaryRules)
     groups: dict[int, GroupInfo]
@@ -129,6 +146,9 @@ class Rules(_Strict):
     # to `no_it_accreditation_group`; unknown accreditation stays where it is with a tag.
     it_accreditation_groups: list[int] = Field(default_factory=list)
     no_it_accreditation_group: int | None = None
+    no_it_accreditation_signs: NoAccreditationSigns = Field(default_factory=NoAccreditationSigns)
+    # Inside a feed group and among equal stars: these categories first, in this order; the rest after them.
+    feed_category_order: list[str] = Field(default_factory=list)
     # Groups whose employer is Russian / Russian-speaking by definition: no «Russian-speaking» tag there (obvious).
     russian_tag_hidden_groups: list[int] = Field(default_factory=list)
 
@@ -148,6 +168,13 @@ class Rules(_Strict):
     @property
     def enabled_groups(self) -> list[int]:
         return [n for n in self.ordered_groups if self.groups[n].enabled]
+
+    @model_validator(mode="after")
+    def _known_categories_in_order(self) -> Rules:
+        unknown = [c for c in self.feed_category_order if c not in self.categories]
+        if unknown:
+            raise ValueError(f"feed_category_order: unknown categories {', '.join(unknown)}")
+        return self
 
     @field_validator("categories")
     @classmethod

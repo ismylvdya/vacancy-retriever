@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from collections.abc import Sequence
+
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta
 from typing import Any
@@ -160,12 +162,17 @@ class VacancyRepository:
         )
         return [dict(r) for r in rows]
 
-    def feed(self) -> list[VacancyRecord]:
+    def feed(self, category_order: Sequence[str] = ()) -> list[VacancyRecord]:
+        """By group, stars, then `category_order` (rules.yaml → feed_category_order), then the newest first."""
         rows = self.db.query(
             "SELECT * FROM vacancies WHERE staged = 0 AND user_status = 'new'"
             " ORDER BY group_no, stars DESC, published_at DESC"
         )
         records = [VacancyRecord.from_row(r) for r in rows]
+        if category_order:
+            rank = {category: index for index, category in enumerate(category_order)}
+            records.sort(key=lambda r: (r.group_no is not None, r.group_no or 0, r.stars is None, -(r.stars or 0),
+                                        rank.get(r.category, len(rank))))
         self._load_sources(records)
         return records
 

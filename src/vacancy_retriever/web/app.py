@@ -195,7 +195,7 @@ def create_app(config: AppConfig, storage: Storage, port: int, manager: RunManag
             if key not in ("stars", "q", "in") and value:
                 chosen.setdefault(key, set()).add(value)
         search, where = search_params(request)
-        records = storage.vacancies.feed()
+        records = storage.vacancies.feed(config.rules.feed_category_order)
         above = [r for r in records if (r.stars or 0) >= min_stars]
         matched = views.search_records(storage, above, search, where)
         kept, facets = views.apply_filters(config, matched, chosen, skip={"reason", "fit"})

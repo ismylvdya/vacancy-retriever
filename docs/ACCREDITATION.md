@@ -9,6 +9,7 @@
 | *IT accreditation unknown* | оранжевая | не удалось точно определить юрлицо или работодатель не назван | в своей группе |
 | *IT accreditation not checked* | серая | проверки ещё не было (идёт после каждого Run) | в своей группе |
 | *No IT accreditation* | серая | компания определена точно, ни одно её юрлицо не действует в реестре | группа 8 «Russia, no IT accreditation» — внизу ленты, свёрнута |
+| *No IT accreditation* | серая | в самой вакансии признак: работодатель — частное лицо или ИП, название — заглушка («крупный российский банк», «Digital-агентство»), в тексте «ГПХ», «самозанятый», «физлицо»… | то же; реестр и LLM для неё не спрашиваются |
 
 Подсказка (наведите мышь на метку) — по какому юрлицу и ИНН это решено.
 
@@ -83,6 +84,10 @@ DaData — справочник юрлиц России. С ключом юрл�
 ## Настройки
 
 - `config/accreditation.yaml` — источник реестра, DaData, лимиты.
+- `config/rules.yaml → no_it_accreditation_signs` (решение 27.11.2026) — признаки в самой вакансии: типы работодателя
+  (`private_person`), заглушка вместо названия (`placeholder_employer`, решает LLM по `employer_placeholder`), слова
+  (`words`). Считаются кодом (`scoring/text_facts.py`) при каждой оценке и пересчёте; правятся и в Settings → What is
+  skipped → No IT accreditation.
 - `config/rules.yaml → it_accreditation_groups: [6, 7]`, `no_it_accreditation_group: 8`; сама группа 8 — в `groups`
   (`collapsed: true`), порядок и выключение — Settings → Feed groups.
 - Выключить совсем: `enabled: false` в `config/accreditation.yaml`.

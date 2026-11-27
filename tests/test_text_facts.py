@@ -35,8 +35,9 @@ def test_years_of_experience(text, years):
     assert experience_from_text(text) == years
 
 
-def item(text="", detail=None, multi=False):
-    return SimpleNamespace(text=text, detail_text=detail, multi=multi)
+def item(text="", detail=None, multi=False, page_meta=()):
+    return SimpleNamespace(text=text, detail_text=detail, multi=multi, page_meta=list(page_meta),
+                           description=detail or text)
 
 
 def test_text_fills_only_what_the_llm_left_empty(config):

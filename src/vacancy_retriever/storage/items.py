@@ -5,7 +5,7 @@ from dataclasses import dataclass
 from datetime import date, datetime, timedelta
 from typing import Any
 
-from ..collectors.base import RawItem, normalize_url
+from ..collectors.base import PAGE_META, RawItem, normalize_url
 from ..timeutil import from_iso, to_iso, utcnow
 from .db import Database
 
@@ -30,6 +30,18 @@ class StoredRawItem:
     @property
     def full_text(self) -> str:
         return self.detail_text or self.text
+
+    @property
+    def page_meta(self) -> list[str]:
+        """The data the page shows above the description (collectors/base.py → page_meta_lines)."""
+        return [str(line) for line in self.meta.get(PAGE_META) or []]
+
+    @property
+    def description(self) -> str:
+        """The vacancy's text without the page's own data lines, which collectors also put into the card text."""
+        meta = set(self.page_meta)
+        lines = self.full_text.split("\n")
+        return "\n".join(line for line in lines if line.strip() not in meta) if meta else self.full_text
 
     @property
     def email_only(self) -> bool:

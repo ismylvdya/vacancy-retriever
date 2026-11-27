@@ -6,7 +6,7 @@ from typing import Any
 
 from bs4 import BeautifulSoup, Tag
 
-from ..base import CollectContext, Collector, CollectResult, RawItem, SourceError
+from ..base import CollectContext, Collector, CollectResult, DetailPage, RawItem, SourceError, page_meta_lines
 from ..registry import register
 from ._common import ListingCrawler, card_text, html_to_text
 
@@ -92,7 +92,7 @@ def _node_text(node: Tag | None) -> str | None:
     return html_to_text(node) if node else None
 
 
-def parse_vacancy_page(html: str) -> str:
+def parse_vacancy_page(html: str) -> DetailPage:
     vacancy = BeautifulSoup(html, "lxml").select_one("article.vacancy")
     description = vacancy.select_one("#vacancy-description") if vacancy else None
     if vacancy is None or description is None:
@@ -100,13 +100,15 @@ def parse_vacancy_page(html: str) -> str:
     tags = " • ".join(t.get_text(" ", strip=True) for t in vacancy.select("header .tags") if t.get_text(strip=True))
     grade = _node_text(vacancy.select_one("header .category"))
     salary = _node_text(vacancy.select_one("header .salary"))
-    return card_text(
-        f"Уровень: {grade}" if grade else None,
+    grade_line = f"Уровень: {grade}" if grade else None
+    text = card_text(
+        grade_line,
         f"Теги: {tags}" if tags else None,
         _node_text(vacancy.select_one("header .jobformat")),
         f"Зарплата: {salary}" if salary else None,
         html_to_text(description),
     )
+    return DetailPage(text, page_meta_lines(grade_line))
 
 
 @register
@@ -143,6 +145,10 @@ class GeekjobCollector(Collector):
         return parse_vacancies(data, now, self.source.id), int(data.get("nextpage") or 0) > page
 
     def fetch_detail(self, item: RawItem) -> str | None:
+        page = self.fetch_detail_page(item)
+        return page.text if page else None
+
+    def fetch_detail_page(self, item: RawItem) -> DetailPage | None:
         if not item.detail_url:
             return None
         return parse_vacancy_page(self.http.get_text(item.detail_url))

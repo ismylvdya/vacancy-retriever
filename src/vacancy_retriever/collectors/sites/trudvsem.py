@@ -10,7 +10,7 @@ from __future__ import annotations
 from datetime import UTC, datetime
 from typing import Any
 
-from ..base import CollectContext, Collector, CollectResult, RawItem, SourceError
+from ..base import CollectContext, Collector, CollectResult, PAGE_META, RawItem, SourceError, page_meta_lines
 from ..registry import register
 from ._common import card_text
 
@@ -38,6 +38,11 @@ def _clean(value: Any) -> str:
     return "" if text in {".", "-", "—"} else text
 
 
+def _experience_line(v: dict[str, Any]) -> str | None:
+    experience = (v.get("requirement") or {}).get("experience")
+    return f"Опыт, лет: {experience}" if experience is not None else None
+
+
 def vacancy_text(v: dict[str, Any]) -> str:
     company = v.get("company") or {}
     address = ((v.get("addresses") or {}).get("address") or [{}])[0].get("location")
@@ -53,7 +58,7 @@ def vacancy_text(v: dict[str, Any]) -> str:
         f"Зарплата: {_clean(v.get('salary'))}" if _clean(v.get("salary")) else None,
         f"Занятость: {_clean(v.get('employment'))}; график: {_clean(v.get('schedule'))}"
         if v.get("employment") or v.get("schedule") else None,
-        f"Опыт, лет: {experience}" if experience is not None else None,
+        _experience_line(v),
         f"Образование: {_clean(requirement.get('education'))}" if requirement.get("education") else None,
         f"Навыки: {', '.join(skills)}" if skills else None,
         f"Обязанности: {_clean(v.get('duty'))}" if _clean(v.get("duty")) else None,
@@ -74,7 +79,8 @@ def vacancy_item(v: dict[str, Any], source_id: str = "") -> RawItem:
         published_at=parse_time(v.get("date_modify")) or parse_time(v.get("creation-date")),
         meta={"company": _clean(company.get("name")) or None, "location": region,
               "employer_inn": str(company.get("inn") or "") or None,
-              "hr_agency": bool(company.get("hr-agency"))},
+              "hr_agency": bool(company.get("hr-agency")),
+              PAGE_META: page_meta_lines(_experience_line(v))},
     )
 
 

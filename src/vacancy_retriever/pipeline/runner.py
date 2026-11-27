@@ -15,6 +15,7 @@ from ..collectors.base import (
     CollectContext,
     Collector,
     CollectResult,
+    PAGE_META,
     RunCancelled,
     SourceCursor,
     SourceError,
@@ -405,17 +406,20 @@ class Pipeline:
             collector = self._collectors.get(item.source_id)
             if not collector:
                 continue
-            text = None
+            page = None
             if collector.can_fetch_detail(url, allowed):
                 try:
-                    text = collector.fetch_detail(_as_raw(item))
+                    page = collector.fetch_detail_page(_as_raw(item))
                 except RunCancelled:
                     raise
                 except Exception as exc:  # noqa: BLE001 - listing text is still usable
                     log.info("Detail fetch failed for %s: %s", url, exc)
-            if text:
-                self.storage.items.set_detail(item.id, text)
-                reason = collector.detail_skip_reason(_as_raw(item), text)
+            if page:
+                self.storage.items.set_detail(item.id, page.text)
+                if page.page_meta:
+                    lines = list(dict.fromkeys([*(item.meta.get(PAGE_META) or []), *page.page_meta]))
+                    self.storage.items.set_meta(item.id, PAGE_META, lines)
+                reason = collector.detail_skip_reason(_as_raw(item), page.text)
                 if reason:
                     self._skip_before_llm(run_id, item, reason)
                 continue

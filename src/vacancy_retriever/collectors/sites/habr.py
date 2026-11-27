@@ -5,7 +5,7 @@ from typing import Any
 
 from bs4 import BeautifulSoup
 
-from ..base import CollectContext, Collector, CollectResult, RawItem, SourceError
+from ..base import CollectContext, Collector, CollectResult, PAGE_META, RawItem, SourceError, page_meta_lines
 from ..registry import register
 from ._common import ListingCrawler, card_text, html_to_text
 
@@ -39,11 +39,15 @@ def vacancy_salary(vacancy: dict[str, Any]) -> str | None:
     return f"{predicted} (прогноз Хабра)" if predicted else None
 
 
+def _grade(vacancy: dict[str, Any]) -> str | None:
+    return (vacancy.get("salaryQualification") or {}).get("title") or vacancy.get("qualification")
+
+
 def vacancy_text(vacancy: dict[str, Any]) -> str:
     company = (vacancy.get("company") or {}).get("title")
     locations = _titles(vacancy.get("locations"))
     salary = vacancy_salary(vacancy)
-    grade = (vacancy.get("salaryQualification") or {}).get("title") or vacancy.get("qualification")
+    grade = _grade(vacancy)
     divisions = _titles(vacancy.get("divisions"))
     skills = _titles(vacancy.get("skills"))
     return card_text(
@@ -75,6 +79,7 @@ def vacancy_item(vacancy: dict[str, Any], source_id: str = "") -> RawItem:
             "company": (vacancy.get("company") or {}).get("title"),
             "location": ", ".join(locations) or None,
             "grade": vacancy.get("qualification"),
+            PAGE_META: page_meta_lines(f"Грейд: {_grade(vacancy)}" if _grade(vacancy) else None),
         },
     )
 

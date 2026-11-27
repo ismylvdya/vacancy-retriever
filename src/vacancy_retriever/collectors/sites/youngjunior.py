@@ -3,7 +3,7 @@ from __future__ import annotations
 from datetime import datetime
 from typing import Any
 
-from ..base import CollectContext, Collector, CollectResult, CollectStatus, RawItem, SourceError
+from ..base import CollectContext, Collector, CollectResult, CollectStatus, PAGE_META, RawItem, SourceError, page_meta_lines
 from ..registry import register
 from ._common import fragment_text, stop_date
 
@@ -57,6 +57,7 @@ def vacancy_item(vacancy: dict[str, Any]) -> RawItem:
             "company": company,
             "location": location,
             "grade": vacancy.get("grade"),
+            PAGE_META: page_meta_lines(f"Грейд: {vacancy['grade']}" if vacancy.get("grade") else None),
             "remote": bool(vacancy.get("remote")),
             "original_url": vacancy.get("source_url") or vacancy.get("url"),
         },

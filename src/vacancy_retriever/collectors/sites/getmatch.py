@@ -5,7 +5,7 @@ from typing import Any
 
 from bs4 import BeautifulSoup
 
-from ..base import CollectContext, Collector, CollectResult, RawItem
+from ..base import CollectContext, Collector, CollectResult, DetailPage, RawItem, page_meta_lines
 from ..registry import register
 from ._common import ListingCrawler, card_text, html_to_text
 
@@ -89,13 +89,19 @@ def parse_offers(data: dict[str, Any], source_id: str = "") -> list[RawItem]:
     return [offer_item(offer, source_id) for offer in data.get("offers") or [] if offer.get("id")]
 
 
-def offer_detail_text(offer: dict[str, Any]) -> str:
+def offer_detail_page(offer: dict[str, Any]) -> DetailPage:
     seniorities = ", ".join(offer.get("seniorities") or [])
     years = offer.get("required_years_of_experience")
     stack = fragment_text(offer.get("stack_description"))
+    grade_line = f"Грейд: {seniorities}" if seniorities else None
+    years_line = f"Опыт (лет): {years}" if years else None
+    return DetailPage(offer_detail_text(offer, grade_line, years_line, stack), page_meta_lines(grade_line, years_line))
+
+
+def offer_detail_text(offer: dict[str, Any], grade_line: str | None, years_line: str | None, stack: str) -> str:
     return card_text(
-        f"Грейд: {seniorities}" if seniorities else None,
-        f"Опыт (лет): {years}" if years else None,
+        grade_line,
+        years_line,
         f"Команда: {offer['team_size']}" if offer.get("team_size") else None,
         fragment_text(offer.get("short_description")),
         fragment_text(offer.get("description") or offer.get("description_html")),
@@ -136,9 +142,13 @@ class GetmatchCollector(Collector):
         return parse_offers(data, self.source.id), bool(offers) and offset + len(offers) < total
 
     def fetch_detail(self, item: RawItem) -> str | None:
+        page = self.fetch_detail_page(item)
+        return page.text if page else None
+
+    def fetch_detail_page(self, item: RawItem) -> DetailPage | None:
         if not item.detail_url:
             return None
-        return offer_detail_text(self.http.get_json(item.detail_url))
+        return offer_detail_page(self.http.get_json(item.detail_url))
 
     def icon_url(self) -> str | None:
         return f"{GETMATCH_BASE}/uploads/favicons/favicon.ico"

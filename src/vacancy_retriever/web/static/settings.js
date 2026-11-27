@@ -566,7 +566,7 @@ const Settings = (() => {
         reloadOnClose = true;
         toast(`Saved — the feed follows the new rules (${data.recalculated.changed} vacancies changed)`);
       } else if (data.run_active && data.files.includes("rules")) {
-        toast("Saved — Recalculate the feed after the run");
+        toast("Saved — the feed follows the new rules when the run ends");
       } else {
         toast("Saved");
       }

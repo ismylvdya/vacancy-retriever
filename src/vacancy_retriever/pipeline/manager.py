@@ -10,6 +10,7 @@ from ..llm.factory import create_provider
 from ..storage import Storage
 from .notify import notify
 from .progress import ProgressTracker, read_progress_file
+from .recalculate import recalculate
 from .run_lock import RunLock
 from .runner import Pipeline, RunOptions, RunSummary
 
@@ -33,6 +34,7 @@ class RunManager:
         self._thread: threading.Thread | None = None
         self._guard = threading.Lock()
         self.last_error: str | None = None
+        self._recalculate = threading.Event()
 
     def recover(self) -> list[int]:
         """Runs left 'running' by a crash or sleep are rolled back — unless another process is running one."""
@@ -66,6 +68,10 @@ class RunManager:
             return self._pipeline().run(options)
         finally:
             self._lock.release()
+
+    def recalculate_after_run(self) -> None:
+        """Rules changed while a run was going: the feed follows them once it ends (settings screen)."""
+        self._recalculate.set()
 
     def cancel(self) -> bool:
         if self._thread is not None and self._thread.is_alive():
@@ -117,4 +123,14 @@ class RunManager:
         except Exception as exc:  # noqa: BLE001 - surfaced in the UI
             self.last_error = f"{type(exc).__name__}: {exc}"
         finally:
+            self._recalculate_if_asked()
             self._lock.release()
+
+    def _recalculate_if_asked(self) -> None:
+        if not self._recalculate.is_set():
+            return
+        self._recalculate.clear()
+        try:
+            recalculate(self.config, self.storage)
+        except Exception:  # noqa: BLE001 - the next save or `vacancy-retriever recalculate` repeats it
+            log.exception("Recalculation after the run failed")

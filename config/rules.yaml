@@ -1,7 +1,7 @@
 # Правила, по которым КОД (не LLM) считает группу, звёзды, ВНЖ и отсев.
 # LLM только извлекает факты (см. config/prompts/scoring.md).
 # После правки этого файла пересчитать ленту без новых вызовов LLM:
-#   vacancy-retriever recalculate   (или кнопка "Recalculate" во вкладке Feed)
+#   vacancy-retriever recalculate   (правки через Settings пересчитывают ленту сами)
 
 # Вакансии старше стольких дней — отсев ("expired") и не собираются.
 max_age_days: 30

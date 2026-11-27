@@ -513,18 +513,13 @@ def create_app(config: AppConfig, storage: Storage, port: int, manager: RunManag
             return JSONResponse({"detail": "Nothing saved: some values are not valid", "problems": exc.problems},
                                 status_code=422)
         recalculated = None
-        if result.rules_changed and not manager.is_running():  # the feed follows the new rules at once, no LLM
+        if result.rules_changed and manager.is_running():
+            manager.recalculate_after_run()
+        elif result.rules_changed:  # the feed follows the new rules at once, no LLM
             done = recalculate(config, storage)
             recalculated = {"total": done.total, "changed": done.changed}
         return {"files": result.files, "recalculated": recalculated, "settings": settings.snapshot(),
                 "run_active": manager.is_running()}
-
-    @app.post("/api/recalculate")
-    def recalc() -> dict[str, Any]:
-        if manager.is_running():
-            raise HTTPException(409, "Wait until the run finishes")
-        result = recalculate(config, storage)
-        return {"total": result.total, "changed": result.changed}
 
     @app.get("/icons/{source_id}")
     def icon(source_id: str) -> FileResponse:

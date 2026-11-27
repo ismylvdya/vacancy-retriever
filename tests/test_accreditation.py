@@ -310,3 +310,16 @@ def test_no_russian_speaking_tag_in_russian_groups(env):
     assert "Russian-speaking" not in CardBuilder(config, storage).build(vacancy).flags
     vacancy.group_no = 1
     assert "Russian-speaking" in CardBuilder(config, storage).build(vacancy).flags
+
+
+def test_a_sign_in_the_vacancy_needs_neither_the_register_nor_the_llm(env):
+    """ГПХ, an «ИП …» employer or a placeholder name (rules.yaml → no_it_accreditation_signs, 27.11.2026)."""
+    config, storage = env
+    placeholder = add_vacancy(storage, "крупный российский банк", employer_placeholder=True,
+                              no_accreditation_sign="«крупный российский банк» is not a company name")
+    provider = AnswerProvider({})
+    result = run_accreditation(config, storage, lambda: provider, PoliteHttpClient(0, 0), threading.Event())
+    assert result.employers_asked == 0 and provider.inputs == []
+    record = storage.vacancies.get(placeholder)
+    assert record.group_no == 8 and record.facts.accreditation == "no"
+    assert record.facts.it_accreditation is None, "the register was not asked"

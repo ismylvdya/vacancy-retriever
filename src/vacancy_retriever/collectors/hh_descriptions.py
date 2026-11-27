@@ -6,6 +6,7 @@ import re
 import httpx
 from bs4 import BeautifulSoup
 
+from .base import DetailPage
 from .http import BlockedError, PoliteHttpClient
 
 log = logging.getLogger(__name__)
@@ -47,6 +48,26 @@ def parse_description(html: str, vacancy_id: str) -> str | None:
     return '\n'.join(filter(None, lines)) or None
 
 
+_SKIPPED_PROPERTIES = {'дата размещения'}
+_EMPTY_VALUES = {'не указана', 'не указано', 'не указан'}
+
+
+def parse_page_meta(html: str) -> list[str]:
+    """«Краткое описание вакансии» of the copy: the properties hh shows under the title («Опыт работы: От 1 года до 3
+    лет», «Занятость: …»). hh fills «1–3 года» by default, so the description's own years win (scoring/requirements.py)."""
+    soup = BeautifulSoup(html, 'lxml')
+    lines = []
+    for item in soup.select('ul.ove-detail-list li'):
+        label, value = item.find('h5'), item.find('span')
+        if not label or not value:
+            continue
+        name = label.get_text(' ', strip=True).rstrip(':')
+        text = ' '.join(value.get_text(' ', strip=True).split()).strip(' ,')
+        if text and name.casefold() not in _SKIPPED_PROPERTIES and text.casefold() not in _EMPTY_VALUES:
+            lines.append(f'{name}: {text}')
+    return lines
+
+
 class HhDescriptions:
     """Read public copies by HH ID using a separate HTTP session."""
 
@@ -58,6 +79,10 @@ class HhDescriptions:
         self._http.close()
 
     def fetch(self, url: str, listing_text: str) -> str | None:
+        page = self.fetch_page(url, listing_text)
+        return page.text if page else None
+
+    def fetch_page(self, url: str, listing_text: str) -> DetailPage | None:
         vacancy_id = hh_vacancy_id(url)
         if self._stopped or not vacancy_id:
             return None
@@ -75,4 +100,6 @@ class HhDescriptions:
             return None
 
         description = parse_description(response.text, vacancy_id)
-        return f'{listing_text.strip()}\n\n{description}'.strip() if description else None
+        if not description:
+            return None
+        return DetailPage(f'{listing_text.strip()}\n\n{description}'.strip(), parse_page_meta(response.text))

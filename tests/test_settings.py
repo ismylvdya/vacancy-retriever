@@ -98,6 +98,18 @@ def test_every_field_of_the_screen_exists_in_the_real_config(own_config):
     assert snapshot["fit"]["ds_ml"]["rows"][0]["cells"][0]["stars"] == 5
 
 
+def test_every_list_of_the_screen_can_be_written_back(own_config):
+    """A list written across several lines in YAML once made Save fail with «substring not found» (27.11.2026)."""
+    service = SettingsService(own_config)
+    values = service.snapshot()["values"]
+    lists = {field_id: [*values[field_id][1:], values[field_id][0]] for field_id, f in all_fields().items()
+             if f.kind in ("chips", "categories") and not f.options and len(values[field_id] or []) > 1}
+    assert {"rules:feed_category_order", "rules:no_it_accreditation_signs.words"} <= set(lists)
+    service.save(lists)
+    after = service.snapshot()["values"]
+    assert all(after[field_id] == value for field_id, value in lists.items())
+
+
 def test_save_validates_everything_before_writing(own_config):
     service = SettingsService(own_config)
     rules = own_config.paths.config / "rules.yaml"

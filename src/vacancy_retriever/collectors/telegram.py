@@ -5,7 +5,7 @@ from datetime import datetime
 
 from bs4 import BeautifulSoup, Tag
 
-from .base import CollectContext, Collector, CollectResult, RawItem, SourceCursor, SourceError
+from .base import PAGE_META, CollectContext, Collector, CollectResult, RawItem, SourceCursor, SourceError, page_meta_lines
 from .registry import register
 
 TELEGRAM_BASE = "https://telegram.me"
@@ -73,6 +73,7 @@ def enrich_rvc(item: RawItem) -> None:
     item.title = title
     tokens = [part.strip().lower() for part in first_line.split("|")]
     item.meta["grade"] = next((t for t in tokens if t in _RVC_GRADES), "")
+    item.meta[PAGE_META] = page_meta_lines(first_line)
     lang_match = _RVC_LANG_LINE.search(item.text)
     if lang_match:
         flags = _FLAG.findall(lang_match.group(2))

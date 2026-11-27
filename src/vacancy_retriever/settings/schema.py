@@ -10,7 +10,7 @@ from __future__ import annotations
 from dataclasses import asdict, dataclass, field
 from typing import Any, Literal
 
-FieldKind = Literal["toggle", "number", "stars", "choice", "chips", "text"]
+FieldKind = Literal["toggle", "number", "stars", "choice", "chips", "categories", "text"]
 CONFIG_FILES = ("rules", "sources", "mail", "llm", "apply")
 
 
@@ -84,13 +84,18 @@ SECTIONS: tuple[Section, ...] = (
                   unit="★", min=0, max=4, step=1),
             Field("rules", "penalties.email_only_max_stars", "stars", "E-mail only: at most",
                   "Known only from a job-alert letter, no description: the evaluation is less reliable."),
+            Field("rules", "feed_category_order", "categories", "Equal stars: these categories first",
+                  "Inside a feed group, among vacancies with the same stars, in this order. The rest follow by date."),
         ),
     ),
     Section(
         "feed", "What is skipped",
-        "Rules that send a vacancy to Processed → Auto-skipped. They are applied by code, without the LLM.",
+        "Rules that send a vacancy to Processed → Auto-skipped or move it within the feed. They are applied by code, without the LLM.",
         groups=(
             ("Grade and age", (
+                Field("rules", "requirements.years_over_grade", "toggle", "Years of experience decide over the grade",
+                      "Years stated anywhere decide alone; the grade skips only a vacancy that states no years. "
+                      "The description comes first, then the title, then the data above the description."),
                 Field("rules", "dropped_seniority", "chips", "Skip these grades", options=GRADES,
                       help="When the grade is in the title or the grade label of the ad."),
                 Field("rules", "drop_seniority_from_text", "toggle", "Also when the grade is only in the text",
@@ -103,6 +108,15 @@ SECTIONS: tuple[Section, ...] = (
                       unit="days", min=1, max=90, step=1),
                 Field("rules", "first_run_days", "number", "A new source starts with the last", unit="days",
                       min=1, max=30, step=1),
+            )),
+            ("No IT accreditation", (
+                Field("rules", "no_it_accreditation_signs.placeholder_employer", "toggle",
+                      "When the employer's name is a placeholder",
+                      "«A large Russian bank», «a digital agency»: the name hides the company. Such vacancies get the "
+                      "«No IT accreditation» tag and leave the Russian groups, like a refusal of the register."),
+                Field("rules", "no_it_accreditation_signs.words", "chips", "When the vacancy mentions",
+                      "In the description, the data above it or the employer's name. A private person or a sole "
+                      "proprietor as the employer counts too. A * at the end allows any ending."),
             )),
             ("Place and money", (
                 Field("rules", "drop_office_outside_serbia", "toggle", "Skip office / hybrid outside Serbia and Moscow",

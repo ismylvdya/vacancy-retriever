@@ -80,7 +80,8 @@ class ScoringEngine:
         category = self._category(facts)
         in_serbia = self._works_in_serbia(facts)
         country = facts.country or "unknown"
-        lines = [f"Category: {facts.role_category} → {category.kind} (base {category.base}★, cap {category.cap}★)"]
+        lines = [f"Category: {facts.role_category} → {category.kind} (base {category.base}★, cap {category.cap}★)",
+                 *self._requirements_lines(facts)]
         lines.append(f"Works in Serbia: {'yes' if in_serbia else 'no'} (country {country}, "
                      f"serbian_entity {facts.serbian_entity})")
         skip = self._skip_reason(facts, category, in_serbia, published_at, now) or self._salary_too_high(facts, rates)
@@ -99,6 +100,24 @@ class ScoringEngine:
         lines.append(f"Permit {permit}: {rule}" + (f" — “{reason}”" if reason else ""))
         lines.append(f"Decision: skip — {skip}" if skip else "Decision: show (no skip rule matched)")
         return lines
+
+    _PLACES = {"text": "the description", "title": "the title", "label": "the page data", "none": "nowhere"}
+
+    def _requirements_lines(self, facts: VacancyFacts) -> list[str]:
+        """Where the deciding years and grade came from, and what each place said (scoring/requirements.py)."""
+        places = self._PLACES
+        if facts.experience_years is None:
+            years = "Experience: no years stated"
+        else:
+            unit = "year" if facts.experience_years == 1 else "years"
+            origin = (f"from {places[facts.experience_source]}" if facts.requirements_by_place
+                      else "(scored before places were told apart)")
+            years = f"Experience: {facts.experience_years:g} {unit} {origin}"
+        found = "; ".join(f"{places[p]} {facts.experience_by[p]:g}" for p in facts.experience_by)
+        grade = (f"Grade: {facts.seniority} from {places[facts.seniority_source]}" if facts.seniority != "unknown"
+                 else "Grade: none stated")
+        grades = "; ".join(f"{places[p]} {facts.grade_by[p]}" for p in facts.grade_by)
+        return [years + (f" (found in {found})" if found else ""), grade + (f" (found in {grades})" if grades else "")]
 
     def fit(self, facts: VacancyFacts) -> tuple[int, str]:
         """Stars and how they were counted (the settings screen shows them for every combination of facts)."""
@@ -124,14 +143,12 @@ class ScoringEngine:
             return "Not a vacancy"
         if category.kind == "drop":
             return category.drop_reason or category.label
-        grade_sources = {"title", "label", "text"} if self._rules.drop_seniority_from_text else {"title", "label"}
-        if facts.seniority in self._rules.dropped_seniority and facts.seniority_source in grade_sources:
-            return f"Grade: {facts.seniority}"
-        if self._grade_in_title(facts.title_original):
-            return "Grade in the title"
         too_long = self._too_much_experience(facts)
         if too_long:
             return too_long
+        grade = self._grade_skip(facts)
+        if grade:
+            return grade
         russian_required = "ru" in facts.required_languages
         if facts.ad_language == "sr" and not russian_required:
             return "Ad in Serbian, Russian not required"
@@ -157,6 +174,17 @@ class ScoringEngine:
 
     def _in_russia(self, facts: VacancyFacts) -> bool:
         return facts.country.strip().lower() in self._rules.russia_country_names
+
+    def _grade_skip(self, facts: VacancyFacts) -> str | None:
+        """The grade decides only when no place states the years (rules.yaml → requirements.years_over_grade)."""
+        if self._rules.requirements.years_over_grade and facts.experience_years is not None:
+            return None
+        grade_sources = {"title", "label", "text"} if self._rules.drop_seniority_from_text else {"title", "label"}
+        if facts.seniority in self._rules.dropped_seniority and facts.seniority_source in grade_sources:
+            return f"Grade: {facts.seniority}"
+        if self._grade_in_title(facts.title_original):
+            return "Grade in the title"
+        return None
 
     def _grade_in_title(self, title: str) -> bool:
         """The LLM may leave the grade unknown («Директор склада»); a junior marker keeps «Junior/Senior»."""
@@ -192,8 +220,8 @@ class ScoringEngine:
     def _group_with_reason(self, facts: VacancyFacts, category: CategoryRule, in_serbia: bool) -> tuple[int, str]:
         group, why = self._base_group(facts, category, in_serbia)
         target = self._rules.no_it_accreditation_group
-        if target and group in self._rules.it_accreditation_groups and facts.it_accreditation == "no":
-            return target, f"{why}; the employer has no IT accreditation"
+        if target and group in self._rules.it_accreditation_groups and facts.accreditation == "no":
+            return target, f"{why}; no IT accreditation: {facts.accreditation_note or 'not in the register'}"
         return group, why
 
     def _base_group(self, facts: VacancyFacts, category: CategoryRule, in_serbia: bool) -> tuple[int, str]:

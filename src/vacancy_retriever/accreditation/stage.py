@@ -96,6 +96,8 @@ def run_accreditation(config: AppConfig, storage: Storage, provider_factory: Cal
     no_name: list[VacancyRecord] = []
     by_inn: list[VacancyRecord] = []
     for record in records:
+        if record.facts is not None and record.facts.no_accreditation_sign:
+            continue  # the vacancy itself says there is none (rules.yaml → no_it_accreditation_signs): no LLM, no register
         hit = _register_hit(record, storage, registry)
         if hit is not None:  # the source gave the employer's INN (trudvsem) and it is active in the register
             if _set(record, YES, f"{hit.label()} (ИНН из вакансии)"):
@@ -165,7 +167,7 @@ def run_accreditation(config: AppConfig, storage: Storage, provider_factory: Cal
             storage.vacancies.set_facts(vacancy.id, vacancy.facts)
             changed.append(vacancy)
     summary.checked = len(changed)
-    summary.moved = reevaluate(config, storage, changed, text_facts=False) if changed else 0
+    summary.moved = reevaluate(config, storage, changed, with_text=False) if changed else 0
     log.info("IT accreditation: %d vacancies updated, %d employers asked, %d moved", summary.checked,
              summary.employers_asked, summary.moved)
     return summary

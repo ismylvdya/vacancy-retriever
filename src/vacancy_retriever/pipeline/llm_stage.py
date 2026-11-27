@@ -194,15 +194,19 @@ class VacancyScorer:
         payload = []
         for item in batch:
             limit = llm.max_input_chars_multi if item.multi else llm.max_input_chars
-            text = item.full_text
+            text = item.description
             if item.title and item.title not in text[:300]:
                 text = f"{item.title}\n{text}"
             entry: dict[str, Any] = {
                 "input_id": item.id,
                 "source": self._source_names.get(item.source_id, item.source_id),
                 "published": (to_iso(item.published_at) or "")[:10],
-                "text": text[:limit],
             }
+            if item.title and not item.multi:
+                entry["title"] = item.title
+            if item.page_meta:
+                entry["page_meta"] = "\n".join(item.page_meta)
+            entry["text"] = text[:limit]
             hints = {k: item.meta[k] for k in HINT_KEYS if item.meta.get(k)}
             if hints:
                 entry["hints"] = hints
@@ -253,7 +257,8 @@ def parse_scoring_response(data: dict[str, Any], expected_ids: set[int]) -> list
             continue
         if raw_id not in expected_ids:
             continue
-        vacancies = [VacancyFacts.model_validate(v) for v in entry.get("vacancies") or [] if isinstance(v, dict)]
+        vacancies = [VacancyFacts.model_validate({**v, "requirements_by_place": True})
+                     for v in entry.get("vacancies") or [] if isinstance(v, dict)]
         scored.append(ScoredItem(raw_id, vacancies))
     return scored
 

@@ -4,7 +4,7 @@ from datetime import UTC, datetime
 from typing import Any
 from urllib.parse import urlsplit
 
-from ..base import CollectContext, Collector, CollectResult, CollectStatus, RawItem, SourceError
+from ..base import CollectContext, Collector, CollectResult, CollectStatus, PAGE_META, RawItem, SourceError, page_meta_lines
 from ..registry import register
 from ._common import fragment_text, stop_date
 
@@ -89,6 +89,7 @@ def vacancy_item(vacancy: dict[str, Any]) -> RawItem:
             "company": company,
             "location": regions or None,
             "grade": grades or None,
+            PAGE_META: page_meta_lines(f"Грейд: {grades}" if grades else None),
             "updated_at": vacancy.get("updated_at"),
         },
     )

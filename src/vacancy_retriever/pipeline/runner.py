@@ -15,6 +15,7 @@ from ..collectors.base import (
     CollectContext,
     Collector,
     CollectResult,
+    PAGE_META,
     RunCancelled,
     SourceCursor,
     SourceError,
@@ -28,7 +29,7 @@ from ..icons import IconStore
 from ..rates import RatesStore
 from ..llm.base import LlmError, LlmProvider
 from ..scoring.engine import ScoringEngine
-from ..scoring.text_facts import fill_from_text
+from ..scoring.text_facts import TextFacts
 from ..scoring.facts import VacancyFacts
 from ..storage import Storage
 from ..storage.items import StoredRawItem
@@ -121,6 +122,7 @@ def programme_safety_net(item: StoredRawItem, records: list[VacancyFacts]) -> No
     first.role_category = "other"
     first.kind = "programme"
     first.seniority = "intern"
+    first.grade_by["title"] = "intern"
     first.confidence = "low"
     subject = str((item.meta.get("email") or {}).get("subject") or item.title or "")
     first.title_original = first.title_original or subject
@@ -152,6 +154,7 @@ class Pipeline:
         self.now = now
         self.engine = ScoringEngine(config.rules)
         self.prefilter = Prefilter(config.rules)
+        self.text_facts = TextFacts(config.rules)
         self.icons = IconStore(config.paths)
         self.stats = SourceStats(config.paths.source_stats)
         self._collectors: dict[str, Collector] = {}
@@ -179,6 +182,7 @@ class Pipeline:
             self._prefilter(run_id)
             self._fetch_details(run_id)
             self._language_filter(run_id)
+            self._requirements_filter(run_id)
             self._score(run_id)
             self._dedup(run_id)
             self._check_cancel()
@@ -405,17 +409,20 @@ class Pipeline:
             collector = self._collectors.get(item.source_id)
             if not collector:
                 continue
-            text = None
+            page = None
             if collector.can_fetch_detail(url, allowed):
                 try:
-                    text = collector.fetch_detail(_as_raw(item))
+                    page = collector.fetch_detail_page(_as_raw(item))
                 except RunCancelled:
                     raise
                 except Exception as exc:  # noqa: BLE001 - listing text is still usable
                     log.info("Detail fetch failed for %s: %s", url, exc)
-            if text:
-                self.storage.items.set_detail(item.id, text)
-                reason = collector.detail_skip_reason(_as_raw(item), text)
+            if page:
+                self.storage.items.set_detail(item.id, page.text)
+                if page.page_meta:
+                    lines = list(dict.fromkeys([*(item.meta.get(PAGE_META) or []), *page.page_meta]))
+                    self.storage.items.set_meta(item.id, PAGE_META, lines)
+                reason = collector.detail_skip_reason(_as_raw(item), page.text)
                 if reason:
                     self._skip_before_llm(run_id, item, reason)
                 continue
@@ -455,6 +462,13 @@ class Pipeline:
             if item.source_id not in marked:
                 continue
             result = self.prefilter.check_language(item, f"{item.text}\n{item.detail_text or ''}")
+            if result.action == "skip":
+                self._skip_before_llm(run_id, item, result.reason)
+
+    def _requirements_filter(self, run_id: int) -> None:
+        """The grade drops before the LLM only a vacancy whose text and page state no years (Prefilter.check_requirements)."""
+        for item in self.storage.items.by_run(run_id, "pending_llm"):
+            result = self.prefilter.check_requirements(item)
             if result.action == "skip":
                 self._skip_before_llm(run_id, item, result.reason)
 
@@ -539,7 +553,7 @@ class Pipeline:
     def _vacancy_from_facts(self, item: StoredRawItem, facts: VacancyFacts, now: datetime) -> NewVacancy | None:
         if not facts.employer_name or facts.employer_name == "unknown":
             facts.employer_name = item.meta.get("company") or facts.employer_name
-        fill_from_text(facts, self.config.rules, item)
+        self.text_facts.fill(facts, item)
         facts.wave = facts.kind == "programme" or item.meta.get("letter_kind") == "wave"
         verdict = self.engine.evaluate(facts, item.published_at, now, getattr(self, "_rates", None), item.email_only)
         if verdict.decision == "hidden":

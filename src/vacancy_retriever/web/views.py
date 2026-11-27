@@ -178,9 +178,9 @@ class CardBuilder:
         elif facts and facts.english_team:
             flags.append(Flag(ENGLISH_TAG, "en"))
         if facts and self._accreditation_flag(record):
-            text, kind = ACCREDITATION_FLAGS[facts.it_accreditation]
-            note = facts.it_accreditation_note or ("Not checked yet: the check runs after each run"
-                                                   if facts.it_accreditation is None else "")
+            text, kind = ACCREDITATION_FLAGS[facts.accreditation]
+            note = facts.accreditation_note or ("Not checked yet: the check runs after each run"
+                                                if facts.accreditation is None else "")
             flags.append(Flag(text, kind, note))
         if record.informal_flag:
             flags.append(Flag("Informal"))

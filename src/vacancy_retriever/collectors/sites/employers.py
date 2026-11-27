@@ -16,7 +16,7 @@ from typing import Any
 import httpx
 from bs4 import BeautifulSoup
 
-from ..base import CollectContext, Collector, CollectResult, RawItem, SourceError
+from ..base import CollectContext, Collector, CollectResult, PAGE_META, RawItem, SourceError, page_meta_lines
 from ..registry import register
 from ._common import ListingCrawler, card_text, html_to_text
 
@@ -131,7 +131,9 @@ def tbank_item(v: dict[str, Any], source_id: str = "") -> RawItem:
         source_id=source_id, external_id=str(v["urlSlug"]), url=url, title=str(v.get("title") or "").strip(),
         text=card_text(str(v.get("title") or "").strip(), "Компания: Т-Банк", v.get("subtitle"),
                        f"Теги: {tags}" if tags else None, v.get("shortDescription")),
-        published_at=None, detail_url=url, meta={"company": "Т-Банк", "location": v.get("subtitle")},
+        published_at=None, detail_url=url,
+        meta={"company": "Т-Банк", "location": v.get("subtitle"),
+              PAGE_META: page_meta_lines(f"Теги: {tags}" if tags else None)},
     )
 
 
@@ -269,7 +271,8 @@ def vtb_item(v: dict[str, Any], source_id: str = "") -> RawItem:
                        html_to_text(BeautifulSoup(str(snippet.get("responsibility") or ""), "lxml")),
                        html_to_text(BeautifulSoup(str(snippet.get("requirement") or ""), "lxml"))),
         published_at=parse_time(v.get("published_at") or v.get("created_at")),
-        meta={"company": "ВТБ", "location": (v.get("area") or {}).get("name")},
+        meta={"company": "ВТБ", "location": (v.get("area") or {}).get("name"),
+              PAGE_META: page_meta_lines(f"Опыт: {experience}" if experience else None)},
     )
 
 

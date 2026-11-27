@@ -51,6 +51,23 @@ class RawItem:
         return hashlib.sha1(normalize_text(self.text).encode()).hexdigest()
 
 
+PAGE_META = "page_meta"
+
+
+def page_meta_lines(*lines: str | None) -> list[str]:
+    """`meta["page_meta"]` of an item: what the page shows above the description — grade tags, «Опыт работы: …»,
+    employment. Kept apart from the description: scoring/requirements.py gives the description priority over it."""
+    return [line.strip() for line in lines if line and line.strip()]
+
+
+@dataclass(frozen=True)
+class DetailPage:
+    """A fetched vacancy page: the description and the data shown above it (`page_meta_lines`)."""
+
+    text: str
+    page_meta: list[str] = field(default_factory=list)
+
+
 @dataclass(frozen=True)
 class SourceCursor:
     last_id: str | None = None
@@ -105,6 +122,11 @@ class Collector(ABC):
     def fetch_detail(self, item: RawItem) -> str | None:
         """Full vacancy description for site cards. Default: nothing to fetch."""
         return None
+
+    def fetch_detail_page(self, item: RawItem) -> DetailPage | None:
+        """The description and the page's own data above it. Default: the description alone."""
+        text = self.fetch_detail(item)
+        return DetailPage(text) if text else None
 
     def can_fetch_detail(self, url: str, allowed_domains: set[str]) -> bool:
         """The detail page may be opened: a domain from sources.yaml → detail_domains, never a forbidden one."""

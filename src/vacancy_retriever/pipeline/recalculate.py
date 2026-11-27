@@ -4,7 +4,7 @@ from dataclasses import dataclass
 
 from ..config import AppConfig
 from ..scoring.engine import ScoringEngine
-from ..scoring.text_facts import fill_from_text
+from ..scoring.text_facts import TextFacts
 from ..storage import Storage
 from ..storage.vacancies import VacancyRecord
 from ..rates import RatesStore
@@ -24,10 +24,11 @@ def recalculate(config: AppConfig, storage: Storage) -> RecalculateResult:
     return RecalculateResult(total=len(records), changed=reevaluate(config, storage, records))
 
 
-def reevaluate(config: AppConfig, storage: Storage, records: list[VacancyRecord], text_facts: bool = True) -> int:
+def reevaluate(config: AppConfig, storage: Storage, records: list[VacancyRecord], with_text: bool = True) -> int:
     """The verdict of these committed vacancies from their stored facts (also after accreditation/stage.py changed
     them). Returns how many changed."""
     engine = ScoringEngine(config.rules)
+    text_facts = TextFacts(config.rules)
     rates = RatesStore(config.paths)
     now = utcnow()
     changed = 0
@@ -35,10 +36,10 @@ def reevaluate(config: AppConfig, storage: Storage, records: list[VacancyRecord]
     for record in records:
         if record.facts is None:
             continue
-        raw = storage.items.get(record.primary_raw_id) if text_facts else None
+        raw = storage.items.get(record.primary_raw_id) if with_text else None
         if raw is not None:
             before = record.facts.model_dump_json()
-            fill_from_text(record.facts, config.rules, raw)
+            text_facts.fill(record.facts, raw)
             if record.facts.model_dump_json() != before:
                 storage.vacancies.set_facts(record.id, record.facts)
         collected = local(record.created_at).date() if record.created_at else None
